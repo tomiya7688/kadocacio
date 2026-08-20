@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime-generated evaluation reports and league save data
+ai_evaluation/
+league_save/
+
+# Reference teams explicitly excluded from the public repository
+teams/カルチョビット/

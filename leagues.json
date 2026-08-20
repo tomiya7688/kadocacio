@@ -1,0 +1,112 @@
+{
+  "リーグ一覧": [
+    {
+      "リーグ名": "Aリーグ",
+      "表示色": "#E35D5B",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "",
+      "所属チーム": [
+        "json:kadoka_original_A/AOBA UNITED.json",
+        "json:kadoka_original_A/LOAD SPIn.json",
+        "json:kadoka_original_A/トルテポルテ.json",
+        "json:kadoka_original_A/京都パープルズ.json",
+        "json:kadoka_original_A/仙台フォレスト.json",
+        "json:kadoka_original_A/信州アルプス.json",
+        "json:kadoka_original_A/北海スノーフォックス.json",
+        "json:kadoka_original_A/千葉マリナーズ.json",
+        "json:kadoka_original_A/名古屋シャチホコ.json",
+        "json:kadoka_original_A/夕張kadoka_japan.json",
+        "json:kadoka_original_A/川崎ブルーギア.json",
+        "json:kadoka_original_A/広島レッドアロー.json",
+        "json:kadoka_original_A/東京メトロスター.json",
+        "json:kadoka_original_A/横浜ベイウイング.json",
+        "json:kadoka_original_A/浦和レッドギア.json",
+        "json:kadoka_original_A/甲府グレープス.json",
+        "json:kadoka_original_A/神戸ハーバーズ.json",
+        "json:kadoka_original_A/私立蜜柑山学園.json",
+        "json:kadoka_original_A/越後スワンズ.json",
+        "json:kadoka_original_A/金沢ゴールドリーフ.json"
+      ]
+    },
+    {
+      "リーグ名": "Bリーグ",
+      "表示色": "#4C83D1",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "Aリーグ",
+      "所属チーム": [
+        "json:kadoka_original_B/多摩グリーンズ.json",
+        "json:kadoka_original_B/大宮オレンジライン.json",
+        "json:kadoka_original_B/奈良ディアーズ.json",
+        "json:kadoka_original_B/富山マウンテンズ.json",
+        "json:kadoka_original_B/山形チェリーズ.json",
+        "json:kadoka_original_B/岐阜リバーバンク.json",
+        "json:kadoka_original_B/岡山ピーチボーイズ.json",
+        "json:kadoka_original_B/徳島ブルータイド.json",
+        "json:kadoka_original_B/札幌ノースゲート.json",
+        "json:kadoka_original_B/栃木サンダーズ.json",
+        "json:kadoka_original_B/水戸レイクサイド.json",
+        "json:kadoka_original_B/湘南シーブリーズ.json",
+        "json:kadoka_original_B/熊本ファイアーズ.json",
+        "json:kadoka_original_B/琉球サンゴ.json",
+        "json:kadoka_original_B/盛岡グラナイト.json",
+        "json:kadoka_original_B/相模原スターズ.json",
+        "json:kadoka_original_B/福島ピーチブロッサム.json",
+        "json:kadoka_original_B/秋田ライスフィールド.json",
+        "json:kadoka_original_B/群馬ホットスプリング.json",
+        "json:kadoka_original_B/静岡ティーリーフ.json"
+      ]
+    },
+    {
+      "リーグ名": "Cリーグ",
+      "表示色": "#50A56C",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "Bリーグ",
+      "所属チーム": []
+    },
+    {
+      "リーグ名": "Dリーグ",
+      "表示色": "#B17AD4",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "Cリーグ",
+      "所属チーム": []
+    },
+    {
+      "リーグ名": "Eリーグ",
+      "表示色": "#D99B39",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "",
+      "所属チーム": []
+    },
+    {
+      "リーグ名": "au",
+      "表示色": "#42A7A1",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "Eリーグ",
+      "所属チーム": []
+    },
+    {
+      "リーグ名": "ao",
+      "表示色": "#D36F9B",
+      "開幕日": 14,
+      "最終節日": 330,
+      "上位リーグ": "au",
+      "所属チーム": []
+    }
+  ],
+  "トーナメント一覧": [
+    {
+      "トーナメント名": "Aton",
+      "表示色": "#D87C3F",
+      "参加方式": "前年順位",
+      "対象リーグ": "Cリーグ",
+      "前年順位上限": 55,
+      "開始希望日": 40
+    }
+  ]
+}

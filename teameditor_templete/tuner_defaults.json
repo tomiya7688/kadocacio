@@ -1,0 +1,39 @@
+{
+  "default_target": 700,
+  "default_time_limit_seconds": 600,
+  "minimum_time_limit_seconds": 1,
+  "maximum_time_limit_seconds": 3600,
+  "simulation_budget_ms_per_frame": 9,
+  "headless_clock_acceleration": 1.0,
+  "multicore_workers": 0,
+  "multicore_max_workers": 8,
+  "worker_match_time_limit_seconds": 300.0,
+  "accuracy_minimum_time_limit_seconds": 600,
+  "adaptive_opponent_limit": 3,
+  "default_evaluation_mode": "精度重視",
+  "speed_evaluation_minutes": 5.0,
+  "hidden_parameters_default": true,
+  "convergence_stagnant_trials": 4,
+  "minimum_score_improvement": 0.10,
+  "speed_max_trials": 16,
+  "rank_thresholds": [
+    {"rank": "S", "minimum": 1000},
+    {"rank": "A", "minimum": 800},
+    {"rank": "B", "minimum": 600},
+    {"rank": "C", "minimum": 400},
+    {"rank": "D", "minimum": 200},
+    {"rank": "E", "minimum": 0}
+  ],
+  "categories": [
+    {"id": "kick", "label": "キック系", "short": "キ", "fields": ["シュート力", "シュート精度", "パス精度", "パス力"]},
+    {"id": "speed", "label": "スピード系", "short": "速", "fields": ["ダッシュ時のスピード", "ウォーク時のスピード", "ドリブル時のスピード", "キックモーションのスピード"]},
+    {"id": "stamina", "label": "スタミナ系", "short": "ス", "fields": ["スタミナ最大値", "スタミナ回復速度", "スタミナ管理", "疲労耐性"]},
+    {"id": "physical", "label": "フィジカル系", "short": "体", "fields": ["衝突時のフィジカル", "ドリブル時のフィジカル", "フィジカルプレイの質"]},
+    {"id": "technique", "label": "テクニック系", "short": "技", "fields": ["ミスの少なさ", "ドリブルの上手さ", "トラップの上手さ", "パスカットの上手さ", "ゴールストップ力", "シュートの上手さ", "パスの上手さ", "スティールの上手さ"]},
+    {"id": "jump", "label": "ジャンプ系", "short": "跳", "fields": ["ジャンプの高さ", "ジャンプの正確さ", "ジャンプの速さ", "ジャンプの判断力", "ヘディングの強さ", "ヘディングの正確さ", "ヘディングの判断力"]},
+    {"id": "mental", "label": "メンタル系", "short": "メ", "fields": ["メンタル", "自信", "安全なプレー", "フリーキック", "ペナルティキック", "ゴールキック", "スローイン", "コーナーキック"]},
+    {"id": "intelligence", "label": "インテリジェンス", "short": "知", "fields": ["インテリジェンス"]},
+    {"id": "defense", "label": "守備行動（裏）", "short": "守", "hidden": true, "fields": ["ゾーンマーキング", "マンツーマン", "プレッシング", "シュートカット", "インターセプト"]},
+    {"id": "offense", "label": "攻撃行動（裏）", "short": "攻", "hidden": true, "fields": ["サポート", "トライアングル", "マークを外す", "オーバーラップ", "ダイアゴナルラン", "スペースに走り込む", "ゴール前待機"]}
+  ]
+}
