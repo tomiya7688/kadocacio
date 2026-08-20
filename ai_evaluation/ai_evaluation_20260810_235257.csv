@@ -1,0 +1,2 @@
+﻿parameter_value,goals_for,goals_against,shots_for,shots_against,possession_share,remaining_stamina,action_diversity,active_ratio,average_nearest_teammate_distance,crowded_player_ratio,average_team_width,average_distance_to_ball,takeaways,turnovers,completed_matches,evaluated_matches,average_runtime_seconds
+650,0.0,0.0,1.0,0.0,0.9595645412130641,0.8512303136777839,21.0,0.731404958677686,285.65172781534517,0.1184573002754821,1023.0952832584071,643.0495673091096,3.0,3.0,0,1,19.983362899976783

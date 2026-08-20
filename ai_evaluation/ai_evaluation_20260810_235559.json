@@ -1,0 +1,113 @@
+{
+  "format_version": 1,
+  "created_at": "2026-08-10T23:55:59",
+  "target_team": "ACパンチェッタ",
+  "opponent_team": "AOBA UNITED",
+  "parameter": "インテリジェンス",
+  "canonical_parameter": "Intelligence",
+  "values": [
+    650
+  ],
+  "matches_per_value": 1,
+  "full_match": false,
+  "target_game_minutes": 5.0,
+  "wall_time_limit_per_match": 45.0,
+  "cpu_count": 8,
+  "process_count": 1,
+  "fixed_physics_dt": 0.05,
+  "summary": {
+    "650": {
+      "goals_for": 0.0,
+      "goals_against": 0.0,
+      "shots_for": 0.0,
+      "shots_against": 0.0,
+      "possession_share": 0.9137254901960786,
+      "remaining_stamina": 0.9409479832568433,
+      "action_diversity": 20.0,
+      "active_ratio": 0.6143250688705234,
+      "average_nearest_teammate_distance": 264.33819082210596,
+      "crowded_player_ratio": 0.11019283746556474,
+      "average_team_width": 1033.314790547939,
+      "average_distance_to_ball": 545.8041017544451,
+      "takeaways": 2.0,
+      "turnovers": 2.0,
+      "completed_matches": 0,
+      "evaluated_matches": 1,
+      "average_runtime_seconds": 11.45780180010479,
+      "average_command_counts": {
+        "ポジションへ戻る": 140.0,
+        "スペースへ走り込む": 70.0,
+        "ゴールを守る": 32.0,
+        "サポート": 17.0,
+        "パスを受ける": 16.0,
+        "トライアングルを作る": 15.0,
+        "ダイアゴナルラン": 14.0,
+        "カバー": 10.0,
+        "ボールを追従する": 8.0,
+        "ポジション維持": 6.0,
+        "ドリブル": 5.0,
+        "マーク": 5.0,
+        "パス": 5.0,
+        "パスカット": 5.0,
+        "こぼれ球を拾う": 5.0,
+        "ボールキープ": 4.0,
+        "スローイン": 2.0,
+        "弾き飛ばされる": 2.0,
+        "ゴール前待機": 1.0,
+        "プレス": 1.0
+      }
+    }
+  },
+  "matches": [
+    {
+      "value": 650,
+      "seed": 72401,
+      "target_is_home": true,
+      "simulation": {
+        "reason": "target_game_time",
+        "steps": 600,
+        "elapsed_seconds": 11.45780180010479,
+        "game_time": 300.0,
+        "fulltime": false
+      },
+      "metrics": {
+        "command_counts": {
+          "ポジションへ戻る": 140,
+          "スペースへ走り込む": 70,
+          "ゴールを守る": 32,
+          "サポート": 17,
+          "パスを受ける": 16,
+          "トライアングルを作る": 15,
+          "ダイアゴナルラン": 14,
+          "カバー": 10,
+          "ボールを追従する": 8,
+          "ポジション維持": 6,
+          "ドリブル": 5,
+          "パスカット": 5,
+          "パス": 5,
+          "こぼれ球を拾う": 5,
+          "マーク": 5,
+          "ボールキープ": 4,
+          "弾き飛ばされる": 2,
+          "スローイン": 2,
+          "プレス": 1,
+          "ゴール前待機": 1
+        },
+        "action_diversity": 20,
+        "active_ratio": 0.6143250688705234,
+        "average_nearest_teammate_distance": 264.33819082210596,
+        "crowded_player_ratio": 0.11019283746556474,
+        "average_team_width": 1033.314790547939,
+        "average_distance_to_ball": 545.8041017544451,
+        "takeaways": 2,
+        "turnovers": 2,
+        "goals_for": 0.0,
+        "goals_against": 0.0,
+        "shots_for": 0.0,
+        "shots_against": 0.0,
+        "possession_share": 0.9137254901960786,
+        "remaining_stamina": 0.9409479832568433
+      }
+    }
+  ]
+}
