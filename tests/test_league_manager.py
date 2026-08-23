@@ -6,20 +6,20 @@ from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
-from league_manager import LeagueManager, recommended_worker_count
-from team_data import discover_team_choices
+from scripts.league.league_manager import LeagueManager, recommended_worker_count
+from scripts.team.team_data import discover_team_choices
 
 
 class LeagueScheduleTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.state_patch = patch(
-            "league_manager.LEAGUE_STATE_PATH",
+            "scripts.league.league_manager.LEAGUE_STATE_PATH",
             Path(self.temp_dir.name) / "league_state.json",
         )
         self.state_patch.start()
         self.save_dir_patch = patch(
-            "league_manager.LEAGUE_SAVE_DIR",
+            "scripts.league.league_manager.LEAGUE_SAVE_DIR",
             Path(self.temp_dir.name) / "league_save",
         )
         self.save_dir_patch.start()
@@ -31,20 +31,23 @@ class LeagueScheduleTests(unittest.TestCase):
 
     def test_worker_count_uses_physical_core_estimate_and_hard_cap(self):
         abundant_memory = 64 * 1024**3
-        with patch("league_manager.os.cpu_count", return_value=8), patch(
-            "league_manager.available_memory_bytes", return_value=abundant_memory,
+        with patch("scripts.league.league_manager.os.cpu_count", return_value=8), patch(
+            "scripts.league.league_manager.available_memory_bytes", return_value=abundant_memory,
         ):
             self.assertEqual(recommended_worker_count(20), 3)
             self.assertEqual(recommended_worker_count(20, reserve_for_ui=False), 4)
-        with patch("league_manager.os.cpu_count", return_value=64), patch(
-            "league_manager.available_memory_bytes", return_value=abundant_memory,
+            self.assertEqual(recommended_worker_count(20, cpu_limit_percent=50), 2)
+            self.assertEqual(recommended_worker_count(20, cpu_limit_percent=25), 1)
+        with patch("scripts.league.league_manager.os.cpu_count", return_value=64), patch(
+            "scripts.league.league_manager.available_memory_bytes", return_value=abundant_memory,
         ):
             self.assertEqual(recommended_worker_count(100), 8)
+            self.assertEqual(recommended_worker_count(100, cpu_limit_percent=25), 2)
 
     def test_worker_count_still_respects_task_and_memory_limits(self):
         two_worker_memory = 1536 * 1024**2 + 2 * 320 * 1024**2
-        with patch("league_manager.os.cpu_count", return_value=16), patch(
-            "league_manager.available_memory_bytes", return_value=two_worker_memory,
+        with patch("scripts.league.league_manager.os.cpu_count", return_value=16), patch(
+            "scripts.league.league_manager.available_memory_bytes", return_value=two_worker_memory,
         ):
             self.assertEqual(recommended_worker_count(20), 2)
             self.assertEqual(recommended_worker_count(1), 1)
@@ -79,7 +82,7 @@ class LeagueScheduleTests(unittest.TestCase):
 
     def test_new_league_is_saved_to_json_definition(self):
         definitions_path = Path(self.temp_dir.name) / "leagues.json"
-        with patch("league_manager.LEAGUES_PATH", definitions_path):
+        with patch("scripts.league.league_manager.LEAGUES_PATH", definitions_path):
             manager = LeagueManager(discover_team_choices())
             added = manager.add_league("Fリーグ")
         self.assertEqual(added, "Fリーグ")
@@ -221,7 +224,7 @@ class LeagueScheduleTests(unittest.TestCase):
         existing_b = {team["id"] for team in manager.teams_in_league("Bリーグ")}
         candidates = [team for team in manager.team_choices if team["id"] not in existing_b][:2]
         self.assertEqual(len(candidates), 2)
-        with patch("league_manager.LEAGUES_PATH", definitions_path):
+        with patch("scripts.league.league_manager.LEAGUES_PATH", definitions_path):
             self.assertEqual(manager.assign_team_to_league(candidates[0]["id"], "Bリーグ"), "")
             self.assertEqual(manager.assign_team_to_league(candidates[1]["id"], "Bリーグ"), "")
         expected_ids = existing_b | {candidates[0]["id"], candidates[1]["id"]}
@@ -247,7 +250,7 @@ class LeagueScheduleTests(unittest.TestCase):
     def test_editor_can_add_rename_and_delete_a_league(self):
         manager = LeagueManager(discover_team_choices())
         definitions_path = Path(self.temp_dir.name) / "league-structure.json"
-        with patch("league_manager.LEAGUES_PATH", definitions_path):
+        with patch("scripts.league.league_manager.LEAGUES_PATH", definitions_path):
             added = manager.add_league("新リーグ")
             self.assertEqual(added, "新リーグ")
             self.assertEqual(manager.rename_league("新リーグ", "改名リーグ"), "")

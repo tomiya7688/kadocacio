@@ -2,9 +2,9 @@ import unittest
 
 import pygame
 
-from match_engine import Match
-from player_commands import PlayerCommand
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.match.player_commands import PlayerCommand
+from scripts.team.team_data import discover_team_choices
 
 
 class AiDecisionCachingTests(unittest.TestCase):
@@ -43,6 +43,15 @@ class AiDecisionCachingTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.match.cached_off_ball_decision(player, ("defend", new_owner, True), chooser)
         self.assertEqual(len(calls), 2)
+
+    def test_headless_quality_mode_scales_rethink_interval_only(self):
+        choices = discover_team_choices()
+        light = Match(choices[0], choices[1], "NEUTRAL", ai_rethink_multiplier=2.4)
+        player = light.home.players[0]
+        owner = light.home.players[2]
+        player.intelligence = 1.0
+        light.cached_off_ball_decision(player, ("attack", owner, 0), self._decision)
+        self.assertAlmostEqual(player.ai_rethink_timer, 0.12 * 2.4)
 
     def test_tactical_settings_reuse_stable_player_mix(self):
         player = self.match.home.players[0]

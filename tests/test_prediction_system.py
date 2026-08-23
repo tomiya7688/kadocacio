@@ -1,8 +1,8 @@
 import unittest
 
-from match_engine import Match
-from prediction_system import percentage_triplet
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.match.prediction_system import percentage_triplet
+from scripts.team.team_data import discover_team_choices
 
 
 class PredictionSystemTests(unittest.TestCase):

@@ -2,9 +2,9 @@ import unittest
 
 import pygame
 
-from match_engine import Match
-from player_commands import PlayerCommand
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.match.player_commands import PlayerCommand
+from scripts.team.team_data import discover_team_choices
 
 
 class AiPlanningTests(unittest.TestCase):

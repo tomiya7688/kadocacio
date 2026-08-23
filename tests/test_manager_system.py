@@ -3,10 +3,11 @@ import unittest
 
 import pygame
 
-from manager_system import manager_stat
-from match_engine import Match
-from settings import FIELD
-from team_data import discover_team_choices
+from scripts.match.manager_system import manager_stat
+from scripts.match.match_engine import Match
+from scripts.core.settings import FIELD
+from scripts.core.stat_scale import legacy_player_stat
+from scripts.team.team_data import discover_team_choices
 
 
 class ManagerSystemTests(unittest.TestCase):
@@ -19,9 +20,11 @@ class ManagerSystemTests(unittest.TestCase):
 
     def test_named_team_manager_parameters_are_loaded(self):
         choice = self.choice("夕張kadoka")
-        self.assertAlmostEqual(choice["manager_tactic_aggression"], manager_stat(50, 500))
-        self.assertAlmostEqual(choice["manager_substitution_aggression"], manager_stat(500, 500))
-        self.assertAlmostEqual(choice["manager_intelligence"], manager_stat(1100, 700))
+        default_activity = round(legacy_player_stat(500))
+        default_intelligence = round(legacy_player_stat(700))
+        self.assertAlmostEqual(choice["manager_tactic_aggression"], manager_stat(round(legacy_player_stat(50)), default_activity))
+        self.assertAlmostEqual(choice["manager_substitution_aggression"], manager_stat(round(legacy_player_stat(500)), default_activity))
+        self.assertAlmostEqual(choice["manager_intelligence"], manager_stat(round(legacy_player_stat(1100)), default_intelligence))
 
     def test_tactic_decision_waits_for_next_set_piece(self):
         match = Match(self.choice("夕張kadoka"), self.choices[1], "NEUTRAL")

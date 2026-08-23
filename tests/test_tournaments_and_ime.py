@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from game_app import Game
-from league_manager import LeagueManager, MAX_LEAGUES
-from team_data import discover_team_choices
+from scripts.app.game_app import Game
+from scripts.league.league_manager import LeagueManager, MAX_LEAGUES
+from scripts.team.team_data import discover_team_choices
 
 
 class TournamentAndImeTests(unittest.TestCase):
@@ -14,9 +14,9 @@ class TournamentAndImeTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         root = Path(self.temp_dir.name)
         self.patches = [
-            patch("league_manager.LEAGUES_PATH", root / "leagues.json"),
-            patch("league_manager.LEAGUE_STATE_PATH", root / "league_state.json"),
-            patch("league_manager.LEAGUE_SAVE_DIR", root / "league_save"),
+            patch("scripts.league.league_manager.LEAGUES_PATH", root / "leagues.json"),
+            patch("scripts.league.league_manager.LEAGUE_STATE_PATH", root / "league_state.json"),
+            patch("scripts.league.league_manager.LEAGUE_SAVE_DIR", root / "league_save"),
         ]
         for item in self.patches:
             item.start()

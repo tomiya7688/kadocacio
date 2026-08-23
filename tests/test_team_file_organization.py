@@ -4,8 +4,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from team_editor_data import create_team_template, save_editor_payload, scan_team_files, team_id_for_path
-from team_data import discover_team_choices
+from scripts.team.team_editor_data import (
+    create_team_template,
+    save_editor_payload,
+    scan_team_directory,
+    scan_team_files,
+    team_id_for_path,
+)
+from scripts.team.team_data import discover_team_choices
 
 
 class TeamFileOrganizationTests(unittest.TestCase):
@@ -14,8 +20,8 @@ class TeamFileOrganizationTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         self.teams = self.root / "teams"
         self.patches = [
-            patch("team_editor_data.TEAMS_DIR", self.teams),
-            patch("team_data.TEAMS_DIR", self.teams),
+            patch("scripts.team.team_editor_data.TEAMS_DIR", self.teams),
+            patch("scripts.team.team_data.TEAMS_DIR", self.teams),
         ]
         for item in self.patches:
             item.start()
@@ -44,6 +50,10 @@ class TeamFileOrganizationTests(unittest.TestCase):
         old_id = team_id_for_path(old_path)
         league_payload = {"リーグ一覧": [{"リーグ名": "A", "所属チーム": [old_id]}]}
         (self.root / "leagues.json").write_text(json.dumps(league_payload, ensure_ascii=False), encoding="utf-8")
+        template_dir = self.root / "league_templates"
+        template_dir.mkdir()
+        template_path = template_dir / "custom.json"
+        template_path.write_text(json.dumps(league_payload, ensure_ascii=False), encoding="utf-8")
         save_dir = self.root / "league_save"
         save_dir.mkdir()
         (save_dir / "season.json").write_text(json.dumps({"league_memberships": {old_id: "A"}}, ensure_ascii=False), encoding="utf-8")
@@ -55,6 +65,7 @@ class TeamFileOrganizationTests(unittest.TestCase):
         self.assertFalse(old_path.exists())
         self.assertEqual(new_path.relative_to(self.teams).as_posix(), "九州/新チーム.json")
         self.assertIn(new_id, (self.root / "leagues.json").read_text(encoding="utf-8"))
+        self.assertIn(new_id, template_path.read_text(encoding="utf-8"))
         save_text = (save_dir / "season.json").read_text(encoding="utf-8")
         self.assertIn(new_id, save_text)
         self.assertNotIn(old_id, save_text)
@@ -77,6 +88,22 @@ class TeamFileOrganizationTests(unittest.TestCase):
         payload = create_team_template("initial")
         with self.assertRaisesRegex(ValueError, "使用できません"):
             save_editor_payload(payload, folder_name="../outside")
+
+    def test_directory_browser_lists_only_immediate_folders_and_teams(self):
+        root_team = create_team_template("initial")
+        root_team["チーム情報"]["チーム名"] = "直下チーム"
+        child_team = create_team_template("initial")
+        child_team["チーム情報"]["チーム名"] = "配下チーム"
+        save_editor_payload(root_team)
+        save_editor_payload(child_team, folder_name="東日本/一部")
+
+        folders, entries = scan_team_directory()
+        self.assertEqual([path.name for path in folders], ["東日本"])
+        self.assertEqual([path.stem for path, _, _ in entries], ["直下チーム"])
+
+        child_folders, child_entries = scan_team_directory("東日本")
+        self.assertEqual([path.name for path in child_folders], ["一部"])
+        self.assertEqual(child_entries, [])
 
 
 if __name__ == "__main__":

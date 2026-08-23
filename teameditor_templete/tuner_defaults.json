@@ -1,5 +1,5 @@
 {
-  "default_target": 700,
+  "default_target": 2979,
   "default_time_limit_seconds": 600,
   "minimum_time_limit_seconds": 1,
   "maximum_time_limit_seconds": 3600,
@@ -17,12 +17,17 @@
   "minimum_score_improvement": 0.10,
   "speed_max_trials": 16,
   "rank_thresholds": [
-    {"rank": "S", "minimum": 1000},
-    {"rank": "A", "minimum": 800},
-    {"rank": "B", "minimum": 600},
-    {"rank": "C", "minimum": 400},
-    {"rank": "D", "minimum": 200},
-    {"rank": "E", "minimum": 0}
+    {"rank": "S", "minimum": 5000},
+    {"rank": "A+", "minimum": 4500},
+    {"rank": "A-", "minimum": 4000},
+    {"rank": "B+", "minimum": 3500},
+    {"rank": "B-", "minimum": 3000},
+    {"rank": "C+", "minimum": 2500},
+    {"rank": "C-", "minimum": 2000},
+    {"rank": "D+", "minimum": 1500},
+    {"rank": "D", "minimum": 1000},
+    {"rank": "E+", "minimum": 500},
+    {"rank": "E-", "minimum": 0}
   ],
   "categories": [
     {"id": "kick", "label": "キック系", "short": "キ", "fields": ["シュート力", "シュート精度", "パス精度", "パス力"]},

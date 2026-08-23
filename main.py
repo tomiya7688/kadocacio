@@ -1,6 +1,6 @@
 """カドカルチョの起動エントリーポイント。"""
 
-from game_app import Game
+from scripts.app.game_app import Game
 
 
 def main() -> None:

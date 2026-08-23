@@ -2,10 +2,10 @@ import unittest
 
 import pygame
 
-from match_engine import Match
-from player_commands import PlayerCommand
-from settings import FIELD
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.match.player_commands import PlayerCommand
+from scripts.core.settings import FIELD
+from scripts.team.team_data import discover_team_choices
 
 
 class GoalUrgencyTests(unittest.TestCase):

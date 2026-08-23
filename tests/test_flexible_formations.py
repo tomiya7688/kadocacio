@@ -1,8 +1,8 @@
 import random
 import unittest
 
-from team_data import team_choice_from_payload
-from team_editor_data import add_default_player, create_team_template, validate_payload
+from scripts.team.team_data import team_choice_from_payload
+from scripts.team.team_editor_data import add_default_player, create_team_template, validate_payload
 
 
 class FlexibleFormationTests(unittest.TestCase):

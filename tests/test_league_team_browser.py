@@ -1,7 +1,7 @@
 import unittest
 
-from league_rendering import build_team_folder_rows
-from team_data import discover_team_choices
+from scripts.league.league_rendering import build_team_folder_rows
+from scripts.team.team_data import discover_team_choices
 
 
 class LeagueTeamBrowserTests(unittest.TestCase):

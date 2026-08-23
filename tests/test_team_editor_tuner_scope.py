@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from team_editor import TeamEditor
+from scripts.team.team_editor import TeamEditor
 
 
 class TeamEditorTunerScopeTests(unittest.TestCase):
@@ -20,6 +20,7 @@ class TeamEditorTunerScopeTests(unittest.TestCase):
         editor.dirty = False
         editor.confirm_back = False
         editor.tuner_session = None
+        editor.color_picker_open = True
         editor.tuner_options = {
             "categories": [], "default_target": 700,
             "default_time_limit_seconds": 15, "hidden_parameters_default": True,
@@ -59,6 +60,15 @@ class TeamEditorTunerScopeTests(unittest.TestCase):
         self.assertEqual(editor.payload["選手一覧"], before_players)
         self.assertTrue(editor.dirty)
         self.assertIn("収束まで", editor.message)
+
+    def test_gui_color_pick_updates_the_json_value_without_saving_implicitly(self) -> None:
+        editor = self._editor()
+
+        editor._perform("color_pick", "#3FA7D6")
+
+        self.assertEqual(editor.payload["チーム情報"]["チームカラー"], "#3FA7D6")
+        self.assertTrue(editor.dirty)
+        self.assertFalse(editor.color_picker_open)
 
 
 if __name__ == "__main__":

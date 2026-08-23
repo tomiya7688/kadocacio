@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from stadium_system import build_stadium_crowd, roll_special_spectators, stadium_seat_slots
+from scripts.app.stadium_system import build_stadium_crowd, roll_special_spectators, stadium_seat_slots
 
 
 class StadiumGuestTests(unittest.TestCase):

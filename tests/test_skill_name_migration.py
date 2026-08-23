@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from settings import PROJECT_NAME
-from skill_system import ALL_SKILLS, LEGACY_SKILL_ALIASES, normalized_skills
-from team_editor_data import normalize_editor_payload
+from scripts.core.settings import PROJECT_NAME
+from scripts.match.skill_system import ALL_SKILLS, LEGACY_SKILL_ALIASES, normalized_skills
+from scripts.team.team_editor_data import normalize_editor_payload
 
 
 ROOT = Path(__file__).resolve().parents[1]

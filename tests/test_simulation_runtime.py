@@ -1,6 +1,6 @@
 import unittest
 
-from simulation_runtime import MatchTelemetry, SimulationLimits, advance_match_fixed, run_headless_match
+from scripts.core.simulation_runtime import MatchTelemetry, SimulationLimits, advance_match_fixed, run_headless_match
 
 
 class _Position:

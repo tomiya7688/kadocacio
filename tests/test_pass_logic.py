@@ -3,7 +3,7 @@ import unittest
 
 import pygame
 
-from match_engine import (
+from scripts.match.match_engine import (
     Match,
     PASS_CLEAN,
     PASS_DANGEROUS_LANE,
@@ -12,7 +12,7 @@ from match_engine import (
     PASS_WRONG_DIRECTION,
     score_pass_candidate,
 )
-from player_commands import PlayerCommand
+from scripts.match.player_commands import PlayerCommand
 
 
 class DummyTeam:

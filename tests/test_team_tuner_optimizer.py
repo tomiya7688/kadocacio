@@ -3,8 +3,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from settings import MATCH_SECONDS
-from team_tuner import (
+from scripts.core.settings import MATCH_SECONDS
+from scripts.team.team_tuner import (
     TeamTunerSession,
     _simulate_tuner_job,
     automatic_opponent_priority,
@@ -176,7 +176,7 @@ class TeamTunerOptimizerTests(unittest.TestCase):
             "wall_time_limit": 1.0,
         }
         memory_choice = {"id": "memory:tuner-worker", "name": "候補", "short": "候"}
-        with patch("team_tuner.team_choice_from_payload", return_value=memory_choice), patch("team_tuner.Match", FakeMatch):
+        with patch("scripts.team.team_tuner.team_choice_from_payload", return_value=memory_choice), patch("scripts.team.team_tuner.Match", FakeMatch):
             result = _simulate_tuner_job(job)
 
         self.assertEqual(result["fixture_count"], 4)
@@ -223,7 +223,7 @@ class TeamTunerOptimizerTests(unittest.TestCase):
             "target_game_time": 600.0,
         }
         memory_choice = {"id": "memory:tuner-worker", "name": "候補", "short": "候"}
-        with patch("team_tuner.team_choice_from_payload", return_value=memory_choice), patch("team_tuner.Match", FakeMatch):
+        with patch("scripts.team.team_tuner.team_choice_from_payload", return_value=memory_choice), patch("scripts.team.team_tuner.Match", FakeMatch):
             result = _simulate_tuner_job(job)
 
         self.assertEqual(result["completed_matches"], 1)

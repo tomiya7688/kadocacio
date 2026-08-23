@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from team_editor_config import load_tuner_options
-from team_editor_data import load_editor_payload
-from team_tuner import category_mean_values
+from scripts.team.team_editor_config import load_tuner_options
+from scripts.team.team_editor_data import load_editor_payload
+from scripts.team.team_tuner import category_mean_values
 
 
 ROOT = Path(__file__).resolve().parents[1]

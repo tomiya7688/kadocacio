@@ -1,8 +1,8 @@
 import random
 import unittest
 
-from intelligence_system import choose_utility_action, strategic_possession_risk
-from skill_system import activation_probability
+from scripts.match.intelligence_system import choose_utility_action, strategic_possession_risk
+from scripts.match.skill_system import activation_probability
 
 
 class IntelligenceScalingTests(unittest.TestCase):

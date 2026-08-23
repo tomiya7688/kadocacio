@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pygame
 
-from game_app import Game
+from scripts.app.game_app import Game
 
 
 class _SteppingMatch:
@@ -38,15 +38,17 @@ def bare_game(match):
 
 
 class PauseMenuTests(unittest.TestCase):
-    def test_escape_opens_pause_and_escape_again_resumes(self):
+    def test_escape_opens_settings_and_escape_again_returns_to_match(self):
         game = bare_game(_SteppingMatch())
 
         game.handle_key(pygame.K_ESCAPE)
         self.assertEqual(game.match.state, "PAUSED")
+        self.assertTrue(game.settings_open)
         self.assertTrue(game.running)
 
         game.handle_key(pygame.K_ESCAPE)
         self.assertEqual(game.match.state, "PLAYING")
+        self.assertFalse(game.settings_open)
 
     def test_skip_uses_fixed_match_steps_until_fulltime(self):
         game = bare_game(_SteppingMatch(state="PAUSED", finish_after=4))

@@ -2,9 +2,9 @@ import unittest
 
 import pygame
 
-from match_engine import Match
-from settings import FIELD
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.core.settings import FIELD
+from scripts.team.team_data import discover_team_choices
 
 
 class TacticalLookaheadTests(unittest.TestCase):

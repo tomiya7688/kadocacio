@@ -3,9 +3,10 @@ import random
 import unittest
 from pathlib import Path
 
-from team_data import discover_team_choices
-from team_editor_config import load_tuner_options
-from team_tuner import TeamTunerSession, category_mean_values
+from scripts.team.team_data import discover_team_choices
+from scripts.team.team_editor_config import load_tuner_options
+from scripts.team.team_tuner import TeamTunerSession, category_mean_values
+from scripts.core.stat_scale import PLAYER_STAT_MAX, PLAYER_STAT_MEAN_TOLERANCE
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +20,7 @@ class TeamTunerMeanLockTests(unittest.TestCase):
 
     def test_simulation_does_not_replace_current_means_with_configured_targets(self):
         before = category_mean_values(self.payload, self.categories)
-        targets = {category_id: 1250 for category_id in before}
+        targets = {category_id: PLAYER_STAT_MAX for category_id in before}
         opponent = discover_team_choices()[0]
         session = TeamTunerSession(
             self.payload, [opponent], targets, self.categories,
@@ -37,7 +38,7 @@ class TeamTunerMeanLockTests(unittest.TestCase):
         before = category_mean_values(self.payload, self.categories)
         opponent = discover_team_choices()[0]
         session = TeamTunerSession(
-            self.payload, [opponent], {key: 1250 for key in before}, self.categories,
+            self.payload, [opponent], {key: PLAYER_STAT_MAX for key in before}, self.categories,
             time_limit=0.2, include_hidden=True,
             worker_count=1, max_workers=1, rng=random.Random(11),
         )
@@ -46,7 +47,7 @@ class TeamTunerMeanLockTests(unittest.TestCase):
                 candidate = session._make_parallel_candidate(trial)
                 means = category_mean_values(candidate, self.categories)
                 for category_id, original in before.items():
-                    self.assertLessEqual(abs(means[category_id] - original), 10.0)
+                    self.assertLessEqual(abs(means[category_id] - original), PLAYER_STAT_MEAN_TOLERANCE)
         finally:
             session.cancel()
 

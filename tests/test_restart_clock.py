@@ -2,10 +2,10 @@ import unittest
 
 import pygame
 
-from match_engine import Match
-from league_manager import LeagueSimulationSession
-from settings import FIELD, GAME_CLOCK_RATE
-from team_data import discover_team_choices
+from scripts.match.match_engine import Match
+from scripts.league.league_manager import LeagueSimulationSession
+from scripts.core.settings import FIELD, GAME_CLOCK_RATE
+from scripts.team.team_data import discover_team_choices
 
 
 class RestartClockTests(unittest.TestCase):
