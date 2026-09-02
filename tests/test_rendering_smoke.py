@@ -9,6 +9,7 @@ import pygame
 
 from scripts.app.game_app import Game
 from scripts.core.simulation_runtime import advance_match_fixed
+from scripts.team.team_editor_data import create_team_template
 
 
 class RenderingSmokeTests(unittest.TestCase):
@@ -18,6 +19,22 @@ class RenderingSmokeTests(unittest.TestCase):
             self.assertEqual(game.match.state, "MAIN_MENU")
             game.draw_title()
             self.assertEqual(len(game.main_menu_buttons), 4)
+
+            game.open_team_editor()
+            game.team_editor.draw()
+            editor_actions = {action for _rect, action, _data in game.team_editor.buttons}
+            self.assertIn("target_mode", editor_actions)
+            self.assertIn("generation_profile", editor_actions)
+            self.assertIn("create_target", editor_actions)
+            game.team_editor.payload = create_team_template("initial")
+            game.team_editor.mode = "EDIT"
+            game.team_editor.tab = "UNIFORM"
+            game.team_editor.draw()
+            uniform_actions = {action for _rect, action, _data in game.team_editor.buttons}
+            self.assertIn("uniform_pixel", uniform_actions)
+            self.assertIn("uniform_export", uniform_actions)
+            self.assertIn("uniform_part", uniform_actions)
+            game.close_team_editor()
 
             runtime_manager = game.league_manager
             game.open_league_editor()
@@ -34,9 +51,16 @@ class RenderingSmokeTests(unittest.TestCase):
             game.league_screen_open = True
             game.league_save_select_open = False
             game.league_editor_only = False
+            game.league_tab = "standings"
             game.draw_league_screen()
             actions = {action for _rect, action in game.league_buttons}
             self.assertIn("auto_open", actions)
+            self.assertIn("history_mode|team", actions)
+            game.handle_league_action("history_mode|team")
+            game.draw_league_screen()
+            actions = {action for _rect, action in game.league_buttons}
+            self.assertIn("history_mode|league", actions)
+            self.assertIn("history_team_cycle|1", actions)
             game.handle_league_action("auto_open")
             game.draw_league_screen()
             actions = {action for _rect, action in game.league_buttons}

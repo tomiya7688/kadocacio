@@ -15,7 +15,8 @@ from scripts.league.league_auto_progress import (
     WATCH_MODES,
     choose_auto_watch_fixture,
 )
-from scripts.league.league_manager import YEAR_DAYS, LeagueManager, LeagueSimulationSession
+from scripts.league.league_manager import YEAR_DAYS, LeagueManager
+from scripts.league.league_simulation_session import LeagueSimulationSession
 from scripts.league.league_live_view import (
     OTHER_MATCH_VISIBLE_ROWS,
     clamp_other_match_scroll,
@@ -28,7 +29,7 @@ from scripts.league.league_schedule_view import (
 )
 from scripts.app.rendering import RendererMixin
 from scripts.core.simulation_runtime import advance_match_fixed
-from scripts.core.simulation_driver import RealtimeSimulationDriver
+from scripts.core.realtime_simulation_driver import RealtimeSimulationDriver
 from scripts.core.performance_settings import (
     load_performance_settings,
     normalize_cpu_limit,
@@ -121,6 +122,7 @@ class Game(RendererMixin):
         self.league_editor_schedule_page = 0
         self.league_team_scroll = 0
         self.league_team_scroll_rect = pygame.Rect(0, 0, 0, 0)
+        self.league_team_detail_id = ""
         self.league_competition_scroll = 0
         self.league_tab_scroll = 0
         self.league_schedule_scroll = 0
@@ -132,6 +134,9 @@ class Game(RendererMixin):
         self.tournament_source_scroll = 0
         self.ime_composition = ""
         self.league_history_year = self.league_manager.year
+        self.league_standings_mode = "league"
+        self.league_history_team_id = ""
+        self.league_history_result_scroll = 0
         self.active_league_fixture_id = ""
         self.league_match_finalized = False
         self.league_simulation_session: LeagueSimulationSession | None = None
@@ -753,6 +758,14 @@ class Game(RendererMixin):
         self.league_tab = "schedule"
 
     def handle_league_action(self, action: str) -> None:
+        if action == "team_detail_close":
+            self.league_team_detail_id = ""
+            return
+        if action.startswith("team_detail|"):
+            self.league_team_detail_id = action.split("|", 1)[1]
+            return
+        if self.league_team_detail_id:
+            return
         if action == "save_back":
             self.close_league_screen()
             return
@@ -884,6 +897,37 @@ class Game(RendererMixin):
             return
         if action.startswith("history|"):
             self.league_history_year = int(action.split("|", 1)[1])
+            self.league_history_result_scroll = 0
+            return
+        if action.startswith("history_mode|"):
+            self.league_standings_mode = action.split("|", 1)[1]
+            self.league_history_result_scroll = 0
+            return
+        if action.startswith("history_team_open|"):
+            self.league_history_team_id = action.split("|", 1)[1]
+            self.league_standings_mode = "team"
+            self.league_history_result_scroll = 0
+            return
+        if action.startswith("history_team_cycle|"):
+            teams = self.league_manager.historical_teams()
+            if teams:
+                ids = [str(team["team_id"]) for team in teams]
+                current = ids.index(self.league_history_team_id) if self.league_history_team_id in ids else 0
+                amount = int(action.split("|", 1)[1])
+                self.league_history_team_id = ids[(current + amount) % len(ids)]
+                self.league_history_result_scroll = 0
+            return
+        if action.startswith("history_results_scroll|"):
+            amount = int(action.split("|", 1)[1])
+            results = self.league_manager.team_results_for_year(
+                self.league_history_team_id,
+                self.league_history_year,
+            )
+            maximum = max(0, len(results) - 9)
+            self.league_history_result_scroll = max(
+                0,
+                min(maximum, self.league_history_result_scroll + amount),
+            )
             return
         if action == "editor_name_input":
             self.league_editor_input_active = True
@@ -1519,7 +1563,10 @@ class Game(RendererMixin):
                     elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         self.handle_settings_click(self.logical_mouse_pos(event.pos))
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.open_settings()
+                    if self.league_team_detail_id:
+                        self.league_team_detail_id = ""
+                    else:
+                        self.open_settings()
                 elif self.team_editor_open:
                     if event.type == pygame.KEYDOWN and event.key == pygame.K_F10:
                         self.cycle_window_size()

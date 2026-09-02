@@ -21,7 +21,9 @@ from scripts.core.performance_settings import (
 )
 from scripts.match.match_engine import Match
 from scripts.core.settings import MATCH_SECONDS
-from scripts.core.simulation_runtime import MatchTelemetry, SimulationLimits, run_headless_match
+from scripts.core.match_telemetry import MatchTelemetry
+from scripts.core.simulation_limits import SimulationLimits
+from scripts.core.simulation_runtime import run_headless_match
 from scripts.core.stat_scale import PLAYER_STAT_MAX, PLAYER_STAT_MIN
 from scripts.team.team_data import PLAYER_KEY_ALIASES, discover_team_choices
 

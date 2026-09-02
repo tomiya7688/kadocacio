@@ -14,7 +14,8 @@ FALLBACK_EDITOR_OPTIONS = {
         "ホームコート": "新規チームホーム",
     },
     "tabs": [
-        {"id": "TEAM", "label": "チーム情報"}, {"id": "PLAYER", "label": "選手能力"},
+        {"id": "TEAM", "label": "チーム情報"}, {"id": "INTRO", "label": "チーム紹介"},
+        {"id": "UNIFORM", "label": "ユニフォーム"}, {"id": "PLAYER", "label": "選手能力"},
         {"id": "SKILLS", "label": "スキル一覧"}, {"id": "FORMATION", "label": "フォーメーション"},
         {"id": "TUNER", "label": "チューナー"}, {"id": "ERRORS", "label": "エラー"},
     ],
@@ -23,6 +24,15 @@ FALLBACK_EDITOR_OPTIONS = {
         {"id": "random", "label": "ランダムテンプレート", "description": "能力値を0〜5500で生成"},
     ],
     "spread_options": ["小", "中", "大"],
+    "uniform_palette": [
+        "#FFFFFF", "#111827", "#D84442", "#2463A7", "#F1C232", "#2E8B57",
+        "#8E44AD", "#F28C28", "#74C0FC", "#F4A6C1", "#7F8C8D", "#7A4B2A",
+        "#00A6A6", "#EDE6D6", "#B8E986", "#F5F5F5",
+    ],
+    "generation_categories": [],
+    "generation_profiles": [
+        {"id": "balanced", "label": "バランス", "description": "全分野を均等に生成", "modifiers": {}},
+    ],
 }
 
 FALLBACK_TUNER_OPTIONS = {

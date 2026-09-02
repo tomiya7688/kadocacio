@@ -2,30 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import random
 import re
 import shutil
-import time
 from copy import deepcopy
-from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
-from multiprocessing import get_context
 from pathlib import Path
-from queue import Empty
 
 from scripts.core.paths import LEAGUE_TEMPLATE_DIR, PROJECT_ROOT
-from scripts.core.performance_settings import (
-    CpuUsageLimiter,
-    limited_worker_count,
-    league_simulation_profile,
-    normalize_cpu_limit,
-    normalize_league_simulation_mode,
-    worker_duty_cycle,
-)
-from scripts.match.match_engine import Match
-from scripts.core.simulation_runtime import MAX_FULL_MATCH_STEPS, advance_match_fixed
 from scripts.core.settings import clamp, parse_hex_color
+from scripts.league.league_simulation_session import LeagueSimulationSession
+from scripts.league.league_simulation_workers import (
+    _run_headless_league_match,
+    _run_synchronized_match_batch,
+)
 from scripts.league.league_templates import (
     DEFAULT_TEMPLATE_ID,
     DEFAULT_TEMPLATE_NAME,
@@ -36,6 +25,11 @@ from scripts.league.league_templates import (
     rename_league_template,
     save_template_payload,
 )
+from scripts.league.league_worker_budget import (
+    available_memory_bytes as _available_memory_bytes,
+    recommended_worker_count as _recommended_worker_count,
+)
+from scripts.team.team_data import team_choice_from_snapshot, team_snapshot_from_choice
 
 
 ROOT = PROJECT_ROOT
@@ -45,36 +39,14 @@ LEAGUE_SAVE_DIR = ROOT / "league_save"
 DEFAULT_SAVE_NAME = "自動セーブ"
 YEAR_DAYS = 365
 SCHEDULE_VERSION = 5
-SAVE_VERSION = 1
+SAVE_VERSION = 3
 MAX_LEAGUES = 999
 MAX_TOURNAMENTS = 999
 
 
 def available_memory_bytes() -> int:
-    """Best-effort available physical memory without an extra dependency."""
-    if os.name == "nt":
-        try:
-            import ctypes
-
-            class MemoryStatus(ctypes.Structure):
-                _fields_ = [
-                    ("length", ctypes.c_ulong), ("memory_load", ctypes.c_ulong),
-                    ("total_physical", ctypes.c_ulonglong), ("available_physical", ctypes.c_ulonglong),
-                    ("total_page_file", ctypes.c_ulonglong), ("available_page_file", ctypes.c_ulonglong),
-                    ("total_virtual", ctypes.c_ulonglong), ("available_virtual", ctypes.c_ulonglong),
-                    ("available_extended_virtual", ctypes.c_ulonglong),
-                ]
-
-            status = MemoryStatus()
-            status.length = ctypes.sizeof(MemoryStatus)
-            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
-                return int(status.available_physical)
-        except (AttributeError, OSError, TypeError):
-            pass
-    try:
-        return int(os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"))
-    except (AttributeError, OSError, ValueError):
-        return 4 * 1024**3
+    """Compatibility wrapper for callers that patch this measurement."""
+    return _available_memory_bytes()
 
 
 def recommended_worker_count(
@@ -83,25 +55,13 @@ def recommended_worker_count(
     reserve_for_ui: bool = True,
     cpu_limit_percent: int = 100,
 ) -> int:
-    """Choose parallel matches from CPU count while retaining memory headroom."""
-    tasks = max(1, int(task_count))
-    logical_cores = max(1, os.cpu_count() or 2)
-    # Consumer CPUs usually expose two logical threads per physical core.  The
-    # match engine is CPU-bound, so filling every logical thread with a Python
-    # process causes contention and can make the whole round slower.  Keep one
-    # estimated physical core for the game/OS on larger CPUs and use a hard cap
-    # so a 32/64-thread machine does not launch dozens of pygame runtimes.
-    estimated_physical = max(1, (logical_cores + 1) // 2)
-    cpu_budget = estimated_physical
-    if reserve_for_ui and estimated_physical > 2:
-        cpu_budget -= 1
-    cpu_budget = max(1, min(8, cpu_budget))
-    cpu_budget = limited_worker_count(cpu_budget, cpu_limit_percent)
-    available = available_memory_bytes()
-    reserve = 1536 * 1024**2
-    estimated_per_match = 320 * 1024**2
-    memory_budget = max(1, int(max(0, available - reserve) // estimated_per_match))
-    return max(1, min(tasks, cpu_budget, memory_budget))
+    """Compatibility wrapper preserving patchable memory measurements."""
+    return _recommended_worker_count(
+        task_count,
+        reserve_for_ui=reserve_for_ui,
+        cpu_limit_percent=cpu_limit_percent,
+        available_memory=available_memory_bytes(),
+    )
 
 
 def _default_leagues() -> list[dict]:
@@ -173,294 +133,10 @@ def save_league_definitions(definitions: list[dict]) -> None:
     save_competition_definitions(definitions, load_tournament_definitions())
 
 
-def _run_headless_league_match(job: dict) -> dict:
-    """Play a complete real Match in a worker process without rendering."""
-    fixture = job["fixture"]
-    match = Match(
-        job["home_choice"], job["away_choice"], "HOME",
-        ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
-    )
-    seed_text = f"{fixture.get('id')}:{job['home_choice'].get('name')}:{job['away_choice'].get('name')}"
-    seed = int.from_bytes(hashlib.sha256(seed_text.encode("utf-8")).digest()[:8], "big")
-    match.rng.seed(seed)
-    match.start_new()
-    steps = 0
-    progress_queue = job.get("progress_queue")
-    cpu_limiter = CpuUsageLimiter(job.get("cpu_duty_cycle", 1.0))
-    next_report = 0.0
-    while match.state != "FULLTIME" and steps < MAX_FULL_MATCH_STEPS:
-        advance_match_fixed(match)
-        steps += 1
-        cpu_limiter.throttle()
-        if progress_queue is not None and match.game_time >= next_report:
-            progress_queue.put({
-                "fixture_id": fixture["id"],
-                "minute": min(90, int(match.game_time // 60)),
-                "home_score": match.home.score,
-                "away_score": match.away.score,
-                "state": match.state,
-            })
-            next_report += 60.0
-    if progress_queue is not None:
-        progress_queue.put({
-            "fixture_id": fixture["id"], "minute": 90,
-            "home_score": match.home.score, "away_score": match.away.score,
-            "state": "FULLTIME",
-        })
-    return {
-        "fixture_id": fixture["id"],
-        "home_score": match.home.score,
-        "away_score": match.away.score,
-        "home_shots": match.home.shots,
-        "away_shots": match.away.shots,
-        "home_possession": match.home.possession,
-        "away_possession": match.away.possession,
-        "goal_scorers": list(match.goal_scorers),
-        "engine_steps": steps,
-        "simulation_mode": str(job.get("simulation_mode", "PRECISE")),
-    }
 
 
-def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, cancel_event) -> list[dict]:
-    """Advance games at the watched simulation pace, with independent clocks."""
-    contexts: list[dict] = []
-    cpu_limiter = CpuUsageLimiter(jobs[0].get("cpu_duty_cycle", 1.0) if jobs else 1.0)
-    for job in jobs:
-        fixture = job["fixture"]
-        match = Match(
-            job["home_choice"], job["away_choice"], "HOME",
-            ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
-        )
-        seed_text = f"{fixture.get('id')}:{job['home_choice'].get('name')}:{job['away_choice'].get('name')}"
-        seed = int.from_bytes(hashlib.sha256(seed_text.encode("utf-8")).digest()[:8], "big")
-        match.rng.seed(seed)
-        match.start_new()
-        contexts.append({
-            "fixture": fixture,
-            "match": match,
-            "steps": 0,
-            "next_report": 0.0,
-            "simulation_mode": str(job.get("simulation_mode", "PRECISE")),
-        })
-
-    while not cancel_event.is_set() and any(context["match"].state != "FULLTIME" for context in contexts):
-        requested_elapsed = float(sync_clock.value)
-        finish_without_pacing = requested_elapsed < 0.0
-        target_elapsed = float("inf") if finish_without_pacing else max(0.0, requested_elapsed)
-        progressed = False
-        for context in contexts:
-            match = context["match"]
-            if match.state == "FULLTIME":
-                continue
-            # Every match receives the same amount of physics time. Its playing
-            # clock may legitimately differ because restarts pause independently.
-            step_budget = 20
-            while match.simulation_elapsed + 0.001 < target_elapsed and step_budget > 0 and match.state != "FULLTIME":
-                advance_match_fixed(match)
-                context["steps"] += 1
-                step_budget -= 1
-                progressed = True
-                cpu_limiter.throttle()
-            if match.game_time >= context["next_report"] or match.state == "FULLTIME":
-                progress_queue.put({
-                    "fixture_id": context["fixture"]["id"],
-                    "game_time": min(5400.0, match.game_time),
-                    "minute": min(90, int(match.game_time // 60)),
-                    "home_score": match.home.score,
-                    "away_score": match.away.score,
-                    "state": match.state,
-                })
-                context["next_report"] = match.game_time + 5.0
-        if not progressed:
-            time.sleep(0.002)
-
-    if cancel_event.is_set():
-        return []
-    results = []
-    for context in contexts:
-        fixture = context["fixture"]
-        match = context["match"]
-        progress_queue.put({
-            "fixture_id": fixture["id"], "game_time": 5400.0, "minute": 90,
-            "home_score": match.home.score, "away_score": match.away.score, "state": "FULLTIME",
-        })
-        results.append({
-            "fixture_id": fixture["id"], "home_score": match.home.score, "away_score": match.away.score,
-            "home_shots": match.home.shots, "away_shots": match.away.shots,
-            "home_possession": match.home.possession, "away_possession": match.away.possession,
-            "goal_scorers": list(match.goal_scorers), "engine_steps": context["steps"],
-            "simulation_mode": str(context.get("simulation_mode", "PRECISE")),
-        })
-    return results
 
 
-class LeagueSimulationSession:
-    """Non-blocking multicore batch of complete headless Match simulations."""
-
-    def __init__(
-        self,
-        fixtures: list[dict],
-        choices_by_id: dict[str, dict],
-        max_workers: int | None = None,
-        *,
-        live_updates: bool = False,
-        cpu_limit_percent: int = 100,
-        simulation_mode: str = "PRECISE",
-    ) -> None:
-        self.total = len(fixtures)
-        self.completed = 0
-        self.results: list[dict] = []
-        self.errors: list[str] = []
-        self.finished = self.total == 0
-        self.executor: ProcessPoolExecutor | None = None
-        self.pending: dict = {}
-        self.live_status: dict[str, dict] = {
-            str(fixture["id"]): {
-                "fixture_id": str(fixture["id"]),
-                "league": str(fixture.get("league", "")),
-                "home_name": str(fixture.get("home_name", "")),
-                "away_name": str(fixture.get("away_name", "")),
-                "game_time": 0.0, "minute": 0,
-                "home_score": 0, "away_score": 0, "state": "PLAYING",
-            }
-            for fixture in fixtures
-        }
-        self.process_manager = None
-        self.progress_queue = None
-        self.sync_clock = None
-        self.cancel_event = None
-        self.live_updates = bool(live_updates)
-        self.cpu_limit_percent = normalize_cpu_limit(cpu_limit_percent)
-        self.simulation_mode = normalize_league_simulation_mode(simulation_mode)
-        simulation_profile = league_simulation_profile(self.simulation_mode)
-        self.ai_rethink_multiplier = float(simulation_profile["ai_rethink_multiplier"])
-        self.worker_count = 0
-        self.worker_duty_cycle = 1.0
-        self.estimated_waves = 0
-        self.detected_cpu_count = os.cpu_count() or 2
-        self.available_memory_gb = available_memory_bytes() / 1024**3
-        if self.finished:
-            return
-        if live_updates:
-            self.process_manager = get_context("spawn").Manager()
-            self.progress_queue = self.process_manager.Queue()
-            self.sync_clock = self.process_manager.Value("d", 0.0)
-            self.cancel_event = self.process_manager.Event()
-        # A watched match needs one estimated physical core for pygame and
-        # rendering.  An unattended result screen can devote all estimated
-        # physical cores to league workers while remaining process-bounded.
-        full_worker_budget = recommended_worker_count(self.total, reserve_for_ui=live_updates)
-        if max_workers is not None:
-            full_worker_budget = max(1, min(int(max_workers), full_worker_budget))
-        workers = limited_worker_count(full_worker_budget, self.cpu_limit_percent)
-        self.worker_count = workers
-        self.worker_duty_cycle = worker_duty_cycle(full_worker_budget, self.cpu_limit_percent, workers)
-        self.estimated_waves = (self.total + workers - 1) // workers
-        self.executor = ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn"))
-        valid_jobs: list[dict] = []
-        for fixture in fixtures:
-            home_choice = choices_by_id.get(str(fixture.get("home_id")))
-            away_choice = choices_by_id.get(str(fixture.get("away_id")))
-            if home_choice is None or away_choice is None:
-                self.completed += 1
-                self.errors.append(str(fixture.get("id", "missing team")))
-                continue
-            job = {
-                "fixture": fixture,
-                "home_choice": home_choice,
-                "away_choice": away_choice,
-                "progress_queue": self.progress_queue,
-                "cpu_duty_cycle": self.worker_duty_cycle,
-                "simulation_mode": self.simulation_mode,
-                "ai_rethink_multiplier": self.ai_rethink_multiplier,
-            }
-            valid_jobs.append(job)
-        if live_updates and valid_jobs:
-            batches: list[list[dict]] = [[] for _ in range(min(workers, len(valid_jobs)))]
-            for index, job in enumerate(valid_jobs):
-                batches[index % len(batches)].append(job)
-            for batch in batches:
-                future = self.executor.submit(
-                    _run_synchronized_match_batch,
-                    batch, self.sync_clock, self.progress_queue, self.cancel_event,
-                )
-                self.pending[future] = {"label": ",".join(str(job["fixture"]["id"]) for job in batch), "count": len(batch)}
-        else:
-            for job in valid_jobs:
-                future = self.executor.submit(_run_headless_league_match, job)
-                self.pending[future] = {"label": str(job["fixture"]["id"]), "count": 1}
-        if not self.pending:
-            self.finished = True
-            self._shutdown()
-
-    @property
-    def progress(self) -> float:
-        return self.completed / max(1, self.total)
-
-    def set_target_simulation_time(self, simulation_elapsed: float) -> None:
-        if self.sync_clock is not None:
-            if float(self.sync_clock.value) >= 0.0:
-                self.sync_clock.value = max(0.0, float(simulation_elapsed))
-
-    def finish_remaining_as_fast_as_possible(self) -> None:
-        """Release live pacing after the watched match reaches full time."""
-        if self.sync_clock is not None:
-            self.sync_clock.value = -1.0
-
-    def poll(self) -> bool:
-        self._drain_progress()
-        if self.finished:
-            return True
-        for future in [future for future in self.pending if future.done()]:
-            pending_info = self.pending.pop(future)
-            try:
-                result = future.result()
-                if isinstance(result, list):
-                    self.results.extend(result)
-                else:
-                    self.results.append(result)
-            except Exception as error:
-                self.errors.append(f"{pending_info['label']}: {error}")
-            self.completed += int(pending_info["count"])
-        if self.completed >= self.total:
-            self._drain_progress()
-            self.finished = True
-            self._shutdown()
-        return self.finished
-
-    def _drain_progress(self) -> None:
-        if self.progress_queue is None:
-            return
-        while True:
-            try:
-                update = self.progress_queue.get_nowait()
-            except Empty:
-                break
-            status = self.live_status.get(str(update.get("fixture_id")))
-            if status is not None:
-                status.update(update)
-
-    def _shutdown(self) -> None:
-        if self.executor is not None:
-            self.executor.shutdown(wait=False, cancel_futures=False)
-            self.executor = None
-        if self.process_manager is not None:
-            self.process_manager.shutdown()
-            self.process_manager = None
-
-    def cancel(self) -> None:
-        if self.cancel_event is not None:
-            self.cancel_event.set()
-        for future in self.pending:
-            future.cancel()
-        self.pending.clear()
-        if self.executor is not None:
-            self.executor.shutdown(wait=bool(self.cancel_event), cancel_futures=True)
-            self.executor = None
-        if self.process_manager is not None:
-            self.process_manager.shutdown()
-            self.process_manager = None
-        self.finished = True
 
 
 class LeagueManager:
@@ -481,6 +157,7 @@ class LeagueManager:
         self.team_choices: list[dict] = []
         self.base_team_choices: list[dict] = []
         self.choices_by_id: dict[str, dict] = {}
+        self.team_snapshots: dict[str, dict] = {}
         self.year = 1
         self.day = 1
         self.selected_leagues: set[str] = set()
@@ -490,6 +167,7 @@ class LeagueManager:
         self.watch_fixture_id = ""
         self.last_results: list[dict] = []
         self.history: list[dict] = []
+        self._historical_teams_cache: tuple[tuple, list[dict]] | None = None
         self.team_signature: dict[str, list[str]] = {}
         self.league_memberships: dict[str, str] = {}
         self.league_participations: dict[str, list[str]] = {}
@@ -736,6 +414,8 @@ class LeagueManager:
             priority = self.league_participations[team_id][0] if self.league_participations[team_id] else ""
         self.league_memberships[team_id] = priority
         self.choices_by_id[team_id]["league"] = priority
+        if self.save_path is not None and self.league_participations[team_id]:
+            self.team_snapshots[team_id] = team_snapshot_from_choice(self.choices_by_id[team_id])
         self._save_definitions()
         self._rebuild_editor_schedule()
         return ""
@@ -971,7 +651,23 @@ class LeagueManager:
 
     def refresh_teams(self, team_choices: list[dict]) -> None:
         self.base_team_choices = deepcopy(list(team_choices))
-        self.team_choices = deepcopy(list(team_choices))
+        current_choices = deepcopy(list(team_choices))
+        restored = {
+            team_id: choice
+            for team_id, snapshot in self.team_snapshots.items()
+            if (choice := team_choice_from_snapshot(snapshot)) is not None
+        }
+        # Saved participants override teams/*.json. Teams that were not part of
+        # this save remain available for pre-season placement in the editor.
+        self.team_choices = []
+        seen: set[str] = set()
+        for external in current_choices:
+            team_id = str(external.get("id", ""))
+            self.team_choices.append(deepcopy(restored.get(team_id, external)))
+            seen.add(team_id)
+        self.team_choices.extend(
+            deepcopy(choice) for team_id, choice in restored.items() if team_id not in seen
+        )
         self._migrate_stale_team_ids()
         configured_participations = self.definition_participations()
         if not self.league_participations:
@@ -1035,6 +731,26 @@ class LeagueManager:
         self.selected_tournaments.intersection_update(self.tournament_names)
         self.save()
 
+    def _participant_team_ids(self) -> set[str]:
+        team_ids = {
+            str(team_id)
+            for team_id, leagues in self.league_participations.items()
+            if leagues
+        }
+        for fixture in self.fixtures:
+            for key in ("home_id", "away_id"):
+                team_id = str(fixture.get(key, ""))
+                if team_id:
+                    team_ids.add(team_id)
+        return team_ids
+
+    def _update_team_snapshots(self) -> None:
+        """Persist current save-local abilities for every participating team."""
+        for team_id in self._participant_team_ids():
+            choice = self.choices_by_id.get(team_id)
+            if choice is not None:
+                self.team_snapshots[team_id] = team_snapshot_from_choice(choice)
+
     @staticmethod
     def _safe_save_stem(name: str) -> str:
         cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str(name).strip())[:48]
@@ -1053,6 +769,7 @@ class LeagueManager:
         return LEAGUE_SAVE_DIR / f"{DEFAULT_SAVE_NAME}.json"
 
     def _apply_state(self, state: dict) -> None:
+        self._historical_teams_cache = None
         competition = state.get("competition_template", {})
         if isinstance(competition, dict):
             saved_leagues = competition.get("リーグ一覧", [])
@@ -1082,6 +799,8 @@ class LeagueManager:
         self.tournament_progress = progress if isinstance(progress, dict) else {}
         signature = state.get("team_signature", {})
         self.team_signature = signature if isinstance(signature, dict) else {}
+        saved_teams = state.get("チームスナップショット", {})
+        self.team_snapshots = saved_teams if isinstance(saved_teams, dict) else {}
         self.schedule_version = int(state.get("schedule_version", 0))
 
     def _load_state(self, path: Path | None = None) -> None:
@@ -1098,6 +817,7 @@ class LeagueManager:
                 self.save_path = target
 
     def _state_payload(self) -> dict:
+        self._update_team_snapshots()
         return {
             "save_version": SAVE_VERSION,
             "save_name": self.save_name,
@@ -1110,13 +830,17 @@ class LeagueManager:
             "fixtures": self.fixtures,
             "watch_fixture_id": self.watch_fixture_id,
             "last_results": self.last_results,
-            "history": self.history[-50:],
+            # Completed seasons are the permanent record of this save slot.
+            # Do not cap this list: a long-running player league must retain
+            # every season's table and every played fixture.
+            "history": self.history,
             "league_memberships": self.league_memberships,
             "league_participations": self.league_participations,
             "season_standings_snapshot": self.season_standings_snapshot,
             "promotion_events": self.promotion_events,
             "tournament_progress": self.tournament_progress,
             "team_signature": self.team_signature,
+            "チームスナップショット": self.team_snapshots,
             "schedule_version": self.schedule_version,
         }
 
@@ -1144,7 +868,7 @@ class LeagueManager:
             paths = sorted(LEAGUE_SAVE_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
         except OSError:
             return saves
-        known_team_ids = set(self.choices_by_id)
+        known_team_ids = {str(choice.get("id", "")) for choice in self.base_team_choices}
         for path in paths:
             errors: list[str] = []
             state: dict = {}
@@ -1162,12 +886,25 @@ class LeagueManager:
                 errors.append("fixturesが配列ではありません")
                 fixtures = []
             fixture_ids: set[str] = set()
+            snapshots = state.get("チームスナップショット", {})
+            if snapshots and not isinstance(snapshots, dict):
+                errors.append("チームスナップショットがオブジェクトではありません")
+                snapshots = {}
+            snapshot_ids: set[str] = set()
+            if isinstance(snapshots, dict):
+                for team_id, snapshot in snapshots.items():
+                    restored = team_choice_from_snapshot(snapshot)
+                    if restored is None or str(restored.get("id", "")) != str(team_id):
+                        errors.append(f"保存チームを復元できません: {team_id}")
+                    else:
+                        snapshot_ids.add(str(team_id))
+            available_team_ids = known_team_ids | snapshot_ids
             memberships = state.get("league_memberships", {})
             if memberships and not isinstance(memberships, dict):
                 errors.append("league_membershipsがオブジェクトではありません")
             elif isinstance(memberships, dict):
                 for team_id, league_name in memberships.items():
-                    if known_team_ids and str(team_id) not in known_team_ids:
+                    if available_team_ids and str(team_id) not in available_team_ids:
                         errors.append(f"所属情報のチームが見つかりません: {team_id}")
             for fixture in fixtures:
                 if not isinstance(fixture, dict):
@@ -1179,7 +916,7 @@ class LeagueManager:
                 fixture_ids.add(fixture_id)
                 for key, label in (("home_id", "ホーム"), ("away_id", "アウェー")):
                     team_id = str(fixture.get(key, ""))
-                    if team_id and known_team_ids and team_id not in known_team_ids:
+                    if team_id and available_team_ids and team_id not in available_team_ids:
                         errors.append(f"{label}チームが見つかりません: {fixture.get(key)}")
             saves.append({
                 "path": path,
@@ -1216,6 +953,8 @@ class LeagueManager:
         self.watch_fixture_id = ""
         self.last_results = []
         self.history = []
+        self._historical_teams_cache = None
+        self.team_snapshots = {}
         self.team_choices = deepcopy(self.base_team_choices)
         self.choices_by_id = {str(choice["id"]): choice for choice in self.team_choices}
         configured_participations = self.definition_participations()
@@ -1237,6 +976,7 @@ class LeagueManager:
         self.team_signature = self._current_signature()
         self.fixtures = self._build_all_schedules()
         self.schedule_version = SCHEDULE_VERSION
+        self._update_team_snapshots()
         playable = [name for name in self.league_names if len(self.teams_in_league(name)) >= 2]
         self.selected_leagues = set(playable[:1] or self.league_names[:1])
         self.selected_tournaments = set(self.tournament_names)
@@ -1256,7 +996,7 @@ class LeagueManager:
         if info["errors"]:
             return list(info["errors"])
         self._load_state(target)
-        self.refresh_teams(self.team_choices)
+        self.refresh_teams(self.base_team_choices)
         return []
 
     def delete_save(self, path_or_name: str | Path) -> str:
@@ -1550,7 +1290,7 @@ class LeagueManager:
         known = {str(result.get("fixture_id")) for result in accumulated}
         for result in results:
             fixture = self.fixture(str(result.get("fixture_id", "")))
-            if fixture is None or fixture.get("played"):
+            if fixture is None or fixture.get("played") or result.get("fulltime", True) is not True:
                 continue
             self.record_result(fixture, int(result.get("home_score", 0)), int(result.get("away_score", 0)), watched=False)
             self._resolve_promotion_playoff(fixture)
@@ -1585,9 +1325,13 @@ class LeagueManager:
     def result_from_fixture(fixture: dict) -> dict:
         return {
             "fixture_id": fixture.get("id", ""),
+            "year": fixture.get("year", 0),
             "league": fixture.get("league", ""),
+            "tournament": fixture.get("tournament", ""),
             "round": fixture.get("round", 0),
             "day": fixture.get("day", 0),
+            "home_id": fixture.get("home_id", ""),
+            "away_id": fixture.get("away_id", ""),
             "home_name": fixture.get("home_name", ""),
             "away_name": fixture.get("away_name", ""),
             "home_score": fixture.get("home_score", 0),
@@ -1810,6 +1554,129 @@ class LeagueManager:
         league = entry.get("leagues", {}).get(league_name, {})
         return deepcopy(league.get("results", [])) if isinstance(league, dict) else []
 
+    def all_results_for_year(self, year: int) -> list[dict]:
+        """Return every played fixture for a season without duplicating playoffs."""
+        if int(year) == self.year:
+            return [self.result_from_fixture(item) for item in self.fixtures if item.get("played")]
+        entry = next((item for item in self.history if int(item.get("year", 0)) == int(year)), None)
+        if not entry:
+            return []
+        stored = entry.get("results")
+        if isinstance(stored, list):
+            return deepcopy([item for item in stored if isinstance(item, dict)])
+
+        # Save version 2 stored regular results per league and playoffs in a
+        # separate list. Reconstruct one list so old saves get the new UI too.
+        reconstructed: list[dict] = []
+        known: set[str] = set()
+        leagues = entry.get("leagues", {})
+        if isinstance(leagues, dict):
+            for league in leagues.values():
+                if not isinstance(league, dict):
+                    continue
+                for result in league.get("results", []):
+                    if not isinstance(result, dict):
+                        continue
+                    fixture_id = str(result.get("fixture_id", ""))
+                    if fixture_id and fixture_id in known:
+                        continue
+                    reconstructed.append(deepcopy(result))
+                    if fixture_id:
+                        known.add(fixture_id)
+        for result in entry.get("promotion_playoffs", []):
+            if not isinstance(result, dict):
+                continue
+            fixture_id = str(result.get("fixture_id", ""))
+            if fixture_id and fixture_id in known:
+                continue
+            reconstructed.append(deepcopy(result))
+            if fixture_id:
+                known.add(fixture_id)
+        return reconstructed
+
+    def historical_teams(self) -> list[dict]:
+        """Return stable team selectors, including teams no longer in the template."""
+        cache_key = (
+            len(self.history),
+            self.year,
+            tuple(sorted((str(team_id), str(choice.get("name", ""))) for team_id, choice in self.choices_by_id.items())),
+        )
+        if self._historical_teams_cache and self._historical_teams_cache[0] == cache_key:
+            return deepcopy(self._historical_teams_cache[1])
+        teams: dict[str, dict] = {
+            str(team_id): {"team_id": str(team_id), "name": str(choice.get("name", team_id))}
+            for team_id, choice in self.choices_by_id.items()
+        }
+        for year in self.available_years():
+            for league_name in self.league_names_for_year(year):
+                for row in self.standings_for_year(league_name, year):
+                    team_id = str(row.get("team_id", ""))
+                    if team_id:
+                        teams.setdefault(team_id, {"team_id": team_id, "name": str(row.get("name", team_id))})
+            for result in self.all_results_for_year(year):
+                for side in ("home", "away"):
+                    team_id = str(result.get(f"{side}_id", ""))
+                    if team_id:
+                        teams.setdefault(team_id, {"team_id": team_id, "name": str(result.get(f"{side}_name", team_id))})
+        ordered = sorted(teams.values(), key=lambda item: str(item["name"]).casefold())
+        self._historical_teams_cache = (cache_key, deepcopy(ordered))
+        return ordered
+
+    def _league_names_from_history(self, year: int) -> list[str]:
+        entry = next((item for item in self.history if int(item.get("year", 0)) == int(year)), None)
+        leagues = entry.get("leagues", {}) if entry else {}
+        return [str(name) for name in leagues] if isinstance(leagues, dict) else []
+
+    def league_names_for_year(self, year: int) -> list[str]:
+        if int(year) == self.year:
+            return list(self.league_names)
+        return self._league_names_from_history(year)
+
+    def team_standings_for_year(self, team_id: str, year: int) -> list[dict]:
+        standings: list[dict] = []
+        for league_name in self.league_names_for_year(year):
+            table = self.standings_for_year(league_name, year)
+            for rank, row in enumerate(table, start=1):
+                if str(row.get("team_id", "")) != str(team_id):
+                    continue
+                item = deepcopy(row)
+                item.update({"year": int(year), "league": league_name, "rank": rank})
+                standings.append(item)
+        return standings
+
+    def team_standings_history(self, team_id: str) -> list[dict]:
+        return [
+            row
+            for year in sorted(self.available_years())
+            for row in self.team_standings_for_year(team_id, year)
+        ]
+
+    def team_results_for_year(self, team_id: str, year: int) -> list[dict]:
+        team_id = str(team_id)
+        choice = self.choices_by_id.get(team_id, {})
+        known_names = {str(choice.get("name", ""))} - {""}
+        known_names.update(
+            str(row.get("name", ""))
+            for row in self.team_standings_for_year(team_id, year)
+            if row.get("name")
+        )
+        matched: list[dict] = []
+        for result in self.all_results_for_year(year):
+            ids = (str(result.get("home_id", "")), str(result.get("away_id", "")))
+            names = (str(result.get("home_name", "")), str(result.get("away_name", "")))
+            # IDs are authoritative in v3. Name matching keeps v2 saves usable.
+            if team_id in ids:
+                side = "home" if ids[0] == team_id else "away"
+            elif not any(ids) and known_names.intersection(names):
+                side = "home" if names[0] in known_names else "away"
+            else:
+                continue
+            item = deepcopy(result)
+            item.setdefault("year", int(year))
+            item["team_side"] = side
+            matched.append(item)
+        return sorted(matched, key=lambda item: (int(item.get("day", 0)), int(item.get("round", 0)), str(item.get("fixture_id", ""))))
+
     def promotion_events_for_year(self, year: int) -> list[dict]:
         if int(year) == self.year:
             return deepcopy(self.promotion_events)
@@ -1836,6 +1703,10 @@ class LeagueManager:
             "year": self.year,
             "champions": champions,
             "leagues": league_history,
+            "results": [
+                self.result_from_fixture(fixture)
+                for fixture in self.fixtures if fixture.get("played")
+            ],
             "promotion_playoffs": [
                 self.result_from_fixture(fixture)
                 for fixture in self.fixtures if fixture.get("fixture_type") == "PLAYOFF"
@@ -1850,3 +1721,5 @@ class LeagueManager:
         self.watch_fixture_id = ""
         self.last_results = []
         self.save()
+
+__all__ = ("LeagueManager", "LeagueSimulationSession")

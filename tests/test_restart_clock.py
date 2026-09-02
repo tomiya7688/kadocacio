@@ -32,6 +32,16 @@ class RestartClockTests(unittest.TestCase):
         self.assertAlmostEqual(self.match.simulation_elapsed, 0.05)
         self.assertAlmostEqual(self.match.restart_elapsed, 0.05)
 
+    def test_touchline_free_kick_approach_stays_inside_reachable_bounds(self):
+        spot = pygame.Vector2(FIELD.right - 20, FIELD.centery)
+
+        self.match.start_set_piece("FREE_KICK", self.match.away, spot)
+
+        self.assertLessEqual(self.match.restart_approach.x, FIELD.right - 6)
+        self.assertGreaterEqual(self.match.restart_approach.x, FIELD.left + 6)
+        self.assertLessEqual(self.match.restart_approach.y, FIELD.bottom - 6)
+        self.assertGreaterEqual(self.match.restart_approach.y, FIELD.top + 6)
+
     def test_live_play_still_advances_match_clock(self):
         self.match.throw_in_team = None
         self.match.thrower = None

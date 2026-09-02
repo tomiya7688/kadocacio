@@ -4,8 +4,10 @@ import math
 
 import pygame
 
+from scripts.app.uniform_rendering import draw_uniform_limb, draw_uniform_polygon
+
 from scripts.core.performance_settings import LEAGUE_SIMULATION_MODES
-from scripts.match.entities import Player
+from scripts.match.player import Player
 from scripts.league.league_rendering import LeagueRendererMixin
 from scripts.league.league_live_view import (
     OTHER_MATCH_COLUMNS,
@@ -439,8 +441,12 @@ class RendererMixin(LeagueRendererMixin):
         end: pygame.Vector2,
         width: int,
         color: tuple[int, int, int],
+        pattern: tuple | None = None,
     ) -> None:
         """Draw a square-ended limb so players read as block figures."""
+        if pattern:
+            draw_uniform_limb(self.screen, start, end, width, pattern, INK)
+            return
         start = pygame.Vector2(start)
         end = pygame.Vector2(end)
         delta = end - start
@@ -500,8 +506,7 @@ class RendererMixin(LeagueRendererMixin):
         shoulder_left, _ = self.project_player_point(player, *(shoulder_center + side * 10), body_z + 9)
         shoulder_right, _ = self.project_player_point(player, *(shoulder_center - side * 10), body_z + 9)
         torso = [hip_left, hip_right, shoulder_right, shoulder_left]
-        pygame.draw.polygon(self.screen, player.team.primary, torso)
-        pygame.draw.lines(self.screen, CREAM, True, torso, 1)
+        draw_uniform_polygon(self.screen, torso, player.team.uniform["胸"], CREAM)
 
         kick_lift = math.sin(player.kick_motion_progress * math.pi) * 12 if player.kick_motion_progress > 0 else 0
         foot_left_world = foot_center + side * 7
@@ -510,15 +515,27 @@ class RendererMixin(LeagueRendererMixin):
             foot_right_world += direction * (player.kick_motion_progress * 17)
         foot_left, _ = self.project_player_point(player, *foot_left_world, body_z + 1)
         foot_right, _ = self.project_player_point(player, *foot_right_world, body_z + 1 + kick_lift)
-        self.draw_block_limb(hip_left, foot_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.secondary)
-        self.draw_block_limb(hip_right, foot_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.secondary)
+        self.draw_block_limb(
+            hip_left, foot_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary, player.team.uniform["左脚"],
+        )
+        self.draw_block_limb(
+            hip_right, foot_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary, player.team.uniform["右脚"],
+        )
 
         arm_left_world = shoulder_center + side * 19 + direction * (5 if diving_pose else 0)
         arm_right_world = shoulder_center - side * 19 + direction * (5 if diving_pose else 0)
         arm_left, _ = self.project_player_point(player, *arm_left_world, body_z + 5)
         arm_right, _ = self.project_player_point(player, *arm_right_world, body_z + 5)
-        self.draw_block_limb(shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.primary)
-        self.draw_block_limb(shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.primary)
+        self.draw_block_limb(
+            shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary, player.team.uniform["左腕"],
+        )
+        self.draw_block_limb(
+            shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary, player.team.uniform["右腕"],
+        )
 
         head, head_depth = self.project_player_point(player, *head_world, body_z + 10)
         head_size = max(5, round(14 * PLAYER_VISUAL_SCALE * self.focal_length / head_depth))
@@ -586,8 +603,14 @@ class RendererMixin(LeagueRendererMixin):
         right_foot, _ = self.project_player_point(player, *right_foot_world, right_foot_z)
         left_hip, _ = self.project_player_point(player, *left_hip_world, base_z + 17)
         right_hip, _ = self.project_player_point(player, *right_hip_world, base_z + 17)
-        self.draw_block_limb(left_foot, left_hip, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.secondary)
-        self.draw_block_limb(right_foot, right_hip, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.secondary)
+        self.draw_block_limb(
+            left_hip, left_foot, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary, player.team.uniform["左脚"],
+        )
+        self.draw_block_limb(
+            right_hip, right_foot, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary, player.team.uniform["右脚"],
+        )
 
         body_center = pygame.Vector2(player.pos) + forward * body_lean + header_shift
         lower_left = pygame.Vector2(player.pos) - side * 9
@@ -600,10 +623,7 @@ class RendererMixin(LeagueRendererMixin):
             self.project_player_point(player, *upper_right, base_z + 36)[0],
             self.project_player_point(player, *upper_left, base_z + 36)[0],
         ]
-        pygame.draw.polygon(self.screen, player.team.primary, torso)
-        pygame.draw.lines(self.screen, INK, True, torso, 1)
-        jersey_highlight = tuple(min(255, channel + 48) for channel in player.team.primary)
-        pygame.draw.line(self.screen, jersey_highlight, torso[3], torso[2], 1)
+        draw_uniform_polygon(self.screen, torso, player.team.uniform["胸"], INK)
         arm_swing = forward * (-stride * 0.7)
         arm_left_world = body_center - side * 17 + arm_swing
         arm_right_world = body_center + side * 17 - arm_swing
@@ -611,8 +631,14 @@ class RendererMixin(LeagueRendererMixin):
         arm_right, _ = self.project_player_point(player, *arm_right_world, base_z + 23)
         shoulder_left, _ = self.project_player_point(player, *upper_left, base_z + 32)
         shoulder_right, _ = self.project_player_point(player, *upper_right, base_z + 32)
-        self.draw_block_limb(shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.primary)
-        self.draw_block_limb(shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)), player.team.primary)
+        self.draw_block_limb(
+            shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary, player.team.uniform["左腕"],
+        )
+        self.draw_block_limb(
+            shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary, player.team.uniform["右腕"],
+        )
 
         head_world = pygame.Vector2(player.pos) + forward * body_lean * 1.2 + header_shift * 1.35
         head, head_depth = self.project_player_point(player, *head_world, base_z + 45)
@@ -1035,7 +1061,10 @@ class RendererMixin(LeagueRendererMixin):
             if league_match:
                 if self.league_simulation_session is not None:
                     session = self.league_simulation_session
-                    heading = f"同日試合の残りを高速完走中　{session.completed}/{session.total}"
+                    heading = (
+                        f"同日試合の残りを高速完走中　{session.display_completed}/{session.total}"
+                        f"　平均{session.display_average_minute}分"
+                    )
                 else:
                     heading = "同日開催の試合結果"
                 self.text(heading, 15, GOLD, (center_x, 438), bold=True, center=True)

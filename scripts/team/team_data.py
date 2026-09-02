@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from scripts.match.manager_system import manager_stat
@@ -10,9 +11,13 @@ from scripts.core.stat_scale import (
     MANAGER_INTELLIGENCE_DEFAULT,
     PLAYER_STAT_MAX,
     PLAYER_STAT_MIN,
+    STAT_SCALE_METADATA_KEY,
+    current_scale_metadata,
+    denormalize_player_stat,
     payload_stat_bounds,
     remap_player_stat,
 )
+from scripts.team.uniform_data import normalize_uniform
 
 
 PLAYER_KEY_ALIASES: dict[str, tuple[str, ...]] = {
@@ -119,6 +124,14 @@ def percentage_value(value: object, default: float = 50.0) -> float:
         return clamp(default, 0.0, 100.0) / 100.0
 
 
+def _team_description(info: dict) -> str:
+    """Read the canonical long introduction while accepting old custom keys."""
+    for key in ("チーム紹介", "チーム説明", "description", "teamDescription"):
+        if key in info:
+            return str(info.get(key, ""))
+    return ""
+
+
 def team_choice_from_payload(payload: dict, source_name: str = "<memory>") -> dict:
     """Build the normal Match choice directly from an editor payload."""
     try:
@@ -170,6 +183,7 @@ def team_choice_from_payload(payload: dict, source_name: str = "<memory>") -> di
         return {
             "name": str(info.get("チーム名", Path(source_name).stem)),
             "short": str(info.get("チームの略称", "")).strip(),
+            "description": _team_description(info),
             "manager": str(info.get("監督名", "")),
             "manager_tactic_aggression": manager_stat(
                 manager_value("戦術変更への積極性", MANAGER_ACTIVITY_DEFAULT),
@@ -184,6 +198,7 @@ def team_choice_from_payload(payload: dict, source_name: str = "<memory>") -> di
                 MANAGER_INTELLIGENCE_DEFAULT,
             ),
             "primary": parse_hex_color(info.get("チームカラー", ""), HOME_RED),
+            "uniform_data": normalize_uniform(info.get("ユニフォーム")),
             "tactic": tactic,
             "tactic_label": tactic_label,
             "zone_near": zone_near,
@@ -196,6 +211,105 @@ def team_choice_from_payload(payload: dict, source_name: str = "<memory>") -> di
         }
     except (ValueError, TypeError) as error:
         raise ValueError(f"Team payload could not be converted ({source_name}): {error}") from error
+
+
+def team_payload_from_choice(choice: dict) -> dict:
+    """Serialize one runtime team into Japanese, save-local league data.
+
+    League saves use this payload instead of retaining a pointer to ``teams``.
+    It intentionally contains every player parameter used by Match, making the
+    save independent from later edits, moves, or deletion of the source JSON.
+    """
+    primary = tuple(choice.get("primary", HOME_RED))
+    if len(primary) < 3:
+        primary = HOME_RED
+    color = "#{:02X}{:02X}{:02X}".format(*(int(clamp(float(value), 0, 255)) for value in primary[:3]))
+    tactic_label = str(choice.get("tactic_label", "バランス"))
+    if tactic_label not in TACTIC_NAMES:
+        tactic_label = next(
+            (label for label, value in TACTIC_NAMES.items() if value == choice.get("tactic")),
+            "バランス",
+        )
+    info = {
+        "チーム名": str(choice.get("name", "チーム")),
+        "チームの略称": str(choice.get("short", "")),
+        "チーム紹介": str(choice.get("description", "")),
+        "監督名": str(choice.get("manager", "")),
+        "戦術変更への積極性": round(denormalize_player_stat(float(choice.get(
+            "manager_tactic_aggression", manager_stat(MANAGER_ACTIVITY_DEFAULT, MANAGER_ACTIVITY_DEFAULT),
+        )))),
+        "選手交代への積極性": round(denormalize_player_stat(float(choice.get(
+            "manager_substitution_aggression", manager_stat(MANAGER_ACTIVITY_DEFAULT, MANAGER_ACTIVITY_DEFAULT),
+        )))),
+        "インテリジェンス": round(denormalize_player_stat(float(choice.get(
+            "manager_intelligence", manager_stat(MANAGER_INTELLIGENCE_DEFAULT, MANAGER_INTELLIGENCE_DEFAULT),
+        )))),
+        "チームカラー": color,
+        "ユニフォーム": normalize_uniform(choice.get("uniform_data")),
+        "戦術": tactic_label,
+        "ゾーン手前": int(choice.get("zone_near", 3)),
+        "ゾーン奥": int(choice.get("zone_far", 7)),
+        "戦術への忠実さ": round(float(choice.get("tactical_discipline", 0.5)) * 100),
+        "ホームコート": str(choice.get("home_court", f"{choice.get('name', 'チーム')}ホーム")),
+    }
+    players = []
+    for record in (*choice.get("starters", ()), *choice.get("bench", ())):
+        if not isinstance(record, dict):
+            continue
+        source_raw = record.get("raw", {}) if isinstance(record.get("raw"), dict) else {}
+        # Runtime systems mutate canonical keys (for example ``ShotPower``).
+        # Loaded choices can still retain the original Japanese aliases too,
+        # so canonical values must win when both forms are present.
+        raw = {}
+        for canonical, aliases in PLAYER_KEY_ALIASES.items():
+            for source_key in (canonical, *aliases):
+                if source_key in source_raw:
+                    raw[canonical] = deepcopy(source_raw[source_key])
+                    break
+        raw["Name"] = record.get("name", raw.get("Name", "PLAYER"))
+        raw["JerseyNumber"] = record.get("number", raw.get("JerseyNumber", len(players) + 1))
+        raw["PositionX"] = record.get("position_x", raw.get("PositionX", 0))
+        raw["PositionY"] = record.get("position_y", raw.get("PositionY", 0))
+        player = {}
+        for canonical, aliases in PLAYER_KEY_ALIASES.items():
+            if canonical in raw:
+                player[aliases[0]] = deepcopy(raw[canonical])
+        players.append(player)
+    return {
+        "選手一覧": players,
+        "チーム情報": info,
+        STAT_SCALE_METADATA_KEY: current_scale_metadata(),
+    }
+
+
+def team_snapshot_from_choice(choice: dict) -> dict:
+    """Return one JSON-compatible entry for ``チームスナップショット``."""
+    return {
+        "チームID": str(choice.get("id", "")),
+        "元ファイル": str(choice.get("source", "")),
+        "データ": team_payload_from_choice(choice),
+    }
+
+
+def team_choice_from_snapshot(snapshot: object) -> dict | None:
+    """Restore a Match choice from a league-save snapshot."""
+    if not isinstance(snapshot, dict):
+        return None
+    payload = snapshot.get("データ")
+    team_id = str(snapshot.get("チームID", "")).strip()
+    if not team_id or not isinstance(payload, dict):
+        return None
+    source = str(snapshot.get("元ファイル", "")) or f"league_save/{team_id}"
+    try:
+        choice = team_choice_from_payload(payload, source)
+    except (TypeError, ValueError):
+        return None
+    choice.update({
+        "id": team_id,
+        "kind": "LEAGUE_SAVE",
+        "short": choice["short"] or choice["name"][:3],
+    })
+    return choice
 
 
 def load_team_config(path: Path) -> dict | None:

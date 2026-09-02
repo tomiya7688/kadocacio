@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.league.league_manager import LeagueManager, recommended_worker_count
-from scripts.team.team_data import discover_team_choices
+from scripts.team.team_data import discover_team_choices, team_choice_from_snapshot
 
 
 class LeagueScheduleTests(unittest.TestCase):
@@ -31,14 +31,14 @@ class LeagueScheduleTests(unittest.TestCase):
 
     def test_worker_count_uses_physical_core_estimate_and_hard_cap(self):
         abundant_memory = 64 * 1024**3
-        with patch("scripts.league.league_manager.os.cpu_count", return_value=8), patch(
+        with patch("scripts.league.league_worker_budget.os.cpu_count", return_value=8), patch(
             "scripts.league.league_manager.available_memory_bytes", return_value=abundant_memory,
         ):
             self.assertEqual(recommended_worker_count(20), 3)
             self.assertEqual(recommended_worker_count(20, reserve_for_ui=False), 4)
             self.assertEqual(recommended_worker_count(20, cpu_limit_percent=50), 2)
             self.assertEqual(recommended_worker_count(20, cpu_limit_percent=25), 1)
-        with patch("scripts.league.league_manager.os.cpu_count", return_value=64), patch(
+        with patch("scripts.league.league_worker_budget.os.cpu_count", return_value=64), patch(
             "scripts.league.league_manager.available_memory_bytes", return_value=abundant_memory,
         ):
             self.assertEqual(recommended_worker_count(100), 8)
@@ -46,7 +46,7 @@ class LeagueScheduleTests(unittest.TestCase):
 
     def test_worker_count_still_respects_task_and_memory_limits(self):
         two_worker_memory = 1536 * 1024**2 + 2 * 320 * 1024**2
-        with patch("scripts.league.league_manager.os.cpu_count", return_value=16), patch(
+        with patch("scripts.league.league_worker_budget.os.cpu_count", return_value=16), patch(
             "scripts.league.league_manager.available_memory_bytes", return_value=two_worker_memory,
         ):
             self.assertEqual(recommended_worker_count(20), 2)
@@ -125,6 +125,21 @@ class LeagueScheduleTests(unittest.TestCase):
         self.assertEqual(len(manager.last_results), 2)
         self.assertEqual({result["league"] for result in manager.last_results}, {"Aリーグ", "Bリーグ"})
 
+    def test_incomplete_headless_result_does_not_enter_standings(self):
+        manager = LeagueManager(discover_team_choices())
+        fixture = next(fixture for fixture in manager.fixtures if not fixture.get("played"))
+
+        manager.apply_headless_results([{
+            "fixture_id": fixture["id"],
+            "home_score": 9,
+            "away_score": 9,
+            "fulltime": False,
+            "finish_reason": "step_limit",
+        }])
+
+        self.assertFalse(fixture["played"])
+        self.assertEqual(manager.last_results, [])
+
     def test_multiple_json_saves_can_be_created_loaded_and_deleted(self):
         manager = LeagueManager(discover_team_choices())
         first = manager.create_new_save("テストリーグ")
@@ -139,6 +154,54 @@ class LeagueScheduleTests(unittest.TestCase):
         self.assertEqual(manager.day, 77)
         self.assertEqual(manager.delete_save(second.name), "")
         self.assertFalse(second.exists())
+
+    def test_new_save_keeps_participant_abilities_independent_from_teams_files(self):
+        source = discover_team_choices()
+        manager = LeagueManager(source)
+        save_path = manager.create_new_save("能力固定リーグ")
+        fixture = manager.fixtures[0]
+        team_id = str(fixture["home_id"])
+        original_power = manager.choices_by_id[team_id]["starters"][0]["raw"]["ShotPower"]
+
+        edited_source = deepcopy(source)
+        edited_team = next(choice for choice in edited_source if str(choice["id"]) == team_id)
+        edited_team["starters"][0]["raw"]["ShotPower"] = 0 if original_power else 5500
+        manager.refresh_teams(edited_source)
+
+        self.assertEqual(
+            manager.choices_by_id[team_id]["starters"][0]["raw"]["ShotPower"],
+            original_power,
+        )
+        saved = json.loads(save_path.read_text(encoding="utf-8"))
+        self.assertIn(team_id, saved["チームスナップショット"])
+
+        # Future player-mode growth/editing can change this save's runtime team
+        # without changing the initial value stored under teams/.
+        save_local_power = (int(original_power) + 777) % 5501
+        manager.choices_by_id[team_id]["starters"][0]["raw"]["ShotPower"] = save_local_power
+        manager.save()
+        saved = json.loads(save_path.read_text(encoding="utf-8"))
+        saved_choice = team_choice_from_snapshot(saved["チームスナップショット"][team_id])
+        self.assertEqual(saved_choice["starters"][0]["raw"]["ShotPower"], save_local_power)
+
+        reloaded = LeagueManager(edited_source, load_state=False)
+        self.assertEqual(reloaded.load_save(save_path.name), [])
+        self.assertEqual(
+            reloaded.choices_by_id[team_id]["starters"][0]["raw"]["ShotPower"],
+            save_local_power,
+        )
+
+    def test_snapshot_save_loads_even_if_participant_source_file_is_missing(self):
+        source = discover_team_choices()
+        manager = LeagueManager(source)
+        save_path = manager.create_new_save("削除耐性リーグ")
+        team_id = str(manager.fixtures[0]["home_id"])
+
+        without_team = [choice for choice in source if str(choice["id"]) != team_id]
+        reloaded = LeagueManager(without_team, load_state=False)
+
+        self.assertEqual(reloaded.load_save(save_path.name), [])
+        self.assertIn(team_id, reloaded.choices_by_id)
 
     def test_broken_and_missing_team_saves_report_errors(self):
         manager = LeagueManager(discover_team_choices())
@@ -167,6 +230,77 @@ class LeagueScheduleTests(unittest.TestCase):
         results = manager.results_for_year(league, 1)
         self.assertEqual(len(results), 1)
         self.assertEqual((results[0]["home_score"], results[0]["away_score"]), (2, 1))
+
+    def test_save_keeps_more_than_fifty_completed_years(self):
+        choices = discover_team_choices()
+        manager = LeagueManager(choices)
+        save_path = manager.create_new_save("長期履歴リーグ")
+        manager.history = [
+            {"year": year, "leagues": {}, "results": []}
+            for year in range(1, 76)
+        ]
+        manager.year = 76
+        manager.save()
+
+        reloaded = LeagueManager(choices, load_state=False)
+        self.assertEqual(reloaded.load_save(save_path.name), [])
+
+        self.assertEqual(len(reloaded.history), 75)
+        self.assertEqual(reloaded.history[0]["year"], 1)
+        self.assertEqual(reloaded.history[-1]["year"], 75)
+
+    def test_team_history_has_yearly_rank_and_team_scoped_results(self):
+        manager = LeagueManager(discover_team_choices())
+        league = "Aリーグ"
+        fixture = next(item for item in manager.fixtures if item["league"] == league)
+        home_id = str(fixture["home_id"])
+        away_id = str(fixture["away_id"])
+        manager.record_result(fixture, 3, 1, watched=False)
+        manager._start_next_year()
+
+        home_rank = manager.team_standings_for_year(home_id, 1)
+        home_results = manager.team_results_for_year(home_id, 1)
+        away_results = manager.team_results_for_year(away_id, 1)
+
+        self.assertEqual(len(home_rank), 1)
+        self.assertEqual(home_rank[0]["league"], league)
+        self.assertGreaterEqual(home_rank[0]["rank"], 1)
+        self.assertEqual(len(home_results), 1)
+        self.assertEqual(home_results[0]["team_side"], "home")
+        self.assertEqual(away_results[0]["team_side"], "away")
+        self.assertEqual(home_results[0]["home_id"], home_id)
+        self.assertEqual(home_results[0]["away_id"], away_id)
+        self.assertEqual(home_results[0]["year"], 1)
+
+    def test_version_two_history_results_remain_readable_by_team(self):
+        manager = LeagueManager(discover_team_choices())
+        league = "Aリーグ"
+        fixture = next(item for item in manager.fixtures if item["league"] == league)
+        team_id = str(fixture["home_id"])
+        team_name = str(fixture["home_name"])
+        standings = manager.standings(league)
+        legacy_result = {
+            "fixture_id": "legacy-1",
+            "league": league,
+            "round": 1,
+            "day": 14,
+            "home_name": team_name,
+            "away_name": str(fixture["away_name"]),
+            "home_score": 2,
+            "away_score": 0,
+        }
+        manager.history = [{
+            "year": 1,
+            "leagues": {league: {"standings": standings, "results": [legacy_result]}},
+            "promotion_playoffs": [],
+        }]
+        manager.year = 2
+
+        results = manager.team_results_for_year(team_id, 1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["fixture_id"], "legacy-1")
+        self.assertEqual(results[0]["team_side"], "home")
 
     def test_promotion_playoffs_are_created_on_second_saturday_of_december(self):
         source = discover_team_choices()

@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from scripts.match.entities import Player, Team
+from scripts.match.player import Player
+from scripts.match.team import Team
 from scripts.core.settings import clamp, player_stat
 
 

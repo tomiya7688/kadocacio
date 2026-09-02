@@ -33,7 +33,9 @@ from scripts.team.team_editor_data import (
     validate_payload,
 )
 from scripts.team.team_rating import category_average, rank_for_average, reload_rating_options
+from scripts.team.team_template_profile import generation_profiles, profile_label, rank_labels, target_for_rank
 from scripts.team.team_tuner import TeamTunerSession, auto_adjust_payload, payload_category_summary
+from scripts.team.uniform_editor import UniformEditor
 
 
 EDITOR_BG = (29, 38, 48)
@@ -68,14 +70,18 @@ class TeamEditor:
         self.template_scroll = 0
         self.stat_group = next(iter(STAT_GROUPS))
         self.target_mean = str(round(PLAYER_STAT_DEFAULT))
+        self.target_input_mode = "number"
+        self.target_rank = rank_for_average(float(self.target_mean))
         self.target_spread = "中"
         self.editor_options = load_editor_options()
+        self.target_profile_id = str(generation_profiles(self.editor_options)[0].get("id", "balanced"))
         self.tuner_options = load_tuner_options()
         self.tuner_opponents: set[str] = set()
         self.tuner_opponent_scroll = 0
         self.tuner_session: TeamTunerSession | None = None
         self.tuner_result_applied = False
         self.tuner_adjust_scope = "player"
+        self.uniform_editor = UniformEditor()
         self.message = ""
         self.message_color = MUTED
         self.dirty = False
@@ -91,6 +97,13 @@ class TeamEditor:
         self.held_number_step: tuple[dict | None, str, str, int] | None = None
         self.number_hold_elapsed = 0.0
         self.number_hold_repeat = 0.0
+        self.multiline_cursor = 0
+        self.multiline_preferred_x: int | None = None
+        self.multiline_view_start = 0
+        self.multiline_layout_width = 700
+        self.held_text_delete: int | None = None
+        self.text_delete_hold_elapsed = 0.0
+        self.text_delete_hold_repeat = 0.0
         self.rng = random.Random()
 
     @property
@@ -117,6 +130,10 @@ class TeamEditor:
             "FORMATION": "フォーメーション", "TUNER": "チューナー", "ERRORS": "エラー",
         }
         present = {item[0] for item in values}
+        if "INTRO" not in present:
+            team_index = next((index for index, item in enumerate(values) if item[0] == "TEAM"), -1)
+            values.insert(team_index + 1, ("INTRO", "チーム紹介"))
+            present.add("INTRO")
         values.extend((key, label) for key, label in required.items() if key not in present)
         return tuple(values)
 
@@ -198,6 +215,9 @@ class TeamEditor:
         self.editor_options = load_editor_options()
         self.tuner_options = load_tuner_options()
         reload_rating_options()
+        profile_ids = {str(entry.get("id")) for entry in generation_profiles(self.editor_options)}
+        if self.target_profile_id not in profile_ids:
+            self.target_profile_id = str(generation_profiles(self.editor_options)[0].get("id", "balanced"))
         if self.stat_group not in self.stat_groups:
             self.stat_group = next(iter(self.stat_groups), "")
         self.mode = "LIST"
@@ -211,6 +231,7 @@ class TeamEditor:
 
     def update(self, dt: float) -> None:
         self._update_number_hold(dt)
+        self._update_text_delete_hold(dt)
         session = self.tuner_session
         if session is None or session.finished:
             if session is not None and session.finished and not self.tuner_result_applied:
@@ -237,6 +258,7 @@ class TeamEditor:
         self.held_number_step = None
         self.number_hold_elapsed = 0.0
         self.number_hold_repeat = 0.0
+        self._stop_text_delete_hold()
         pygame.key.stop_text_input()
 
     def refresh_files(self) -> None:
@@ -337,6 +359,215 @@ class TeamEditor:
             value += self.ime_composition + "｜"
         self._text_fit(value, 13, INK, input_rect)
         self.input_fields.append((input_rect, target, key, kind))
+
+    def _multiline_layout(self, value: object, width: int, *, size: int = 14) -> list[tuple[str, int, int]]:
+        """Return visual lines with their start/end offsets in the source text."""
+        font = self.game.font(size)
+        text = str(value).replace("\r", "")
+        lines: list[tuple[str, int, int]] = []
+        current = ""
+        line_start = 0
+        for index, character in enumerate(text):
+            if character == "\n":
+                lines.append((current, line_start, index))
+                current = ""
+                line_start = index + 1
+                continue
+            candidate = current + character
+            if current and font.size(candidate)[0] > max(1, width):
+                lines.append((current, line_start, index))
+                current = character
+                line_start = index
+            else:
+                current = candidate
+        lines.append((current, line_start, len(text)))
+        return lines
+
+    def _wrap_multiline(self, value: object, width: int, *, size: int = 14) -> list[str]:
+        return [line for line, _, _ in self._multiline_layout(value, width, size=size)]
+
+    @staticmethod
+    def _multiline_line_index(lines: list[tuple[str, int, int]], cursor: int) -> int:
+        for index, (_, start, end) in enumerate(lines):
+            if start <= cursor <= end:
+                # A soft-wrap boundary belongs to the beginning of the next
+                # visual line, while an explicit newline stays on this line.
+                if cursor == end and index + 1 < len(lines) and lines[index + 1][1] == cursor:
+                    continue
+                return index
+        return max(0, len(lines) - 1)
+
+    def _multiline_cursor_for_x(self, line: tuple[str, int, int], x: int, *, size: int = 14) -> int:
+        text, start, _ = line
+        font = self.game.font(size)
+        offset = min(
+            range(len(text) + 1),
+            key=lambda candidate: abs(font.size(text[:candidate])[0] - max(0, x)),
+        )
+        return start + offset
+
+    def _move_multiline_cursor(self, key: int, *, control: bool = False) -> None:
+        if self.active_input is None or self.active_input[2] != "multiline":
+            return
+        target, field, _ = self.active_input
+        value = str(target.get(field, ""))
+        self.multiline_cursor = max(0, min(len(value), self.multiline_cursor))
+        lines = self._multiline_layout(value, self.multiline_layout_width)
+        line_index = self._multiline_line_index(lines, self.multiline_cursor)
+        line_text, line_start, line_end = lines[line_index]
+        if key == pygame.K_LEFT:
+            self.multiline_cursor = max(0, self.multiline_cursor - 1)
+            self.multiline_preferred_x = None
+        elif key == pygame.K_RIGHT:
+            self.multiline_cursor = min(len(value), self.multiline_cursor + 1)
+            self.multiline_preferred_x = None
+        elif key == pygame.K_HOME:
+            self.multiline_cursor = 0 if control else line_start
+            self.multiline_preferred_x = None
+        elif key == pygame.K_END:
+            self.multiline_cursor = len(value) if control else line_end
+            self.multiline_preferred_x = None
+        elif key in (pygame.K_UP, pygame.K_DOWN):
+            target_line_index = max(0, min(len(lines) - 1, line_index + (-1 if key == pygame.K_UP else 1)))
+            if target_line_index == line_index:
+                return
+            font = self.game.font(14)
+            if self.multiline_preferred_x is None:
+                offset = max(0, min(len(line_text), self.multiline_cursor - line_start))
+                self.multiline_preferred_x = font.size(line_text[:offset])[0]
+            self.multiline_cursor = self._multiline_cursor_for_x(
+                lines[target_line_index], self.multiline_preferred_x,
+            )
+        self.input_replace_pending = False
+
+    def _place_multiline_cursor(self, rect: pygame.Rect, target: dict, key: str, mouse_pos: tuple[int, int]) -> None:
+        value = str(target.get(key, ""))
+        self.multiline_layout_width = rect.width - 28
+        lines = self._multiline_layout(value, self.multiline_layout_width)
+        max_lines = max(1, (rect.height - 24) // 24)
+        maximum_start = max(0, len(lines) - max_lines)
+        self.multiline_view_start = max(0, min(maximum_start, self.multiline_view_start))
+        clicked_row = max(0, (mouse_pos[1] - (rect.top + 12)) // 24)
+        line_index = max(0, min(len(lines) - 1, self.multiline_view_start + clicked_row))
+        self.multiline_cursor = self._multiline_cursor_for_x(
+            lines[line_index], mouse_pos[0] - (rect.left + 14),
+        )
+        self.multiline_preferred_x = None
+
+    def _insert_multiline_text(self, text: str) -> None:
+        if self.active_input is None or self.active_input[2] != "multiline":
+            return
+        target, key, _ = self.active_input
+        value = str(target.get(key, ""))
+        cursor = max(0, min(len(value), self.multiline_cursor))
+        insertion = text.replace("\r\n", "\n").replace("\r", "\n")[:max(0, 4000 - len(value))]
+        if not insertion:
+            return
+        target[key] = value[:cursor] + insertion + value[cursor:]
+        self.multiline_cursor = cursor + len(insertion)
+        self.multiline_preferred_x = None
+        self.input_replace_pending = False
+        self._mark_dirty()
+
+    def _delete_multiline_character(self, *, backward: bool) -> bool:
+        if self.active_input is None or self.active_input[2] != "multiline":
+            return False
+        target, key, _ = self.active_input
+        value = str(target.get(key, ""))
+        cursor = max(0, min(len(value), self.multiline_cursor))
+        if backward:
+            if cursor <= 0:
+                return False
+            target[key] = value[:cursor - 1] + value[cursor:]
+            self.multiline_cursor = cursor - 1
+        else:
+            if cursor >= len(value):
+                return False
+            target[key] = value[:cursor] + value[cursor + 1:]
+            self.multiline_cursor = cursor
+        self.multiline_preferred_x = None
+        self.input_replace_pending = False
+        self._mark_dirty()
+        return True
+
+    def _start_text_delete_hold(self, key: int) -> None:
+        if self.held_text_delete == key:
+            return
+        self._stop_text_delete_hold()
+        self.held_text_delete = key
+        self._delete_multiline_character(backward=key == pygame.K_BACKSPACE)
+
+    def _stop_text_delete_hold(self) -> None:
+        self.held_text_delete = None
+        self.text_delete_hold_elapsed = 0.0
+        self.text_delete_hold_repeat = 0.0
+
+    def _update_text_delete_hold(self, dt: float) -> None:
+        if self.held_text_delete is None:
+            return
+        if self.active_input is None or self.active_input[2] != "multiline" or self.ime_composition:
+            self._stop_text_delete_hold()
+            return
+        previous = self.text_delete_hold_elapsed
+        self.text_delete_hold_elapsed += max(0.0, dt)
+        initial_delay = 0.38
+        if self.text_delete_hold_elapsed < initial_delay:
+            return
+        self.text_delete_hold_repeat += (
+            dt if previous >= initial_delay else self.text_delete_hold_elapsed - initial_delay
+        )
+        interval = 0.055 if self.text_delete_hold_elapsed < 1.6 else 0.030
+        repeats = 0
+        while self.text_delete_hold_repeat >= interval and repeats < 24:
+            self.text_delete_hold_repeat -= interval
+            if not self._delete_multiline_character(backward=self.held_text_delete == pygame.K_BACKSPACE):
+                self._stop_text_delete_hold()
+                break
+            repeats += 1
+
+    def _draw_multiline_input(
+        self,
+        rect: pygame.Rect,
+        target: dict,
+        key: str,
+        *,
+        label: str,
+    ) -> None:
+        active = self.active_input is not None and self.active_input[0] is target and self.active_input[1] == key
+        pygame.draw.rect(self.game.screen, FIELD_ACTIVE if active else FIELD_BG, rect, border_radius=7)
+        pygame.draw.rect(self.game.screen, GOLD if active else (188, 185, 173), rect, 2, border_radius=7)
+        self.game.text(label, 12, MUTED, (rect.left, rect.top - 23), bold=True)
+        value = str(target.get(key, ""))
+        self.multiline_layout_width = rect.width - 28
+        cursor = max(0, min(len(value), self.multiline_cursor)) if active else 0
+        composition = self.ime_composition if active else ""
+        display_value = value[:cursor] + composition + value[cursor:] if active else value
+        display_cursor = cursor + len(composition)
+        lines = self._multiline_layout(display_value, self.multiline_layout_width)
+        max_lines = max(1, (rect.height - 24) // 24)
+        if active:
+            cursor_line = self._multiline_line_index(lines, display_cursor)
+            if cursor_line < self.multiline_view_start:
+                self.multiline_view_start = cursor_line
+            elif cursor_line >= self.multiline_view_start + max_lines:
+                self.multiline_view_start = cursor_line - max_lines + 1
+            self.multiline_view_start = max(0, min(max(0, len(lines) - max_lines), self.multiline_view_start))
+        else:
+            self.multiline_view_start = 0
+        shown = lines[self.multiline_view_start:self.multiline_view_start + max_lines]
+        for index, (line, _, _) in enumerate(shown):
+            self.game.text(line, 14, INK, (rect.left + 14, rect.top + 12 + index * 24))
+        if active and pygame.time.get_ticks() % 1000 < 650:
+            cursor_line = self._multiline_line_index(lines, display_cursor)
+            if self.multiline_view_start <= cursor_line < self.multiline_view_start + max_lines:
+                line_text, line_start, _ = lines[cursor_line]
+                offset = max(0, min(len(line_text), display_cursor - line_start))
+                caret_x = rect.left + 14 + self.game.font(14).size(line_text[:offset])[0]
+                caret_y = rect.top + 11 + (cursor_line - self.multiline_view_start) * 24
+                pygame.draw.line(self.game.screen, INK, (caret_x, caret_y), (caret_x, caret_y + 19), 2)
+        if not value and not active:
+            self.game.text("チームの歴史・地域・特色などを自由に入力できます", 13, MUTED, (rect.left + 14, rect.top + 13))
+        self.input_fields.append((rect, target, key, "multiline"))
 
     def _numeric_bounds(self, key: str, kind: str) -> tuple[int, int]:
         if kind == "editor_target":
@@ -494,24 +725,48 @@ class TeamEditor:
         pygame.draw.rect(self.game.screen, (236, 232, 216), target_card, border_radius=8)
         pygame.draw.rect(self.game.screen, (190, 187, 175), target_card, 2, border_radius=8)
         self.game.text("基準値テンプレート", 16, INK, (target_card.left + 16, target_card.top + 14), bold=True)
+        mode_label = "ランク入力" if self.target_input_mode == "rank" else "数値入力"
+        self._draw_button(
+            pygame.Rect(target_card.right - 108, target_card.top + 9, 92, 27),
+            mode_label, "target_mode", small=True, active=self.target_input_mode == "rank",
+        )
         self.game.text("全能力の平均目標", 11, MUTED, (target_card.left + 16, target_card.top + 52))
-        holder = {"target": self.target_mean}
-        # The temporary holder is synchronized in input handling through a special action.
         target_rect = pygame.Rect(target_card.left + 190, target_card.top + 43, 122, 34)
         target_up = pygame.Rect(target_rect.right + 3, target_rect.top, 25, 16)
         target_down = pygame.Rect(target_rect.right + 3, target_rect.top + 18, 25, 16)
-        active = self.active_input is not None and self.active_input[2] == "editor_target"
+        rank_mode = self.target_input_mode == "rank"
+        active = not rank_mode and self.active_input is not None and self.active_input[2] == "editor_target"
         pygame.draw.rect(self.game.screen, FIELD_ACTIVE if active else FIELD_BG, target_rect, border_radius=5)
         pygame.draw.rect(self.game.screen, GOLD if active else (188, 185, 173), target_rect, 2, border_radius=5)
-        self._text_fit(self.target_mean + ("｜" if active else ""), 13, INK, target_rect)
-        self._register_button(target_rect, "target_input")
-        self._draw_button(target_up, "^", "number_step", (None, "target_mean", "editor_target", 1), small=True)
-        self._draw_button(target_down, "v", "number_step", (None, "target_mean", "editor_target", -1), small=True)
+        target_display = self.target_rank if rank_mode else self.target_mean + ("｜" if active else "")
+        self._text_fit(target_display, 13, INK, target_rect, center=rank_mode, bold=rank_mode)
+        if rank_mode:
+            self._draw_button(target_up, "^", "target_rank_step", -1, small=True)
+            self._draw_button(target_down, "v", "target_rank_step", 1, small=True)
+        else:
+            self._register_button(target_rect, "target_input")
+            self._draw_button(target_up, "^", "number_step", (None, "target_mean", "editor_target", 1), small=True)
+            self._draw_button(target_down, "v", "number_step", (None, "target_mean", "editor_target", -1), small=True)
         self.game.text("誤差", 11, MUTED, (target_card.left + 16, target_card.top + 98))
         spread_rect = pygame.Rect(target_card.left + 190, target_card.top + 88, 150, 34)
         self._draw_button(spread_rect, f"{self.target_spread}（クリックで変更）", "spread", small=True)
-        create_rect = pygame.Rect(target_card.left + 42, target_card.top + 154, target_card.width - 84, 52)
-        self._draw_button(create_rect, "この基準値で作成", "create_target", active=True)
+        self.game.text("チーム補正", 11, MUTED, (target_card.left + 16, target_card.top + 142))
+        profile_rect = pygame.Rect(target_card.left + 190, target_card.top + 132, 150, 34)
+        self._draw_button(
+            profile_rect, f"{profile_label(self.editor_options, self.target_profile_id)}（変更）",
+            "generation_profile", small=True,
+        )
+        available_profiles = generation_profiles(self.editor_options)
+        selected_profile = next(
+            (entry for entry in available_profiles if str(entry.get("id")) == self.target_profile_id),
+            available_profiles[0],
+        )
+        self._text_fit(
+            str(selected_profile.get("description", "")), 8, MUTED,
+            pygame.Rect(target_card.left + 16, target_card.top + 169, target_card.width - 32, 16), center=True,
+        )
+        create_rect = pygame.Rect(target_card.left + 42, target_card.top + 190, target_card.width - 84, 38)
+        self._draw_button(create_rect, "この条件で作成", "create_target", active=True)
 
     def _draw_edit(self) -> None:
         back = pygame.Rect(18, 68, 92, 34)
@@ -535,6 +790,10 @@ class TeamEditor:
         pygame.draw.rect(self.game.screen, (190, 187, 175), content, 2, border_radius=10)
         if self.tab == "TEAM":
             self._draw_team_fields(content)
+        elif self.tab == "INTRO":
+            self._draw_team_description(content)
+        elif self.tab == "UNIFORM":
+            self.uniform_editor.draw(self, content)
         elif self.tab in ("PLAYER", "SKILLS"):
             self._draw_player_sidebar(content)
             if self.tab == "PLAYER":
@@ -596,6 +855,21 @@ class TeamEditor:
         self._draw_button(
             pygame.Rect(content.right - 184, content.top + 24, 82, 36),
             "色を選ぶ", "color_open", small=True,
+        )
+
+    def _draw_team_description(self, content: pygame.Rect) -> None:
+        info = self.payload.setdefault("チーム情報", {})
+        info.setdefault("チーム紹介", "")
+        self.game.text("チーム紹介", 20, INK, (content.left + 24, content.top + 18), bold=True)
+        self.game.text(
+            "リーグ画面の詳細に表示。矢印・Home/End・クリックで移動、Backspace/Delete長押し対応。Ctrl+Enterで閉じます。",
+            11, MUTED, (content.left + 24, content.top + 52),
+        )
+        self._draw_multiline_input(
+            pygame.Rect(content.left + 28, content.top + 104, content.width - 56, content.height - 142),
+            info,
+            "チーム紹介",
+            label="紹介文",
         )
 
     def _draw_color_picker(self) -> None:
@@ -994,6 +1268,14 @@ class TeamEditor:
             self.game.text("マウスホイールで続きを表示", 10, MUTED, (content.centerx, content.bottom - 20), center=True)
 
     def handle_event(self, event: pygame.event.Event, mouse_pos: tuple[int, int] | None = None) -> None:
+        if event.type == pygame.WINDOWFOCUSLOST:
+            self.held_number_step = None
+            self._stop_text_delete_hold()
+            return
+        if event.type == pygame.KEYUP and event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+            if self.held_text_delete == event.key:
+                self._stop_text_delete_hold()
+            return
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.held_number_step = None
             self.number_hold_elapsed = 0.0
@@ -1014,6 +1296,7 @@ class TeamEditor:
                 if self.active_input is not None:
                     self.active_input = None
                     self.ime_composition = ""
+                    self._stop_text_delete_hold()
                 elif self.mode == "EDIT":
                     self._back_to_list()
                 else:
@@ -1026,10 +1309,17 @@ class TeamEditor:
                 else:
                     target[key] = ""
                     self._mark_dirty()
+                    if kind == "multiline":
+                        self.multiline_cursor = 0
+                        self.multiline_preferred_x = None
                 self.input_replace_pending = False
                 return
             if event.key == pygame.K_BACKSPACE and self.active_input is not None:
                 target, key, kind = self.active_input
+                if kind == "multiline":
+                    if not self.ime_composition:
+                        self._start_text_delete_hold(event.key)
+                    return
                 if kind == "editor_target":
                     self.target_mean = self.target_mean[:-1]
                 else:
@@ -1037,12 +1327,35 @@ class TeamEditor:
                     self._mark_dirty()
                 self.input_replace_pending = False
                 return
+            if event.key == pygame.K_DELETE and self.active_input is not None:
+                if self.active_input[2] == "multiline":
+                    if not self.ime_composition:
+                        self._start_text_delete_hold(event.key)
+                    return
+            if (
+                event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN, pygame.K_HOME, pygame.K_END)
+                and self.active_input is not None
+                and self.active_input[2] == "multiline"
+            ):
+                if not self.ime_composition:
+                    self._move_multiline_cursor(event.key, control=bool(event.mod & pygame.KMOD_CTRL))
+                return
             if event.key in (pygame.K_UP, pygame.K_DOWN) and self.active_input is not None:
                 target, key, kind = self.active_input
                 if kind in ("number", "editor_target"):
                     self._step_numeric(target if kind == "number" else None, key, kind, 1 if event.key == pygame.K_UP else -1)
                     return
             if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_TAB):
+                if (
+                    event.key in (pygame.K_RETURN, pygame.K_KP_ENTER)
+                    and self.active_input is not None
+                    and self.active_input[2] == "multiline"
+                    and not event.mod & pygame.KMOD_CTRL
+                ):
+                    if not self.ime_composition:
+                        self._insert_multiline_text("\n")
+                    return
+                self._stop_text_delete_hold()
                 self.active_input = None
                 return
         if event.type == pygame.MOUSEWHEEL:
@@ -1061,6 +1374,7 @@ class TeamEditor:
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1 or mouse_pos is None:
             return
         self.held_number_step = None
+        self._stop_text_delete_hold()
         if self.color_picker_open:
             for rect, action, data in reversed(self.buttons):
                 if rect.collidepoint(mouse_pos):
@@ -1068,9 +1382,14 @@ class TeamEditor:
                     return
         for rect, target, key, kind in reversed(self.input_fields):
             if rect.collidepoint(mouse_pos):
+                was_active = self.active_input is not None and self.active_input[0] is target and self.active_input[1] == key
                 self.active_input = (target, key, kind)
-                self.input_replace_pending = True
+                self.input_replace_pending = kind != "multiline"
                 self.ime_composition = ""
+                if kind == "multiline":
+                    if not was_active:
+                        self.multiline_view_start = 0
+                    self._place_multiline_cursor(rect, target, key, mouse_pos)
                 return
         self.active_input = None
         self.ime_composition = ""
@@ -1086,6 +1405,10 @@ class TeamEditor:
         target, key, kind = self.active_input
         if kind in ("number", "editor_target"):
             text = "".join(character for character in text if character.isdigit())
+        elif kind == "multiline":
+            self._stop_text_delete_hold()
+            self._insert_multiline_text(text)
+            return
         else:
             text = text.replace("\r", "").replace("\n", "")
         if not text:
@@ -1099,10 +1422,13 @@ class TeamEditor:
         if kind == "editor_target":
             self.target_mean = (self.target_mean + text)[:4]
         else:
-            target[key] = (str(target.get(key, "")) + text)[:80]
+            limit = 4000 if kind == "multiline" else 80
+            target[key] = (str(target.get(key, "")) + text)[:limit]
             self._mark_dirty()
 
     def _perform(self, action: str, data: Any) -> None:
+        if action.startswith("uniform_") and self.uniform_editor.perform(self, action, data):
+            return
         if action == "color_open":
             self.color_picker_open = True
             self.active_input = None
@@ -1180,7 +1506,8 @@ class TeamEditor:
             except ValueError:
                 target = round(PLAYER_STAT_DEFAULT)
             self.payload = create_team_template(
-                mode, target=target, spread=self.target_spread, rng=self.rng, options=self.editor_options,
+                mode, target=target, spread=self.target_spread, rng=self.rng,
+                options=self.editor_options, profile_id=self.target_profile_id,
             )
             self.source_path = None
             self.folder_settings["フォルダ"] = ""
@@ -1192,8 +1519,35 @@ class TeamEditor:
             self._reset_tuner_selection()
             self._set_message("新規チームを作成しました。名前を変更して途中保存できます")
         elif action == "target_input":
+            if self.target_input_mode == "rank":
+                return
             self.active_input = ({}, "target", "editor_target")
             self.input_replace_pending = True
+        elif action == "target_mode":
+            if self.target_input_mode == "number":
+                try:
+                    numeric_target = float(self.target_mean)
+                except ValueError:
+                    numeric_target = PLAYER_STAT_DEFAULT
+                self.target_rank = rank_for_average(numeric_target)
+                self.target_mean = str(target_for_rank(self.target_rank))
+                self.target_input_mode = "rank"
+                self.active_input = None
+            else:
+                self.target_input_mode = "number"
+        elif action == "target_rank_step":
+            labels = rank_labels()
+            if self.target_rank not in labels:
+                self.target_rank = rank_for_average(float(self.target_mean or PLAYER_STAT_DEFAULT))
+            index = (labels.index(self.target_rank) + int(data)) % len(labels)
+            self.target_rank = labels[index]
+            self.target_mean = str(target_for_rank(self.target_rank))
+            self.active_input = None
+        elif action == "generation_profile":
+            profiles = generation_profiles(self.editor_options)
+            ids = tuple(str(entry.get("id")) for entry in profiles)
+            index = ids.index(self.target_profile_id) if self.target_profile_id in ids else 0
+            self.target_profile_id = ids[(index + 1) % len(ids)]
         elif action == "number_step":
             target, key, kind, delta = data
             self._step_numeric(target, key, kind, int(delta))

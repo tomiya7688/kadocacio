@@ -26,11 +26,14 @@ from scripts.core.stat_scale import (
 )
 from scripts.team.team_data import PLAYER_KEY_ALIASES
 from scripts.team.team_editor_config import load_editor_options
+from scripts.team.team_template_profile import generation_field_targets, profile_label
+from scripts.team.uniform_data import default_uniform, normalize_uniform, validate_uniform
 
 
 TEAM_DEFAULTS = {
     "チーム名": "新規チーム",
     "チームの略称": "NEW",
+    "チーム紹介": "",
     "監督名": "",
     "戦術変更への積極性": str(MANAGER_ACTIVITY_DEFAULT),
     "選手交代への積極性": str(MANAGER_ACTIVITY_DEFAULT),
@@ -43,7 +46,9 @@ TEAM_DEFAULTS = {
     "ホームコート": "新規チームホーム",
 }
 
-TEAM_FIELDS = tuple(TEAM_DEFAULTS)
+# A description is intentionally optional so old/custom teams remain valid.
+# New templates and automatic repair still add the canonical Japanese key.
+TEAM_FIELDS = tuple(key for key in TEAM_DEFAULTS if key != "チーム紹介")
 
 IDENTITY_FIELDS = (
     "選手ID",
@@ -204,6 +209,14 @@ def normalize_editor_payload(payload: object) -> dict:
     normalized = deepcopy(payload)
     info = normalized.get("チーム情報")
     normalized["チーム情報"] = info if isinstance(info, dict) else {}
+    info = normalized["チーム情報"]
+    if "ユニフォーム" in info:
+        info["ユニフォーム"] = normalize_uniform(info.get("ユニフォーム"))
+    if "チーム紹介" not in info:
+        for alias in ("チーム説明", "description", "teamDescription"):
+            if alias in info:
+                info["チーム紹介"] = str(info.get(alias, ""))
+                break
     players = normalized.get("選手一覧")
     normalized["選手一覧"] = [
         _canonicalize_player(player) for player in players
@@ -272,6 +285,11 @@ def validate_payload(payload: object) -> list[EditorIssue]:
         issues.append(EditorIssue("チーム情報.戦術", "7種類の戦術から選んでください"))
     if "チームカラー" in info and not _valid_hex_color(info.get("チームカラー")):
         issues.append(EditorIssue("チーム情報.チームカラー", "#RRGGBB形式が必要です"))
+    if "ユニフォーム" in info:
+        issues.extend(
+            EditorIssue(f"チーム情報.ユニフォーム.{message.split('は', 1)[0]}", message)
+            for message in validate_uniform(info.get("ユニフォーム"))
+        )
     near = _number(info.get("ゾーン手前"))
     far = _number(info.get("ゾーン奥"))
     if "ゾーン手前" in info and (near is None or not 1 <= near <= 10):
@@ -388,13 +406,14 @@ def _default_player(
     target: int = round(PLAYER_STAT_DEFAULT),
     spread: str = "中",
     player_types: tuple[str, ...] = PLAYER_TYPES,
+    field_targets: dict[str, int] | None = None,
 ) -> dict:
-    if mode == "initial":
-        stat_value = lambda: PLAYER_STAT_INITIAL
-    elif mode == "target":
-        stat_value = lambda: _random_stat(rng, target, spread)
-    else:
-        stat_value = lambda: _random_stat(rng, None, spread)
+    def stat_value(key: str) -> int:
+        if mode == "initial":
+            return PLAYER_STAT_INITIAL
+        if mode == "target":
+            return _random_stat(rng, (field_targets or {}).get(key, target), spread)
+        return _random_stat(rng, None, spread)
     player = {
         "選手ID": str(index),
         "名前": f"選手{index}",
@@ -409,7 +428,7 @@ def _default_player(
         "戦術への忠実さ": str(rng.randint(0, 100) if mode == "random" else 50),
     }
     for key in STAT_FIELDS:
-        player[key] = str(stat_value())
+        player[key] = str(stat_value(key))
     return player
 
 
@@ -420,6 +439,7 @@ def create_team_template(
     spread: str = "中",
     rng: random.Random | None = None,
     options: dict | None = None,
+    profile_id: str = "balanced",
 ) -> dict:
     rng = rng or random.Random()
     options = options or _EDITOR_OPTIONS
@@ -429,14 +449,19 @@ def create_team_template(
     team_defaults = deepcopy(options.get("team_defaults", TEAM_DEFAULTS))
     formations = options.get("formation_templates", FORMATION_TEMPLATES)
     target = round(max(PLAYER_STAT_MIN, min(PLAYER_STAT_MAX, int(target))))
+    field_targets = generation_field_targets(target, profile_id, options, STAT_FIELDS)
     payload = {
         "選手一覧": [
-            _default_player(index, rng, mode=mode, target=target, spread=spread, player_types=player_types)
+            _default_player(
+                index, rng, mode=mode, target=target, spread=spread,
+                player_types=player_types, field_targets=field_targets,
+            )
             for index in range(1, 12)
         ],
         "チーム情報": team_defaults,
         STAT_SCALE_METADATA_KEY: current_scale_metadata(),
     }
+    payload["チーム情報"]["ユニフォーム"] = default_uniform()
     if mode == "target":
         # Clamping near the configured bounds would otherwise bias the average away from the
         # requested value.  Shift the generated population back toward the goal
@@ -463,7 +488,7 @@ def create_team_template(
         payload["チーム情報"]["選手交代への積極性"] = str(rng.randint(round(PLAYER_STAT_MIN), round(PLAYER_STAT_MAX)))
         payload["チーム情報"]["インテリジェンス"] = str(rng.randint(round(PLAYER_STAT_MIN), round(PLAYER_STAT_MAX)))
     elif mode == "target":
-        payload["チーム情報"]["チーム名"] = f"基準{target}チーム"
+        payload["チーム情報"]["チーム名"] = f"基準{target}{profile_label(options, profile_id)}チーム"
         payload["チーム情報"]["チームの略称"] = "BASE"
     apply_formation(payload, "4-4-2", formations)
     return payload
@@ -542,6 +567,7 @@ def repair_payload(payload: object, rng: random.Random | None = None) -> dict:
     for key, default in TEAM_DEFAULTS.items():
         if key not in info or (key == "チーム名" and not str(info.get(key, "")).strip()):
             info[key] = default
+    info["ユニフォーム"] = normalize_uniform(info.get("ユニフォーム"))
     if str(info.get("戦術")) not in TACTIC_NAMES:
         info["戦術"] = rng.choice(tuple(TACTIC_NAMES))
     if not _valid_hex_color(info.get("チームカラー")):

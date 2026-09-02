@@ -3,9 +3,10 @@ from __future__ import annotations
 import math
 import random
 from collections import deque
-from dataclasses import dataclass
 
-from scripts.match.entities import Ball, Player, Team
+from scripts.match.ball import Ball
+from scripts.match.player import Player
+from scripts.match.team import Team
 from scripts.match.intelligence_system import (
     blended_judgment,
     choose_utility_action,
@@ -30,6 +31,8 @@ from scripts.match.manager_system import (
     substitution_fatigue_threshold,
     tactic_target as manager_tactic_target,
 )
+from scripts.match.pass_route import PassRoute
+from scripts.match.pending_kick import PendingKick
 from scripts.match.player_commands import PlayerCommand, dribble_movement_speed, movement_speed
 from scripts.match.physical_system import (
     choose_card,
@@ -172,26 +175,6 @@ def offside_position_active(
     if team_direction == 1:
         return attacker_x > offside_line and attacker_x > passer_x
     return attacker_x < offside_line and attacker_x < passer_x
-
-
-@dataclass
-class PendingKick:
-    player: Player
-    command: PlayerCommand
-    target_player: Player | None = None
-    set_piece_skill: float = 0.0
-    target_point: Vec2 | None = None
-
-
-@dataclass
-class PassRoute:
-    destination: Vec2
-    flight_time: float
-    interception_risk: float
-    receiver_margin: float
-    touchline_margin: float
-    lane_clearance: float
-    opponent_clearance: float
 
 
 class Match:
@@ -349,6 +332,7 @@ class Match:
             zone_far=choice.get("zone_far", 7),
             tactical_discipline=choice.get("tactical_discipline", 0.5),
             home_court=choice.get("home_court", ""),
+            uniform_data=choice.get("uniform_data"),
         )
 
     def start_new(self) -> None:
@@ -4851,7 +4835,11 @@ class Match:
         approach = Vec2(-attacking.direction * approach_distance, 0)
         if restart_type == "CORNER_KICK":
             approach.y = 12 if spot.y <= FIELD.top else -12
-        self.restart_approach.update(spot + approach)
+        reachable_approach = spot + approach
+        self.restart_approach.update(
+            clamp(reachable_approach.x, FIELD.left + 6, FIELD.right - 6),
+            clamp(reachable_approach.y, FIELD.top + 6, FIELD.bottom - 6),
+        )
         self.set_piece_targets[taker] = Vec2(self.restart_approach)
 
         if restart_type == "FREE_KICK":

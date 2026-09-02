@@ -6,5 +6,9 @@ __pycache__/
 # Runtime-generated league save data
 league_save/
 
+# Runtime-generated unattended evaluation logs
+development_evaluation/
+development_reseed_backup/
+
 # Reference teams explicitly excluded from the public repository
 teams/カルチョビット/

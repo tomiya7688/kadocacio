@@ -238,7 +238,7 @@ class LeagueRendererMixin:
             pygame.draw.rect(self.screen, GOLD, panel, 4, border_radius=14)
             self.text("リーグ戦を実試合シミュレーション中", 20, INK, (panel.centerx, panel.top + 42), bold=True, center=True)
             self.text(
-                f"通常と同じ選手AI・ボール・反則処理　{session.completed}/{session.total}試合完了",
+                f"通常と同じ選手AI・ボール・反則処理　{session.display_completed}/{session.total}試合完了",
                 12, MUTED, (panel.centerx, panel.top + 82), center=True,
             )
             bar = pygame.Rect(panel.left + 54, panel.top + 116, panel.width - 108, 22)
@@ -257,6 +257,65 @@ class LeagueRendererMixin:
                 )
         if getattr(self, "league_auto_config_open", False):
             self._draw_league_auto_config()
+        if getattr(self, "league_team_detail_id", ""):
+            self._draw_league_team_detail()
+
+    def _wrap_league_text(self, value: object, width: int, *, size: int = 14) -> list[str]:
+        font = self.font(size)
+        lines: list[str] = []
+        for paragraph in str(value).replace("\r", "").split("\n"):
+            if not paragraph:
+                lines.append("")
+                continue
+            current = ""
+            for character in paragraph:
+                candidate = current + character
+                if current and font.size(candidate)[0] > width:
+                    lines.append(current)
+                    current = character
+                else:
+                    current = candidate
+            lines.append(current)
+        return lines or [""]
+
+    def _draw_league_team_detail(self) -> None:
+        team_id = str(getattr(self, "league_team_detail_id", ""))
+        team = self.league_manager.choices_by_id.get(team_id)
+        if team is None:
+            self.league_team_detail_id = ""
+            return
+        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        shade.fill((8, 14, 22, 215))
+        self.screen.blit(shade, (0, 0))
+        self.league_buttons.append((pygame.Rect(0, 0, WIDTH, HEIGHT), "team_detail_close"))
+        card = pygame.Rect(170, 74, WIDTH - 340, HEIGHT - 148)
+        pygame.draw.rect(self.screen, (247, 245, 236), card, border_radius=18)
+        pygame.draw.rect(self.screen, tuple(team.get("primary", GOLD)), card, 4, border_radius=18)
+        self.text("TEAM PROFILE", 10, MUTED, (card.left + 30, card.top + 22), bold=True)
+        self.text(str(team.get("name", team_id)), 26, INK, (card.left + 30, card.top + 42), bold=True)
+        short = str(team.get("short", ""))
+        if short:
+            self.text(short, 15, HOME_RED, (card.right - 122, card.top + 50), bold=True, center=True)
+        self._league_button(
+            pygame.Rect(card.right - 94, card.top + 18, 66, 34),
+            "閉じる", "team_detail_close", small=True,
+        )
+        leagues = self.league_manager.league_participations.get(team_id, [])
+        details = (
+            f"監督 {team.get('manager') or '未設定'}　/　戦術 {team.get('tactic_label', 'バランス')}　/　"
+            f"参加 {'・'.join(leagues) if leagues else '未所属'}"
+        )
+        self.text(details, 11, MUTED, (card.left + 32, card.top + 92), bold=True)
+        self.text(f"ホームコート　{team.get('home_court') or '未設定'}", 11, MUTED, (card.left + 32, card.top + 117))
+        pygame.draw.line(
+            self.screen, (197, 193, 180),
+            (card.left + 30, card.top + 148), (card.right - 30, card.top + 148), 2,
+        )
+        self.text("チーム紹介", 16, INK, (card.left + 32, card.top + 169), bold=True)
+        description = str(team.get("description", "")).strip() or "チーム紹介はまだ登録されていません。"
+        description_color = INK if str(team.get("description", "")).strip() else MUTED
+        for index, line in enumerate(self._wrap_league_text(description, card.width - 72)[:13]):
+            self.text(line, 14, description_color, (card.left + 36, card.top + 207 + index * 24))
 
     def _draw_league_auto_config(self) -> None:
         shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -395,7 +454,7 @@ class LeagueRendererMixin:
 
         pygame.draw.line(self.screen, (190, 187, 176), (panel.left + 24, panel.top + 166), (panel.right - 24, panel.top + 166), 2)
         self.text("保存済みリーグ戦（league_save/*.json）", 15, INK, (panel.left + 26, panel.top + 180), bold=True)
-        self.text("各セーブは開始時のテンプレート内容も保持します", 10, MUTED, (panel.left + 372, panel.top + 184))
+        self.text("各セーブは開始時のテンプレートと参加チーム能力を保持します", 10, MUTED, (panel.left + 372, panel.top + 184))
         saves = manager.list_saves()
         if not saves:
             self.text("セーブデータはまだありません", 14, MUTED, (panel.left + 28, panel.top + 218))
@@ -425,6 +484,12 @@ class LeagueRendererMixin:
             self.text(self.league_save_message[:100], 11, color, (panel.left + 26, panel.bottom - 26), bold=True)
 
     def _draw_league_standings(self, main: pygame.Rect) -> None:
+        if getattr(self, "league_standings_mode", "league") == "team":
+            self._draw_team_history(main)
+        else:
+            self._draw_league_table(main)
+
+    def _draw_league_table(self, main: pygame.Rect) -> None:
         manager = self.league_manager
         league_name = self.league_view_name
         years = manager.available_years()
@@ -434,6 +499,10 @@ class LeagueRendererMixin:
         table = manager.standings_for_year(league_name, year)
         title_suffix = "途中成績" if year == manager.year else "最終成績"
         self.text(f"{league_name}  year{year} {title_suffix}", 21, INK, (main.left + 24, main.top + 67), bold=True)
+        self._league_button(
+            pygame.Rect(main.right - 350, main.top + 64, 104, 30),
+            "チーム戦績", "history_mode|team", small=True,
+        )
         current_index = years.index(year)
         if current_index < len(years) - 1:
             older = years[current_index + 1]
@@ -460,6 +529,10 @@ class LeagueRendererMixin:
                 pygame.draw.rect(self.screen, (234, 231, 218), (main.left + 18, y - 7, main.width - 36, 27))
             self.text(str(index), 12, INK, (main.left + 39, y), bold=True, center=True)
             self.text(str(row["name"]), 12, INK, (main.left + 88, y), bold=index <= 3)
+            self.league_buttons.append((
+                pygame.Rect(main.left + 78, y - 8, 420, 27),
+                f"history_team_open|{row.get('team_id', '')}",
+            ))
             values = (row["played"], row["won"], row["drawn"], row["lost"], row["gf"], row["ga"], row["gd"], row["points"])
             xs = (main.left + 530, main.left + 582, main.left + 632, main.left + 682, main.left + 736, main.left + 788, main.left + 842, main.left + 914)
             for value, x in zip(values, xs):
@@ -475,6 +548,133 @@ class LeagueRendererMixin:
             ) or "入れ替えなし"
             self.text(f"入れ替え戦結果：{summary}", 11, HOME_RED, (main.left + 24, main.bottom - 44), bold=True)
         self.text("順位：勝点 → 得失点差 → 総得点 → 勝利数", 11, MUTED, (main.left + 24, main.bottom - 24))
+
+    def _draw_team_history(self, main: pygame.Rect) -> None:
+        manager = self.league_manager
+        years = manager.available_years()
+        if self.league_history_year not in years:
+            self.league_history_year = manager.year
+        year = self.league_history_year
+        self._league_button(
+            pygame.Rect(main.left + 22, main.top + 64, 104, 30),
+            "リーグ順位", "history_mode|league", small=True,
+        )
+        year_index = years.index(year)
+        if year_index < len(years) - 1:
+            older = years[year_index + 1]
+            self._league_button(
+                pygame.Rect(main.right - 236, main.top + 64, 98, 30),
+                f"← year{older}", f"history|{older}", small=True,
+            )
+        if year_index > 0:
+            newer = years[year_index - 1]
+            self._league_button(
+                pygame.Rect(main.right - 128, main.top + 64, 98, 30),
+                f"year{newer} →", f"history|{newer}", small=True,
+            )
+
+        teams = manager.historical_teams()
+        if not teams:
+            self.text("表示できるチーム履歴がありません", 16, MUTED, main.center, center=True)
+            return
+        team_ids = [str(team["team_id"]) for team in teams]
+        if self.league_history_team_id not in team_ids:
+            table = manager.standings_for_year(self.league_view_name, year)
+            suggested = str(table[0].get("team_id", "")) if table else team_ids[0]
+            self.league_history_team_id = suggested if suggested in team_ids else team_ids[0]
+            self.league_history_result_scroll = 0
+        team_index = team_ids.index(self.league_history_team_id)
+        team = teams[team_index]
+
+        selector_y = main.top + 108
+        self._league_button(
+            pygame.Rect(main.left + 24, selector_y, 34, 32),
+            "◀", "history_team_cycle|-1", small=True,
+        )
+        selector = pygame.Rect(main.left + 66, selector_y, 410, 32)
+        pygame.draw.rect(self.screen, (239, 236, 222), selector, border_radius=7)
+        pygame.draw.rect(self.screen, GOLD, selector, 2, border_radius=7)
+        self.text(
+            f"{team_index + 1} / {len(teams)}　{team['name']}",
+            13, INK, selector.center, bold=True, center=True,
+        )
+        self._league_button(
+            pygame.Rect(selector.right + 8, selector_y, 34, 32),
+            "▶", "history_team_cycle|1", small=True,
+        )
+        status = "途中" if year == manager.year else "確定"
+        self.text(
+            f"year{year}　{status}戦績", 17, INK,
+            (main.right - 28, selector_y + 7), bold=True, right=True,
+        )
+        self._draw_team_year_ranks(main, year, selector_y + 48)
+        self._draw_team_year_results(main, year, main.top + 244)
+
+    def _draw_team_year_ranks(self, main: pygame.Rect, year: int, top: int) -> None:
+        manager = self.league_manager
+        standings = manager.team_standings_for_year(self.league_history_team_id, year)
+        if not standings:
+            self.text("この年度のリーグ順位はありません", 12, MUTED, (main.left + 28, top), bold=True)
+            return
+        for index, row in enumerate(standings[:3]):
+            y = top + index * 27
+            team_count = len(manager.standings_for_year(str(row["league"]), year))
+            summary = (
+                f"{row['league']}  {row['rank']}位 / {team_count}チーム　"
+                f"勝点{row['points']}　{row['won']}勝 {row['drawn']}分 {row['lost']}敗　"
+                f"得失点{int(row['gd']):+d}"
+            )
+            color = HOME_RED if int(row["rank"]) <= 3 else INK
+            self.text(summary, 12, color, (main.left + 28, y), bold=True)
+
+    def _draw_team_year_results(self, main: pygame.Rect, year: int, top: int) -> None:
+        manager = self.league_manager
+        results = manager.team_results_for_year(self.league_history_team_id, year)
+        start = max(0, min(self.league_history_result_scroll, max(0, len(results) - 9)))
+        self.league_history_result_scroll = start
+        self.text(f"試合結果　{len(results)}試合", 14, INK, (main.left + 28, top - 28), bold=True)
+        if not results:
+            self.text("この年度の試合結果はありません", 12, MUTED, (main.left + 28, top + 12))
+            return
+        shown_end = min(len(results), start + 9)
+        self.text(f"{start + 1}〜{shown_end}件", 10, MUTED, (main.right - 116, top - 25), right=True)
+        self._league_button(
+            pygame.Rect(main.right - 106, top - 36, 34, 28),
+            "▲", "history_results_scroll|-9", active=start > 0, small=True,
+        )
+        self._league_button(
+            pygame.Rect(main.right - 64, top - 36, 34, 28),
+            "▼", "history_results_scroll|9", active=start + 9 < len(results), small=True,
+        )
+        for index, result in enumerate(results[start:start + 9]):
+            self._draw_team_result_row(main, top + index * 38, index, result)
+
+    def _draw_team_result_row(self, main: pygame.Rect, y: int, index: int, result: dict) -> None:
+        is_home = str(result.get("team_side", "")) == "home"
+        own_score = int(result.get("home_score", 0) if is_home else result.get("away_score", 0))
+        opponent_score = int(result.get("away_score", 0) if is_home else result.get("home_score", 0))
+        opponent = str(result.get("away_name", "") if is_home else result.get("home_name", ""))
+        outcome = "勝" if own_score > opponent_score else "敗" if own_score < opponent_score else "分"
+        outcome_color = (48, 126, 78) if outcome == "勝" else HOME_RED if outcome == "敗" else MUTED
+        row_rect = pygame.Rect(main.left + 20, y, main.width - 40, 32)
+        if index % 2 == 0:
+            pygame.draw.rect(self.screen, (234, 231, 218), row_rect, border_radius=4)
+        competition = str(
+            result.get("competition_label")
+            or result.get("tournament")
+            or result.get("league")
+            or "試合"
+        )
+        venue = "HOME" if is_home else "AWAY"
+        self.text(f"{int(result.get('day', 0))}日目", 10, MUTED, (row_rect.left + 8, row_rect.top + 9))
+        self.text(competition[:18], 10, INK, (row_rect.left + 82, row_rect.top + 9), bold=True)
+        self.text(venue, 9, MUTED, (row_rect.left + 300, row_rect.top + 10), bold=True)
+        self.text(f"vs {opponent}", 11, INK, (row_rect.left + 360, row_rect.top + 8), bold=True)
+        self.text(
+            f"{own_score} - {opponent_score}", 12, INK,
+            (row_rect.right - 90, row_rect.top + 8), bold=True, center=True,
+        )
+        self.text(outcome, 12, outcome_color, (row_rect.right - 24, row_rect.top + 8), bold=True, center=True)
 
     def _draw_league_schedule(self, main: pygame.Rect) -> None:
         manager = self.league_manager
@@ -732,8 +932,9 @@ class LeagueRendererMixin:
         pygame.draw.rect(self.screen, (226, 239, 220) if selected else (236, 233, 220), row, border_radius=6)
         pygame.draw.rect(self.screen, manager.league_color(league_name) if selected else (197, 193, 180), row, 2, border_radius=6)
         button_width = 58
+        detail_width = 48
         priority_width = 54 if selected and priority != league_name else 0
-        text_right = row.right - button_width - priority_width - 20
+        text_right = row.right - button_width - detail_width - priority_width - 28
         name = str(team.get("name", team_id))
         while len(name) > 4 and self.font(10, True).size(name)[0] > text_right - row.left - 10:
             name = name[:-2] + "…"
@@ -748,9 +949,14 @@ class LeagueRendererMixin:
             f"assign_team|{team_id}", active=selected,
             accent=manager.league_color(league_name), small=True,
         )
+        detail_right = row.right - button_width - 13
+        self._league_button(
+            pygame.Rect(detail_right - detail_width, row.top + 5, detail_width, 28), "詳細",
+            f"team_detail|{team_id}", small=True,
+        )
         if selected and priority != league_name:
             self._league_button(
-                pygame.Rect(row.right - button_width - priority_width - 11, row.top + 5, priority_width, 28), "優先",
+                pygame.Rect(detail_right - detail_width - priority_width - 6, row.top + 5, priority_width, 28), "優先",
                 f"priority_team|{team_id}", accent=GOLD, small=True,
             )
 

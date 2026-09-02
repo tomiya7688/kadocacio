@@ -131,6 +131,7 @@ class NinetyMatchStressGame(Game):
                         "headless_minute_min": min(minutes) if minutes else 90,
                         "headless_minute_max": max(minutes) if minutes else 90,
                         "headless_batches_completed": session.completed if session is not None else MATCH_COUNT - 1,
+                        "headless_matches_completed": session.display_completed if session is not None else MATCH_COUNT - 1,
                     },
                     ensure_ascii=False,
                 ),

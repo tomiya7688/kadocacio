@@ -41,21 +41,25 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 |---|---|---|
 | 起動、入力、画面遷移、ポーズ | `scripts/app/game_app.py` | `test_pause_menu.py`, `test_tournaments_and_ime.py` |
 | 3D投影、選手・コート・UI描画 | `scripts/app/rendering.py` | 起動スモーク＋関連画面テスト |
-| CPU上限・GPU/CPU表示 | `scripts/core/performance_settings.py`, `scripts/app/performance_backend.py` | `test_performance_settings.py`, ダミーSDL起動 |
+| ユニフォーム描画 | `scripts/app/uniform_rendering.py` | `test_uniforms.py`, `test_rendering_smoke.py` |
+| CPU上限・GPU/CPU表示 | `scripts/core/performance_settings.py`, `performance_settings_model.py`, `cpu_usage_limiter.py`, `scripts/app/performance_backend.py` | `test_performance_settings.py`, ダミーSDL起動 |
 | 共通定数、時計、コート | `scripts/core/settings.py` | `test_restart_clock.py` |
-| 固定ステップ、ヘッドレス | `scripts/core/simulation_runtime.py`, `simulation_driver.py` | `test_simulation_runtime.py`, `test_simulation_driver.py` |
+| 固定ステップ、ヘッドレス | `scripts/core/simulation_runtime.py`, `realtime_simulation_driver.py`, `simulation_limits.py` | `test_simulation_runtime.py`, `test_simulation_driver.py` |
 | 試合進行、パス、シュート、GK、反則 | `scripts/match/match_engine.py` | `test_pass_logic.py`, `test_goal_urgency.py`, `test_ai_tactical_lookahead.py` |
-| 選手・チーム・ボール状態 | `scripts/match/entities.py` | `test_effective_stat_cache.py` |
+| 選手・チーム・ボール状態 | `scripts/match/player.py`, `team.py`, `ball.py`（`entities.py`は互換窓口） | `test_effective_stat_cache.py` |
 | AI効用・判断差 | `scripts/match/intelligence_system.py` | `test_intelligence_scaling.py`, `test_ai_planning.py` |
 | コマンド | `scripts/match/player_commands.py` | AI/パス系テスト |
 | スタミナ、技術、ジャンプ、フィジカル | 各`scripts/match/*_system.py` | 同名・近接機能のテスト |
 | 監督 | `scripts/match/manager_system.py`＋`match_engine.py` | `test_manager_system.py` |
 | チーム読込・旧キー互換 | `scripts/team/team_data.py` | `test_stat_scale.py`, `test_flexible_formations.py` |
 | チームエディタ | `scripts/team/team_editor.py`, `team_editor_data.py` | `test_team_file_organization.py`, `test_team_editor_tuner_scope.py` |
+| ユニフォームデータ・エディタ | `scripts/team/uniform_data.py`, `uniform_editor.py`, `uniforms/` | `test_uniforms.py` |
+| チーム生成基準値・補正 | `scripts/team/team_template_profile.py`, `teameditor_templete/editor_options.json` | `test_team_template_profiles.py` |
+| K1～K9開発チーム生成・評価後再配置 | `scripts/tools/generate_k_league_teams.py`, `reseed_k_league_teams.py`, `teameditor_templete/k_league_generation.json` | `test_k_league_team_generator.py`, `test_k_league_reseed.py`＋CLIプレビュー |
 | チューナー | `scripts/team/team_tuner.py` | `test_team_tuner_means.py`, `test_team_tuner_optimizer.py` |
-| リーグ・同時試合・保存 | `scripts/league/league_manager.py` | `test_league_manager.py`, `test_restart_clock.py` |
+| リーグ・同時試合・保存 | `scripts/league/league_manager.py`, `league_simulation_session.py`, `league_simulation_workers.py`, `league_worker_budget.py` | `test_league_manager.py`, `test_restart_clock.py` |
 | リーグ一覧UI | `scripts/league/*_view.py`, `league_rendering.py` | `test_league_live_view.py`, `test_league_schedule_view.py`, `test_league_team_browser.py` |
-| AI評価・負荷試験 | `scripts/tools/ai_evaluator.py`, `league_stress_test.py` | CLIヘルプ＋必要な実測 |
+| AI評価・負荷試験 | `scripts/tools/ai_evaluator.py`, `league_stress_test.py`, `developer_league_evaluator.py` | `test_developer_league_evaluator.py`＋CLIヘルプ＋必要な実測 |
 
 ## データ地図
 
@@ -63,9 +67,11 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - `teameditor_templete/`: エディタ選択肢、能力カテゴリ、ランク、フォーメーション。
 - `leagues.json`: リーグ・トーナメント定義とチーム配置。
 - `performance_settings.json`: CPU演算枠の上限とGPU描画の有効設定。
-- `league_save/`: 実行時セーブ。明示依頼なしにサンプル扱いで書き換えない。
+- `league_save/`: 実行時セーブ。開始時の参加チーム能力スナップショットを持つ。明示依頼なしにサンプル扱いで書き換えない。
 - `assets/`: スタジアム、観客等。
 - `ai_evaluation/`, `performance_logs/`: 実測出力。通常の実装変更へ混ぜない。
+- `development_evaluation/`: 放置リーグ評価のJSONL、CSV、チェックポイント。通常のリーグセーブとは独立。
+- `development_reseed_backup/`: Kリーグ再配置前のチームとリーグテンプレート。復旧確認前に削除しない。
 - `teams/カルチョビット/`: 参考データで公開対象外。削除・公開・一括変換は明示指示時のみ。
 
 ## 検証コマンド
@@ -80,14 +86,18 @@ set SDL_VIDEODRIVER=dummy& set SDL_AUDIODRIVER=dummy& set KADOKA_DISABLE_GPU=1& 
 ```
 
 - 小変更は対応表のテストを先に実行し、完了前に全テストを実行する。
-- 2026-08-23時点の基準は全137テスト成功。件数より終了コードを信頼する。
+- 2026-09-02時点の基準は全188テスト成功。件数より終了コードを信頼する。
 - 高速化では、同じ乱数シード・固定ステップで結果傾向が維持されることも確認する。
 
 ## 作業ルール
 
 - 調査は`rg`/`rg --files`から始め、巨大なREADMEや`match_engine.py`を丸ごと読まない。
 - 一つの挙動に複数の実装を作らず、既存コマンド・能力・固定ステップへ接続する。
+- 原則として一つのPythonファイルにはクラスを一つだけ置き、追加・移動時は`doc/クラス一覧.md`も更新する。
+- クラスは一覧に書ける一つの役割へ絞り、別の役割はサービスまたは値オブジェクトとして別ファイルへ分ける。
+- 関数は検証、計算、状態変更、入出力のいずれか一処理へ絞る。ホットパスでは分割による一時オブジェクト生成を増やさない。
 - マルチプロセスへ渡す関数とデータはpickle可能に保ち、ワーカー入口はモジュール直下に置く。
 - JSONを機械変換する場合は再実行可能なツールにし、`--dry-run`と範囲検証を用意する。
 - READMEは人間向け概要、SPECは深い仕様確認用。対象見出しだけ`rg -n`して読む。
+- 実装やデータを変更した場合は、`doc/versions.md`の先頭へ指定形式のバージョン記録を追記する。
 - 最終報告には変更ファイル、互換性への影響、実行したテスト、未検証事項を短く記載する。

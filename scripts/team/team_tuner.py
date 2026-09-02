@@ -13,8 +13,8 @@ from scripts.match.match_engine import Match
 from scripts.match.player_style_system import STYLE_FIELDS, TYPE_PREFERENCES
 from scripts.core.settings import FIELD, MATCH_SECONDS, clamp
 from scripts.core.simulation_runtime import advance_match_fixed
+from scripts.core.cpu_usage_limiter import CpuUsageLimiter
 from scripts.core.performance_settings import (
-    CpuUsageLimiter,
     limited_worker_count,
     normalize_cpu_limit,
     worker_duty_cycle,
