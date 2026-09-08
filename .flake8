@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 127
+max-complexity = 10
+exclude = .git,.venv,__pycache__,build,dist
+
+# player.py has a circular Team forward reference. Keep this narrow exception
+# until the match-layer split removes that circular dependency.
+per-file-ignores =
+    scripts/match/player.py:F821
