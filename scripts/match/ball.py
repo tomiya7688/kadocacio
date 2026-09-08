@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from collections import deque
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 from scripts.match.player_commands import PlayerCommand, command_spec
 from scripts.match.player_style_system import STYLE_FIELDS, combined_preference, normalize_player_type, type_preference
@@ -24,6 +25,11 @@ from scripts.match.technique_system import mistake_error_multiplier, mistake_suc
 from scripts.match.jump_system import execute_jump_plan
 from scripts.core.simulation_geometry import Vec2
 from scripts.core.stat_scale import denormalize_player_stat
+
+if TYPE_CHECKING:
+    from scripts.match.player import Player
+    from scripts.match.team import Team
+
 
 class Ball:
     def __init__(self) -> None:
