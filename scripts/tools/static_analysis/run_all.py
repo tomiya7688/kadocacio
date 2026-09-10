@@ -36,6 +36,10 @@ def default_checks(python: str = sys.executable) -> tuple[Check, ...]:
             ),
         ),
         Check("compileall", (python, "-m", "compileall", "-q", "main.py", "scripts")),
+        Check(
+            "architecture-boundary",
+            (python, "-m", "scripts.tools.static_analysis.architecture_boundary"),
+        ),
         Check("pytest", (python, "-m", "pytest", "-q")),
     )
 
