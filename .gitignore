@@ -10,5 +10,8 @@ league_save/
 development_evaluation/
 development_reseed_backup/
 
+# Generated static-analysis reports
+static_analysis/reports/
+
 # Reference teams explicitly excluded from the public repository
 teams/カルチョビット/
