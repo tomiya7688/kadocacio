@@ -4,7 +4,12 @@ from scripts.tools.static_analysis import run_all
 def test_default_checks_match_ci_entry_points():
     checks = run_all.default_checks("python")
 
-    assert [check.name for check in checks] == ["flake8", "compileall", "pytest"]
+    assert [check.name for check in checks] == [
+        "flake8",
+        "compileall",
+        "architecture-boundary",
+        "pytest",
+    ]
     assert checks[0].command[:3] == ("python", "-m", "flake8")
     assert checks[1].command == (
         "python",
@@ -14,7 +19,12 @@ def test_default_checks_match_ci_entry_points():
         "main.py",
         "scripts",
     )
-    assert checks[2].command == ("python", "-m", "pytest", "-q")
+    assert checks[2].command == (
+        "python",
+        "-m",
+        "scripts.tools.static_analysis.architecture_boundary",
+    )
+    assert checks[3].command == ("python", "-m", "pytest", "-q")
 
 
 def test_run_all_stops_after_first_failure(monkeypatch):
@@ -42,4 +52,4 @@ def test_run_all_can_keep_going(monkeypatch):
     code = run_all.run_all(run_all.default_checks("python"), keep_going=True)
 
     assert code == 1
-    assert seen == ["flake8", "compileall", "pytest"]
+    assert seen == ["flake8", "compileall", "architecture-boundary", "pytest"]
