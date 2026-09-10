@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "match-no-app-imports",
+      "source": "scripts/match",
+      "forbidden_imports": ["scripts.app"],
+      "severity": "error",
+      "message": "Match logic must not depend on the application/rendering layer."
+    },
+    {
+      "id": "core-no-app-imports",
+      "source": "scripts/core",
+      "forbidden_imports": ["scripts.app"],
+      "severity": "error",
+      "message": "Core code must not depend on the application/rendering layer."
+    },
+    {
+      "id": "core-pygame-portability",
+      "source": "scripts/core",
+      "forbidden_imports": ["pygame"],
+      "severity": "warning",
+      "message": "Pygame imports in core are portability debt; move them behind an adapter when practical."
+    }
+  ]
+}
