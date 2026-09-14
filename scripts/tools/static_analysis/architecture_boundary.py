@@ -5,32 +5,15 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from scripts.tools.static_analysis.architecture_rule import Rule
+from scripts.tools.static_analysis.architecture_violation import Violation
 
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG = ROOT / "static_analysis" / "architecture_rules.json"
-
-
-@dataclass(frozen=True)
-class Rule:
-    rule_id: str
-    source: str
-    forbidden_imports: tuple[str, ...]
-    severity: str
-    message: str
-
-
-@dataclass(frozen=True)
-class Violation:
-    rule_id: str
-    severity: str
-    path: str
-    line: int
-    imported: str
-    message: str
 
 
 def load_rules(path: Path = DEFAULT_CONFIG) -> tuple[Rule, ...]:

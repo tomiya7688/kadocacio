@@ -18,6 +18,9 @@ class ManagerSystemTests(unittest.TestCase):
     def choice(self, text):
         return next(choice for choice in self.choices if text in choice["name"])
 
+    def choice_with_bench(self):
+        return next(choice for choice in self.choices if choice.get("bench"))
+
     def test_named_team_manager_parameters_are_loaded(self):
         choice = self.choice("夕張kadoka")
         default_activity = round(legacy_player_stat(500))
@@ -47,7 +50,7 @@ class ManagerSystemTests(unittest.TestCase):
         self.assertIsNone(team.pending_tactic)
 
     def test_substitution_is_applied_at_throw_in(self):
-        bench_choice = self.choice("トップロード成田")
+        bench_choice = self.choice_with_bench()
         opponent_choice = next(choice for choice in self.choices if choice is not bench_choice)
         match = Match(bench_choice, opponent_choice, "NEUTRAL")
         match.start_new()
@@ -70,7 +73,7 @@ class ManagerSystemTests(unittest.TestCase):
         self.assertNotEqual(old_names, {player.name for player in team.players})
 
     def test_fourth_substitution_is_rejected_and_new_match_restores_roster(self):
-        bench_choice = self.choice("トップロード成田")
+        bench_choice = self.choice_with_bench()
         opponent_choice = next(choice for choice in self.choices if choice is not bench_choice)
         match = Match(bench_choice, opponent_choice, "NEUTRAL")
         match.start_new()
