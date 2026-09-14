@@ -16,14 +16,57 @@ ROUTES = [
     (("static", "解析", "context", "コンテキスト", "codex"), ["scripts/tools/static_analysis/", "scripts/tools/"], ["tests/"]),
 ]
 
+PRIORITY_ORDER = ("P0", "P1", "P2", "P3")
+
+
+def run_command(command: list[str]) -> object:
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return json.loads(completed.stdout)
+
 
 def run_gh(issue_number: int) -> dict:
-    command = [
+    return run_command([
         "gh", "issue", "view", str(issue_number),
         "--json", "number,title,url,body,labels,state",
-    ]
-    completed = subprocess.run(command, cwd=ROOT, check=True, capture_output=True, text=True, encoding="utf-8")
-    return json.loads(completed.stdout)
+    ])
+
+
+def list_open_issues() -> list[dict]:
+    payload = run_command([
+        "gh", "issue", "list",
+        "--state", "open",
+        "--limit", "200",
+        "--json", "number,title,url,labels",
+    ])
+    if not isinstance(payload, list):
+        raise ValueError("gh issue list returned an unexpected payload")
+    return payload
+
+
+def issue_priority(issue: dict) -> int:
+    title = str(issue.get("title", ""))
+    labels = [str(label.get("name", "")) for label in issue.get("labels", [])]
+    searchable = " ".join([title, *labels]).upper()
+    for rank, priority in enumerate(PRIORITY_ORDER):
+        if re.search(rf"(?:^|[^A-Z0-9]){priority}(?:[^A-Z0-9]|$)", searchable):
+            return rank
+    return len(PRIORITY_ORDER)
+
+
+def select_next_issue(issues: list[dict]) -> dict:
+    if not issues:
+        raise RuntimeError("No open Issues were found.")
+    return min(
+        issues,
+        key=lambda issue: (issue_priority(issue), int(issue.get("number", 1_000_000_000))),
+    )
 
 
 def section(body: str, names: tuple[str, ...]) -> str:
@@ -121,12 +164,25 @@ This capsule is an index, not the specification. Return to the source Issue, imp
     return output
 
 
+def resolve_issue_number(explicit_issue: int | None) -> int:
+    if explicit_issue is not None:
+        return explicit_issue
+    selected = select_next_issue(list_open_issues())
+    number = int(selected["number"])
+    print(f"Selected #{number}: {selected['title']}")
+    return number
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate a compact context pack from a GitHub Issue")
-    parser.add_argument("issue", type=int)
+    parser.add_argument("issue", type=int, nargs="?", help="Issue number; omit to select the highest-priority open Issue")
     args = parser.parse_args()
-    output = write_pack(run_gh(args.issue))
-    print(output.relative_to(ROOT))
+    issue_number = resolve_issue_number(args.issue)
+    issue = run_gh(issue_number)
+    print(f"Task #{issue['number']}: {issue['title']}")
+    print(issue["url"])
+    output = write_pack(issue)
+    print(f"Context pack: {output.relative_to(ROOT)}")
     return 0
 
 
