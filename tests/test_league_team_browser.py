@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from scripts.league.league_rendering import build_team_folder_rows
 from scripts.team.team_data import discover_team_choices
@@ -14,9 +15,12 @@ class LeagueTeamBrowserTests(unittest.TestCase):
             for row in rows if row["kind"] == "teams"
             for team in row["teams"]
         ]
-        self.assertIn("kadoka_original_A", headers)
-        self.assertIn("kadoka_original_B", headers)
-        self.assertIn("カルチョビット", headers)
+        expected_folders = {
+            Path(team["source"]).parent.name
+            for team in teams
+            if team.get("source")
+        }
+        self.assertTrue(expected_folders.issubset(set(headers)))
         self.assertEqual(len(displayed_ids), len(teams))
         self.assertEqual(set(displayed_ids), {team["id"] for team in teams})
 
