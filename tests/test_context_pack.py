@@ -24,6 +24,25 @@ class ContextPackTests(unittest.TestCase):
         self.assertIn("scripts/league/", source)
         self.assertIn("tests/test_league_manager.py", tests)
 
+    def test_priority_accepts_title_prefix_and_label(self):
+        self.assertEqual(0, context_pack.issue_priority({"title": "[P0] urgent", "labels": []}))
+        self.assertEqual(1, context_pack.issue_priority({"title": "normal", "labels": [{"name": "P1"}]}))
+        self.assertEqual(4, context_pack.issue_priority({"title": "normal", "labels": []}))
+
+    def test_select_next_issue_prefers_priority_then_issue_number(self):
+        issues = [
+            {"number": 20, "title": "[P2] later", "labels": []},
+            {"number": 11, "title": "[P1] older", "labels": []},
+            {"number": 12, "title": "[P1] newer", "labels": []},
+            {"number": 1, "title": "unprioritized", "labels": []},
+        ]
+        self.assertEqual(11, context_pack.select_next_issue(issues)["number"])
+
+    def test_resolve_issue_number_keeps_explicit_choice(self):
+        with patch.object(context_pack, "list_open_issues") as issue_list:
+            self.assertEqual(56, context_pack.resolve_issue_number(56))
+        issue_list.assert_not_called()
+
     def test_write_pack_creates_compact_files(self):
         issue = {
             "number": 999,
