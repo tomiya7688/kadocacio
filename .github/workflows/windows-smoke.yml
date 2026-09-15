@@ -64,6 +64,6 @@ jobs:
         shell: cmd
         run: run_static_analysis.bat
 
-      - name: Validate task launcher usage
+      - name: Validate task launcher batch entry point
         shell: cmd
-        run: start_task.bat 0 || exit /b 0
+        run: start_task.bat --help
