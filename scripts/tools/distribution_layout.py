@@ -26,6 +26,11 @@ REQUIRED_INTERNAL_DIRS = (
     Path("_internal/teams"),
     Path("_internal/teameditor_templete"),
 )
+REQUIRED_INTERNAL_FILES = (
+    Path("_internal/performance_settings.json"),
+    Path("_internal/leagues.json"),
+    Path("_internal/league_state.json"),
+)
 ALLOWED_ROOT_ENTRIES = {"Kadocacio.exe", "_internal", "user_data"}
 
 
@@ -52,6 +57,13 @@ def _has_files(path: Path) -> bool:
     return path.is_dir() and any(item.is_file() for item in path.rglob("*"))
 
 
+def _validate_json(path: Path, label: str, errors: list[str]) -> None:
+    try:
+        json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        errors.append(f"invalid JSON: {label}: {exc}")
+
+
 def validate_distribution(build_root: Path) -> list[str]:
     """Return human-readable errors for an invalid distribution layout."""
     build_root = Path(build_root)
@@ -73,10 +85,7 @@ def validate_distribution(build_root: Path) -> list[str]:
         if not target.is_file():
             errors.append(f"missing user data file: {target_relative.as_posix()}")
             continue
-        try:
-            json.loads(target.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            errors.append(f"invalid JSON: {target_relative.as_posix()}: {exc}")
+        _validate_json(target, target_relative.as_posix(), errors)
 
     for relative in REQUIRED_INTERNAL_DIRS:
         directory = build_root / relative
@@ -84,6 +93,13 @@ def validate_distribution(build_root: Path) -> list[str]:
             errors.append(f"missing internal directory: {relative.as_posix()}")
         elif not _has_files(directory):
             errors.append(f"internal directory is empty: {relative.as_posix()}")
+
+    for relative in REQUIRED_INTERNAL_FILES:
+        path = build_root / relative
+        if not path.is_file():
+            errors.append(f"missing internal file: {relative.as_posix()}")
+            continue
+        _validate_json(path, relative.as_posix(), errors)
 
     unexpected = sorted(
         entry.name for entry in build_root.iterdir()
