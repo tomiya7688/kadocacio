@@ -1,0 +1,14 @@
+[run]
+branch = True
+source = scripts
+
+[report]
+precision = 1
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+
+[json]
+output = coverage.json
