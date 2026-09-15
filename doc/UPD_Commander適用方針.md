@@ -67,7 +67,7 @@ scripts/features/<feature>/
 
 Python版 UPD Commander Checker を `requirements-dev.txt` からのみ導入する。ゲーム用 `requirements.txt` には追加しないため、通常起動・試合実行・PyInstaller配布物のランタイム依存にはならない。
 
-upstreamは予期しないルール変更を防ぐためcommit SHA固定とする。設定は `static_analysis/upd_commander.json`、Kadocalcio用アダプターは `scripts/tools/static_analysis/upd_commander.py` に置く。
+upstreamは予期しないルール変更を防ぐためcommit SHA固定とする。設定は `static_analysis/upd_commander.json`、Kadocalcio用アダプターは `scripts/tools/static_analysis/upd_checker.py` に置く。
 
 初期段階で有効にするのは次のルール。
 
@@ -95,7 +95,7 @@ run_static_analysis.bat
 個別実行:
 
 ```bat
-.venv\Scripts\python.exe -m scripts.tools.static_analysis.upd_commander
+.venv\Scripts\python.exe -m scripts.tools.static_analysis.upd_checker
 ```
 
 詳細結果は `static_analysis/reports/upd_commander.json` に生成される。コンソールは上位の指摘だけを表示し、大量ログをCodex等へ直接渡さない。
