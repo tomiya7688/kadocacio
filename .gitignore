@@ -13,5 +13,10 @@ development_reseed_backup/
 # Generated static-analysis reports
 static_analysis/reports/
 
+# Local standalone distribution build outputs
+build/
+dist/
+*.spec
+
 # Reference teams explicitly excluded from the public repository
 teams/カルチョビット/
