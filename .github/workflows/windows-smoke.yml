@@ -83,7 +83,6 @@ jobs:
             --name Kadocacio `
             --distpath dist `
             --workpath build/pyinstaller `
-            --specpath build/pyinstaller `
             --add-data "assets:assets" `
             --add-data "teams:teams" `
             --add-data "teameditor_templete:teameditor_templete" `
