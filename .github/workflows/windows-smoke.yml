@@ -1,0 +1,101 @@
+name: Windows smoke
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**/*.py"
+      - "**/*.bat"
+      - "requirements.txt"
+      - "assets/**"
+      - "teams/**"
+      - "teameditor_templete/**"
+      - "leagues.json"
+      - "league_state.json"
+      - "performance_settings.json"
+      - ".github/workflows/windows-smoke.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "**/*.py"
+      - "**/*.bat"
+      - "requirements.txt"
+      - "assets/**"
+      - "teams/**"
+      - "teameditor_templete/**"
+      - "leagues.json"
+      - "league_state.json"
+      - "performance_settings.json"
+      - ".github/workflows/windows-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install flake8 pytest "pyinstaller>=6,<7"
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Run Windows-sensitive tests
+        shell: pwsh
+        run: python -m pytest -q tests/test_team_file_organization.py tests/test_distribution_layout.py
+
+      - name: Run static-analysis batch entry point
+        shell: cmd
+        run: run_static_analysis.bat
+
+      - name: Build Windows distribution
+        shell: pwsh
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onedir `
+            --contents-directory _internal `
+            --name Kadocacio `
+            --distpath dist `
+            --workpath build/pyinstaller `
+            --add-data "assets:assets" `
+            --add-data "teams:teams" `
+            --add-data "teameditor_templete:teameditor_templete" `
+            --add-data "performance_settings.json:." `
+            --add-data "leagues.json:." `
+            --add-data "league_state.json:." `
+            main.py
+          python -m scripts.tools.distribution_layout stage dist/Kadocacio
+
+      - name: Validate distribution input/output layout
+        shell: pwsh
+        run: python -m scripts.tools.distribution_layout validate dist/Kadocacio
+
+      - name: Validate task launcher batch entry point
+        shell: cmd
+        run: start_task.bat --help
