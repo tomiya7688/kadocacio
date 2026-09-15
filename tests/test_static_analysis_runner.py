@@ -28,7 +28,7 @@ def test_default_checks_match_ci_entry_points():
     assert checks[3].command == (
         "python",
         "-m",
-        "scripts.tools.static_analysis.upd_commander",
+        "scripts.tools.static_analysis.upd_checker",
     )
     assert checks[4].command == ("python", "-m", "pytest", "-q")
 
