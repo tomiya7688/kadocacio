@@ -1,0 +1,67 @@
+Kadocacio Temporary Mixed License Notice
+Version 0.1 - 2026-09-16
+
+Copyright (c) 2026 tomiya7688 and contributors.
+
+This repository is temporarily a mixed-license repository while the reusable developer tools / engine and the Kadocacio game product are being separated.
+
+1. Developer Tools and Reusable Engine Components
+
+The Developer Tools are licensed under the MIT License described in LICENSE-DEVELOPER-TOOLS.
+
+For this temporary repository layout, the following are Developer Tools unless a file contains a different license notice:
+
+- scripts/tools/**
+- static_analysis/**
+- ai_evaluation/**
+- teameditor_templete/**
+- run_ai_evaluator.bat
+- run_developer_evaluation.bat
+- run_static_analysis.bat
+- run_league_stress_test.bat
+- start_task.bat
+- any source file or directory explicitly marked as MIT-licensed or as part of the reusable game engine / developer tooling
+
+A component whose primary purpose is authoring, editing, building, exporting, testing, evaluating, tuning, or otherwise creating games with the Kadocacio development environment is intended to move into this MIT-licensed area as the repository is separated.
+
+2. Kadocacio Game Product and Project-Specific Content
+
+Game-product code and project-specific content that are not expressly covered by Section 1 are governed by GAME_LICENSE.md.
+
+This includes, unless separately licensed, Kadocacio-specific branding, names, logos, artwork, characters, teams, curated game data, presentation assets, and other content created specifically for the Kadocacio game product.
+
+3. Games and Other Output Created with the Developer Tools
+
+Games, data, assets, packages, and other output created or exported with the Developer Tools may be used, modified, distributed, published, sold, sublicensed, and commercially monetized by their creator without royalty or additional permission from the Kadocacio project.
+
+A generated game may be very similar to Kadocacio. Similarity in gameplay, mechanics, UI structure, data formats, architecture, engine behavior, or overall game structure does not by itself restrict this permission. A generated game may differ mainly in characters, maps, teams, presentation, rules, or other content and may still be distributed or sold.
+
+This output permission also covers runtime, template, scaffold, engine, or support material that the Developer Tools intentionally copy or package into generated/exported output for the purpose of making that output work. MIT-covered material remains subject to the MIT notice requirements in LICENSE-DEVELOPER-TOOLS.
+
+This permission does not grant rights to Kadocacio trademarks, logos, names, or project-specific content that was not intentionally included by the Developer Tools as redistributable output material. Generated games must not be presented as official Kadocacio releases unless separately authorized.
+
+Creators retain the rights they otherwise hold in their own original characters, maps, artwork, data, stories, brands, and other material supplied to or created with the Developer Tools.
+
+4. Temporary Rule for Ambiguous Files
+
+Because the repository has not yet completed its physical separation, a file that is not covered by an MIT-listed path and has no explicit MIT license marker is temporarily treated as part of the Kadocacio Game Product and governed by GAME_LICENSE.md.
+
+This default is temporary and is intended only to avoid accidentally licensing Kadocacio-specific game content as MIT before the separation is complete. Files may be moved or explicitly marked MIT as the architecture is separated.
+
+5. Third-Party Material
+
+Third-party software, assets, fonts, data, or other material keep their own licenses. Nothing in this notice overrides a third-party license.
+
+6. Contributions
+
+By intentionally submitting a contribution to this repository, unless a separate written agreement applies, the contributor grants the project maintainer a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, publicly display, publicly perform, sublicense, and commercialize that contribution as part of Kadocacio and related project distributions.
+
+Contributions made to MIT-covered components are additionally offered under the MIT License so that those components can remain MIT-licensed.
+
+No copyright ownership is transferred merely by contributing.
+
+7. No Warranty
+
+Except where applicable law requires otherwise, the repository and its contents are provided without warranty. The authors and contributors are not liable for damages arising from use of the repository to the extent permitted by law.
+
+For a Japanese-language explanation of this temporary policy, see doc/ライセンス方針.md.
