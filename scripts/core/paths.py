@@ -77,14 +77,6 @@ DEFAULT_USER_FILES = (
 )
 
 
-def team_search_dirs() -> tuple[Path, ...]:
-    """Return team roots in override order: user data first, defaults second."""
-    roots = [TEAMS_DIR]
-    if DEFAULT_TEAMS_DIR.resolve() != TEAMS_DIR.resolve():
-        roots.append(DEFAULT_TEAMS_DIR)
-    return tuple(roots)
-
-
 def ensure_user_data_layout() -> None:
     """Create writable runtime directories and seed missing editable JSON."""
     for directory in USER_DATA_DIRS:
