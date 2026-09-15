@@ -11,6 +11,7 @@ on:
       - "teams/**"
       - "teameditor_templete/**"
       - "leagues.json"
+      - "league_state.json"
       - "performance_settings.json"
       - ".github/workflows/windows-smoke.yml"
   pull_request:
@@ -23,6 +24,7 @@ on:
       - "teams/**"
       - "teameditor_templete/**"
       - "leagues.json"
+      - "league_state.json"
       - "performance_settings.json"
       - ".github/workflows/windows-smoke.yml"
   workflow_dispatch:
@@ -82,12 +84,12 @@ jobs:
             --distpath dist `
             --workpath build/pyinstaller `
             --specpath build/pyinstaller `
-            --add-data "assets;assets" `
-            --add-data "teams;teams" `
-            --add-data "teameditor_templete;teameditor_templete" `
-            --add-data "performance_settings.json;." `
-            --add-data "leagues.json;." `
-            --add-data "league_state.json;." `
+            --add-data "assets:assets" `
+            --add-data "teams:teams" `
+            --add-data "teameditor_templete:teameditor_templete" `
+            --add-data "performance_settings.json:." `
+            --add-data "leagues.json:." `
+            --add-data "league_state.json:." `
             main.py
           python -m scripts.tools.distribution_layout stage dist/Kadocacio
 
