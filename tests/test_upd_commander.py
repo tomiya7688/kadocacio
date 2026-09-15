@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.tools.static_analysis import upd_commander
+from scripts.tools.static_analysis import upd_checker as upd_commander
 
 
 def make_profile(tmp_path: Path, *, blocking=frozenset({"error"}), max_console=20):
