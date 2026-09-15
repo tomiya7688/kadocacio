@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+IS_FROZEN = bool(getattr(sys, "frozen", False))
 
 
 def resolve_runtime_roots(
@@ -16,7 +17,7 @@ def resolve_runtime_roots(
     bundle_root: Path | None = None,
 ) -> tuple[Path, Path]:
     """Return the user-facing app root and read-only bundled-data root."""
-    is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    is_frozen = IS_FROZEN if frozen is None else frozen
     project_root = Path(project_root).resolve()
     if not is_frozen:
         return project_root, project_root
@@ -35,10 +36,11 @@ USER_CONFIG_DIR = USER_DATA_ROOT / "config"
 USER_SAVE_DIR = USER_DATA_ROOT / "saves"
 USER_EXPORT_DIR = USER_DATA_ROOT / "exports"
 USER_LOG_DIR = USER_DATA_ROOT / "logs"
+USER_TEAMS_DIR = USER_DATA_ROOT / "teams"
 
-# User-created/edited teams live here. Bundled defaults stay read-only in
-# _internal/teams for packaged builds and in the repository's teams/ for dev.
-TEAMS_DIR = USER_DATA_ROOT / "teams"
+# Developer tools continue to operate on repository teams during source runs.
+# Packaged builds write edits only to user_data/teams.
+TEAMS_DIR = USER_TEAMS_DIR if IS_FROZEN else PROJECT_ROOT / "teams"
 DEFAULT_TEAMS_DIR = INTERNAL_ROOT / "teams"
 
 ASSETS_DIR = INTERNAL_ROOT / "assets"
@@ -61,7 +63,7 @@ DEVELOPMENT_EVALUATION_DIR = PROJECT_ROOT / "development_evaluation"
 UNIFORMS_DIR = PROJECT_ROOT / "uniforms"
 
 USER_DATA_DIRS = (
-    TEAMS_DIR,
+    USER_TEAMS_DIR,
     USER_SAVE_DIR,
     USER_CONFIG_DIR,
     USER_EXPORT_DIR,
