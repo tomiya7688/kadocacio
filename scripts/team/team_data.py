@@ -246,7 +246,7 @@ def team_payload_from_choice(choice: dict) -> dict:
             "manager_intelligence", manager_stat(MANAGER_INTELLIGENCE_DEFAULT, MANAGER_INTELLIGENCE_DEFAULT),
         )))),
         "チームカラー": color,
-        "ユニフォーム": normalize_uniform(info.get("ユニフォーム")) if False else normalize_uniform(choice.get("uniform_data")),
+        "ユニフォーム": normalize_uniform(choice.get("uniform_data")),
         "戦術": tactic_label,
         "ゾーン手前": int(choice.get("zone_near", 3)),
         "ゾーン奥": int(choice.get("zone_far", 7)),
