@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -112,10 +113,7 @@ def test_validate_distribution_reports_all_structural_failures(tmp_path):
 def test_validate_distribution_reports_missing_internal_directory(tmp_path):
     _, build = make_complete_build(tmp_path)
     target = build / distribution_layout.REQUIRED_INTERNAL_DIRS[1]
-    for item in target.rglob("*"):
-        if item.is_file():
-            item.unlink()
-    target.rmdir()
+    shutil.rmtree(target)
 
     errors = distribution_layout.validate_distribution(build)
 
