@@ -1,0 +1,57 @@
+name: Python compatibility
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**/*.py"
+      - "requirements.txt"
+      - ".github/workflows/python-compat.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  smoke:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install -r requirements.txt
+
+      - name: Verify dependency consistency
+        run: python -m pip check
+
+      - name: Compile Python sources
+        run: python -m compileall -q main.py scripts
+
+      - name: Run test suite
+        run: python -m pytest -q
