@@ -62,8 +62,13 @@ jobs:
       - name: Write machine-readable coverage report
         run: python -m coverage json -o coverage.json
 
-      - name: Summarize game and developer-tool branches
-        run: python -m scripts.tools.coverage_gate coverage.json
+      - name: Enforce branch coverage ratchet
+        run: >-
+          python -m scripts.tools.coverage_gate coverage.json
+          --min-game 39.0
+          --min-tools 52.0
+          --max-game-missing 2750
+          --max-tools-missing 222
 
       - name: Upload coverage report
         if: always()
