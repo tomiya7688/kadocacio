@@ -1,0 +1,9 @@
+-r requirements.txt
+
+# Development/CI only. These packages are not imported by the game runtime.
+flake8>=7,<8
+pytest>=8,<10
+coverage>=7,<8
+
+# UPD Commander checker is pinned so upstream rule changes cannot silently break CI.
+upd-commander-checker @ git+https://github.com/tomiya7688/upd-commander-base-design.git@8abe0828e173e62ad42f69cfcfa002b6bf73c3b9#subdirectory=support_tools/python/upd_commander_checker
