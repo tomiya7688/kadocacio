@@ -26,6 +26,10 @@ class BranchCoverage:
     total: int
 
     @property
+    def missing(self) -> int:
+        return max(0, self.total - self.covered)
+
+    @property
     def percent(self) -> float:
         if self.total == 0:
             return 100.0
@@ -66,20 +70,26 @@ def check_minimum(metric: BranchCoverage, minimum: float | None) -> bool:
     return minimum is None or metric.percent >= minimum
 
 
+def check_max_missing(metric: BranchCoverage, maximum: int | None) -> bool:
+    return maximum is None or metric.missing <= maximum
+
+
 def run(
     report: Path,
     *,
     min_game: float | None = None,
     min_tools: float | None = None,
+    max_game_missing: int | None = None,
+    max_tools_missing: int | None = None,
 ) -> int:
     game, tools = load_report(report)
     print(
         f"game branch coverage: {game.percent:.1f}% "
-        f"({game.covered}/{game.total})"
+        f"({game.covered}/{game.total}, missing {game.missing})"
     )
     print(
         f"developer-tools branch coverage: {tools.percent:.1f}% "
-        f"({tools.covered}/{tools.total})"
+        f"({tools.covered}/{tools.total}, missing {tools.missing})"
     )
 
     failed: list[str] = []
@@ -87,6 +97,14 @@ def run(
         failed.append(f"game {game.percent:.1f}% < {min_game:.1f}%")
     if not check_minimum(tools, min_tools):
         failed.append(f"developer-tools {tools.percent:.1f}% < {min_tools:.1f}%")
+    if not check_max_missing(game, max_game_missing):
+        failed.append(
+            f"game missing branches {game.missing} > {max_game_missing}"
+        )
+    if not check_max_missing(tools, max_tools_missing):
+        failed.append(
+            f"developer-tools missing branches {tools.missing} > {max_tools_missing}"
+        )
 
     if failed:
         print("BRANCH COVERAGE: FAIL")
@@ -103,6 +121,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("report", type=Path, nargs="?", default=Path("coverage.json"))
     parser.add_argument("--min-game", type=float)
     parser.add_argument("--min-tools", type=float)
+    parser.add_argument("--max-game-missing", type=int)
+    parser.add_argument("--max-tools-missing", type=int)
     return parser.parse_args(argv)
 
 
@@ -112,6 +132,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.report,
         min_game=args.min_game,
         min_tools=args.min_tools,
+        max_game_missing=args.max_game_missing,
+        max_tools_missing=args.max_tools_missing,
     )
 
 
