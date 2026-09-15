@@ -8,6 +8,7 @@ def test_default_checks_match_ci_entry_points():
         "flake8",
         "compileall",
         "architecture-boundary",
+        "upd-commander",
         "pytest",
     ]
     assert checks[0].command[:3] == ("python", "-m", "flake8")
@@ -24,7 +25,12 @@ def test_default_checks_match_ci_entry_points():
         "-m",
         "scripts.tools.static_analysis.architecture_boundary",
     )
-    assert checks[3].command == ("python", "-m", "pytest", "-q")
+    assert checks[3].command == (
+        "python",
+        "-m",
+        "scripts.tools.static_analysis.upd_commander",
+    )
+    assert checks[4].command == ("python", "-m", "pytest", "-q")
 
 
 def test_run_all_stops_after_first_failure(monkeypatch):
@@ -52,4 +58,10 @@ def test_run_all_can_keep_going(monkeypatch):
     code = run_all.run_all(run_all.default_checks("python"), keep_going=True)
 
     assert code == 1
-    assert seen == ["flake8", "compileall", "architecture-boundary", "pytest"]
+    assert seen == [
+        "flake8",
+        "compileall",
+        "architecture-boundary",
+        "upd-commander",
+        "pytest",
+    ]
