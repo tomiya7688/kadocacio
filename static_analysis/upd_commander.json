@@ -1,0 +1,25 @@
+{
+  "upstream_repository": "tomiya7688/upd-commander-base-design",
+  "upstream_commit": "8abe0828e173e62ad42f69cfcfa002b6bf73c3b9",
+  "target": "scripts",
+  "enabled_rules": [
+    "UPD001",
+    "UPD002",
+    "UPD101",
+    "UPD102",
+    "UPD103",
+    "UPD201",
+    "UPD202",
+    "UPD203",
+    "UPD401",
+    "UPD402",
+    "UPD403",
+    "UPD404"
+  ],
+  "ignore": [
+    "**/__pycache__/**"
+  ],
+  "blocking_severities": ["error"],
+  "report": "static_analysis/reports/upd_commander.json",
+  "max_console_findings": 20
+}
