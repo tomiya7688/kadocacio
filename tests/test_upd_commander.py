@@ -9,7 +9,7 @@ from scripts.tools.static_analysis import upd_commander
 
 def make_profile(tmp_path: Path, *, blocking=frozenset({"error"}), max_console=20):
     target = tmp_path / "scripts"
-    target.mkdir(exist_ok=True)
+    target.mkdir(parents=True, exist_ok=True)
     return upd_commander.Profile(
         upstream_repository="owner/upd",
         upstream_commit="abc123",
@@ -112,6 +112,8 @@ def test_collect_findings_uses_profile_rules_and_supports_lazy_loader(monkeypatc
 
     monkeypatch.setattr(upd_commander, "_load_upstream", lambda: (scan, filter_rules))
     assert upd_commander.collect_findings(profile) == raw
+    assert upd_commander.collect_findings(profile, scan_path_func=scan) == raw
+    assert upd_commander.collect_findings(profile, filter_func=filter_rules) == raw
 
 
 def test_display_path_handles_relative_inside_and_outside_paths(tmp_path):
@@ -140,8 +142,10 @@ def test_counts_accepts_known_default_and_extra_severities(tmp_path):
 
 
 def test_write_report_records_upstream_counts_and_paths(monkeypatch, tmp_path):
-    monkeypatch.setattr(upd_commander, "ROOT", tmp_path)
-    profile = make_profile(tmp_path)
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setattr(upd_commander, "ROOT", root)
+    profile = make_profile(root)
     items = [finding(profile.target / "game.py", "warning", line=12)]
 
     upd_commander.write_report(profile, items, status="PASS")
