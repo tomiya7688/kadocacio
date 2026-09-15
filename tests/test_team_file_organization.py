@@ -17,7 +17,10 @@ from scripts.team.team_data import discover_team_choices
 class TeamFileOrganizationTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp_dir.name)
+        # Windows runners can expose %TEMP% through an 8.3 short path (RUNNER~1)
+        # while pathlib returns the canonical long path after file operations.
+        # Normalize once so relative_to comparisons use the same spelling.
+        self.root = Path(self.temp_dir.name).resolve()
         self.teams = self.root / "teams"
         self.patches = [
             patch("scripts.team.team_editor_data.TEAMS_DIR", self.teams),
