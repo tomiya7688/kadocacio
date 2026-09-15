@@ -34,6 +34,26 @@ def test_load_report_separates_game_and_tools(tmp_path):
     assert tools.percent == 75.0
 
 
+def test_windows_paths_are_grouped_correctly(tmp_path):
+    report = tmp_path / "coverage.json"
+    write_report(
+        report,
+        {
+            "scripts\\team\\editor.py": {
+                "summary": {"covered_branches": 2, "num_branches": 5}
+            },
+            "scripts\\tools\\helper.py": {
+                "summary": {"covered_branches": 4, "num_branches": 5}
+            },
+        },
+    )
+
+    game, tools = coverage_gate.load_report(report)
+
+    assert (game.covered, game.total) == (2, 5)
+    assert (tools.covered, tools.total) == (4, 5)
+
+
 def test_run_fails_when_a_group_drops_below_minimum(tmp_path):
     report = tmp_path / "coverage.json"
     write_report(
