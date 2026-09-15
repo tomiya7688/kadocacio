@@ -89,6 +89,7 @@ jobs:
             --name Kadocacio `
             --distpath dist `
             --workpath build/pyinstaller `
+            --exclude-module upd_commander_checker `
             --add-data "assets:assets" `
             --add-data "teams:teams" `
             --add-data "teameditor_templete:teameditor_templete" `
