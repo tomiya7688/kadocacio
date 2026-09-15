@@ -63,6 +63,37 @@ class LeagueAutoProgressTests(unittest.TestCase):
         self.assertEqual(config.watch_mode, WATCH_RANDOM)
         self.assertIn(choose_auto_watch_fixture(FIXTURES, config, random.Random(1)), FIXTURES)
 
+    def test_invalid_config_is_normalized_to_safe_defaults(self) -> None:
+        config = LeagueAutoProgressConfig(
+            watch_mode="BROKEN",
+            speed_multiplier=999,
+            focus_team_id=123,
+        )
+
+        config.normalize()
+
+        self.assertEqual(config.watch_mode, WATCH_RANDOM)
+        self.assertEqual(config.speed_multiplier, 1)
+        self.assertEqual(config.focus_team_id, "123")
+
+    def test_played_fixtures_are_excluded_and_all_played_returns_none(self) -> None:
+        fixtures = [dict(FIXTURES[0], played=True), dict(FIXTURES[1])]
+        selected = choose_auto_watch_fixture(
+            fixtures,
+            LeagueAutoProgressConfig(),
+            random.Random(1),
+        )
+        self.assertEqual(selected["id"], "m2")
+
+        all_played = [dict(fixture, played=True) for fixture in FIXTURES]
+        self.assertIsNone(
+            choose_auto_watch_fixture(
+                all_played,
+                LeagueAutoProgressConfig(),
+                random.Random(1),
+            )
+        )
+
     def test_no_watch_is_headless_and_focus_only_selects_that_team(self) -> None:
         none_config = LeagueAutoProgressConfig(watch_mode=WATCH_NONE)
         self.assertIsNone(choose_auto_watch_fixture(FIXTURES, none_config, random.Random(1)))
@@ -71,6 +102,16 @@ class LeagueAutoProgressTests(unittest.TestCase):
         self.assertEqual(choose_auto_watch_fixture(FIXTURES, focus_config, random.Random(1))["id"], "m2")
         focus_config.focus_team_id = "missing"
         self.assertIsNone(choose_auto_watch_fixture(FIXTURES, focus_config, random.Random(1)))
+
+    def test_focus_team_id_is_compared_as_text(self) -> None:
+        fixtures = [
+            {"id": "numeric", "home_id": 42, "away_id": "x", "played": False},
+        ]
+        config = LeagueAutoProgressConfig(watch_mode=WATCH_FOCUS, focus_team_id=42)
+
+        selected = choose_auto_watch_fixture(fixtures, config, random.Random(1))
+
+        self.assertEqual(selected["id"], "numeric")
 
     def _game(self, config: LeagueAutoProgressConfig) -> Game:
         game = Game.__new__(Game)
