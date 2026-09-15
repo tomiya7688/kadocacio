@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import main as game_entry
 from scripts.core import paths
 from scripts.team import team_data
 from scripts.team.team_editor_data import create_team_template
@@ -14,6 +16,12 @@ def test_resolve_runtime_roots_uses_project_root_for_source(tmp_path):
 
     assert app_root == project.resolve()
     assert internal_root == project.resolve()
+
+
+def test_source_mode_keeps_developer_team_root_in_repository():
+    assert paths.IS_FROZEN is False
+    assert paths.TEAMS_DIR == paths.PROJECT_ROOT / "teams"
+    assert paths.USER_TEAMS_DIR == paths.PROJECT_ROOT / "user_data" / "teams"
 
 
 def test_resolve_runtime_roots_separates_executable_and_internal_data(tmp_path):
@@ -31,6 +39,21 @@ def test_resolve_runtime_roots_separates_executable_and_internal_data(tmp_path):
 
     assert app_root == app.resolve()
     assert internal_root == internal.resolve()
+
+
+def test_resolve_runtime_roots_defaults_frozen_internal_dir_beside_exe(tmp_path):
+    app = tmp_path / "Kadocacio"
+    executable = app / "Kadocacio.exe"
+    app.mkdir()
+
+    app_root, internal_root = paths.resolve_runtime_roots(
+        tmp_path / "source",
+        frozen=True,
+        executable=executable,
+    )
+
+    assert app_root == app.resolve()
+    assert internal_root == (app / "_internal").resolve()
 
 
 def test_ensure_user_data_layout_seeds_missing_files_without_overwrite(monkeypatch, tmp_path):
@@ -57,6 +80,26 @@ def test_ensure_user_data_layout_seeds_missing_files_without_overwrite(monkeypat
     paths.ensure_user_data_layout()
 
     assert target.read_text(encoding="utf-8") == '{"version": 99}'
+
+
+def test_bind_runtime_paths_updates_legacy_league_globals(monkeypatch, tmp_path):
+    leagues = tmp_path / "user_data" / "config" / "leagues.json"
+    state = tmp_path / "user_data" / "saves" / "league_state.json"
+    saves = tmp_path / "user_data" / "saves"
+    module = SimpleNamespace(
+        LEAGUES_PATH=Path("old-leagues.json"),
+        LEAGUE_STATE_PATH=Path("old-state.json"),
+        LEAGUE_SAVE_DIR=Path("old-save"),
+    )
+    monkeypatch.setattr(game_entry, "LEAGUES_PATH", leagues)
+    monkeypatch.setattr(game_entry, "LEAGUE_STATE_PATH", state)
+    monkeypatch.setattr(game_entry, "LEAGUE_SAVE_DIR", saves)
+
+    game_entry._bind_runtime_paths(module)
+
+    assert module.LEAGUES_PATH == leagues
+    assert module.LEAGUE_STATE_PATH == state
+    assert module.LEAGUE_SAVE_DIR == saves
 
 
 def _write_team(root: Path, relative: str, name: str) -> None:
