@@ -16,6 +16,10 @@ def make_source(root: Path) -> None:
         json.dumps({"リーグ一覧": []}, ensure_ascii=False),
         encoding="utf-8",
     )
+    (root / "league_state.json").write_text(
+        json.dumps({"year": 1, "day": 1}, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
 
 def make_internal(root: Path) -> None:
@@ -90,6 +94,7 @@ def test_validate_distribution_reports_all_structural_failures(tmp_path):
     (build / "Kadocacio.exe").unlink()
     (build / "user_data/logs").rmdir()
     (build / "user_data/config/leagues.json").unlink()
+    (build / "user_data/saves/league_state.json").unlink()
 
     empty_internal = build / distribution_layout.REQUIRED_INTERNAL_DIRS[0]
     for item in empty_internal.rglob("*"):
@@ -105,6 +110,7 @@ def test_validate_distribution_reports_all_structural_failures(tmp_path):
     assert "missing Kadocacio.exe" in errors
     assert "missing directory: user_data/logs" in errors
     assert "missing user data file: user_data/config/leagues.json" in errors
+    assert "missing user data file: user_data/saves/league_state.json" in errors
     assert any("internal directory is empty" in error for error in errors)
     assert any("missing internal file" in error for error in errors)
     assert "unexpected distribution root entries: debug.log" in errors
@@ -123,6 +129,7 @@ def test_validate_distribution_reports_missing_internal_directory(tmp_path):
 def test_validate_distribution_rejects_broken_json(tmp_path):
     _, build = make_complete_build(tmp_path)
     (build / "user_data/config/leagues.json").write_text("{broken", encoding="utf-8")
+    (build / "user_data/saves/league_state.json").write_text("{broken", encoding="utf-8")
     (build / distribution_layout.REQUIRED_INTERNAL_FILES[1]).write_text(
         "{broken",
         encoding="utf-8",
@@ -131,6 +138,7 @@ def test_validate_distribution_rejects_broken_json(tmp_path):
     errors = distribution_layout.validate_distribution(build)
 
     assert any("invalid JSON: user_data/config/leagues.json" in error for error in errors)
+    assert any("invalid JSON: user_data/saves/league_state.json" in error for error in errors)
     assert any("invalid JSON: _internal/leagues.json" in error for error in errors)
 
 

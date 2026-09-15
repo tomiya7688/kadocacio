@@ -3,7 +3,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Runtime-generated league save data
+# Player-facing runtime input/output data
+user_data/
+
+# Legacy runtime-generated league save data
 league_save/
 
 # Runtime-generated unattended evaluation logs
