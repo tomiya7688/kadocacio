@@ -20,6 +20,7 @@ USER_DATA_DIRS = (
 SEEDED_USER_FILES = (
     (Path("performance_settings.json"), Path("user_data/config/performance_settings.json")),
     (Path("leagues.json"), Path("user_data/config/leagues.json")),
+    (Path("league_state.json"), Path("user_data/saves/league_state.json")),
 )
 REQUIRED_INTERNAL_DIRS = (
     Path("_internal/assets"),
