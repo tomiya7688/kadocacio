@@ -28,9 +28,11 @@ def test_load_report_separates_game_and_tools(tmp_path):
 
     assert game.covered == 6
     assert game.total == 10
+    assert game.missing == 4
     assert game.percent == 60.0
     assert tools.covered == 3
     assert tools.total == 4
+    assert tools.missing == 1
     assert tools.percent == 75.0
 
 
@@ -72,6 +74,32 @@ def test_run_fails_when_a_group_drops_below_minimum(tmp_path):
     assert coverage_gate.run(report, min_game=40.0, min_tools=80.0) == 0
 
 
+def test_run_fails_when_missing_branch_count_increases(tmp_path):
+    report = tmp_path / "coverage.json"
+    write_report(
+        report,
+        {
+            "scripts/core/example.py": {
+                "summary": {"covered_branches": 4, "num_branches": 10}
+            },
+            "scripts/tools/example.py": {
+                "summary": {"covered_branches": 8, "num_branches": 10}
+            },
+        },
+    )
+
+    assert coverage_gate.run(
+        report,
+        max_game_missing=5,
+        max_tools_missing=2,
+    ) == 1
+    assert coverage_gate.run(
+        report,
+        max_game_missing=6,
+        max_tools_missing=2,
+    ) == 0
+
+
 def test_zero_branch_group_is_treated_as_fully_covered(tmp_path):
     report = tmp_path / "coverage.json"
     write_report(report, {})
@@ -79,4 +107,6 @@ def test_zero_branch_group_is_treated_as_fully_covered(tmp_path):
     game, tools = coverage_gate.load_report(report)
 
     assert game.percent == 100.0
+    assert game.missing == 0
     assert tools.percent == 100.0
+    assert tools.missing == 0
