@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scripts.match.manager_system import manager_stat
+from scripts.core.paths import DEFAULT_TEAMS_DIR
 from scripts.core.settings import HOME_RED, TACTIC_NAMES, TEAMS_DIR, clamp, grid_role, grid_slot, parse_hex_color
 from scripts.core.stat_scale import (
     MANAGER_ACTIVITY_DEFAULT,
@@ -245,7 +246,7 @@ def team_payload_from_choice(choice: dict) -> dict:
             "manager_intelligence", manager_stat(MANAGER_INTELLIGENCE_DEFAULT, MANAGER_INTELLIGENCE_DEFAULT),
         )))),
         "チームカラー": color,
-        "ユニフォーム": normalize_uniform(choice.get("uniform_data")),
+        "ユニフォーム": normalize_uniform(info.get("ユニフォーム")) if False else normalize_uniform(choice.get("uniform_data")),
         "戦術": tactic_label,
         "ゾーン手前": int(choice.get("zone_near", 3)),
         "ゾーン奥": int(choice.get("zone_far", 7)),
@@ -312,11 +313,11 @@ def team_choice_from_snapshot(snapshot: object) -> dict | None:
     return choice
 
 
-def load_team_config(path: Path) -> dict | None:
+def load_team_config(path: Path, teams_root: Path = TEAMS_DIR) -> dict | None:
     try:
         with path.open("r", encoding="utf-8-sig") as file:
             payload = json.load(file)
-        source_name = path.relative_to(TEAMS_DIR).as_posix()
+        source_name = path.relative_to(teams_root).as_posix()
         return team_choice_from_payload(payload, source_name)
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
         print(f"Team file could not be loaded ({path.name}): {error}")
@@ -325,18 +326,33 @@ def load_team_config(path: Path) -> dict | None:
 
 def discover_team_choices() -> list[dict]:
     choices = []
-    if TEAMS_DIR.exists():
-        for path in sorted(TEAMS_DIR.rglob("*.json"), key=lambda item: item.relative_to(TEAMS_DIR).as_posix().casefold()):
+    seen_ids: set[str] = set()
+    roots = [TEAMS_DIR]
+    if DEFAULT_TEAMS_DIR.resolve() != TEAMS_DIR.resolve():
+        roots.append(DEFAULT_TEAMS_DIR)
+
+    for teams_root in roots:
+        if not teams_root.exists():
+            continue
+        for path in sorted(
+            teams_root.rglob("*.json"),
+            key=lambda item: item.relative_to(teams_root).as_posix().casefold(),
+        ):
             try:
                 if path.stat().st_size == 0:
                     continue
             except OSError:
                 continue
-            config = load_team_config(path)
+            relative = path.relative_to(teams_root).as_posix()
+            team_id = f"json:{relative}"
+            if team_id in seen_ids:
+                continue
+            config = load_team_config(path, teams_root)
             if config:
+                seen_ids.add(team_id)
                 config.update(
                     {
-                        "id": f"json:{path.relative_to(TEAMS_DIR).as_posix()}",
+                        "id": team_id,
                         "kind": "JSON",
                         "short": config["short"] or ("KAD" if "kadoka" in config["name"].casefold() else config["name"][:3]),
                     }
@@ -344,5 +360,6 @@ def discover_team_choices() -> list[dict]:
                 choices.append(config)
 
     if not choices:
-        raise RuntimeError(f"No valid team JSON files were found in {TEAMS_DIR}")
+        searched = ", ".join(str(root) for root in roots)
+        raise RuntimeError(f"No valid team JSON files were found in: {searched}")
     return choices
