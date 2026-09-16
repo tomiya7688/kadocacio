@@ -95,11 +95,43 @@ class TeamIdentityTests(unittest.TestCase):
                 {"first": 1, "second": 2},
             )
 
+            formatted = root / "formatted.json"
+            formatted.write_text('{\n  "existing": 1\n}\n', encoding="utf-8")
+            migration._append_root_fields(formatted, [("added", 2)])
+            self.assertEqual(
+                json.loads(formatted.read_text(encoding="utf-8")),
+                {"existing": 1, "added": 2},
+            )
+
+            non_object = root / "list.json"
+            non_object.write_text("[]", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "ルート終端"):
+                migration._append_root_fields(non_object, [("invalid", True)])
+
             unchanged = root / "unchanged.json"
             unchanged.write_text('{"team": "other"}', encoding="utf-8")
             before = unchanged.read_bytes()
             migration._replace_reference_ids(unchanged, {"json:missing.json": "team:new"})
             self.assertEqual(unchanged.read_bytes(), before)
+
+    def test_migration_rejects_non_object_team_and_ignores_missing_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            teams = root / "teams"
+            teams.mkdir()
+            invalid = teams / "invalid.json"
+            invalid.write_text("[]", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "最上位"):
+                migrate_team_tree(teams)
+
+            invalid.unlink()
+            valid = teams / "valid.json"
+            valid.write_text(
+                json.dumps({"選手一覧": [], "チーム情報": {}}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            replacements = migrate_team_tree(teams, [root / "missing-reference.json"])
+            self.assertIn(legacy_team_id("valid.json"), replacements)
 
     def test_default_reference_paths_include_existing_modern_and_legacy_directories(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
