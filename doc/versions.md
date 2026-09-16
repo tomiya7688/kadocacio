@@ -22,6 +22,44 @@ ver num.num.num
 
 ---
 
+ver 0.7.6
+
+チームIDをファイルパスから分離
+
+追加したファイル
+
+- `scripts/team/team_identity.py`
+
+  恒久チームID、旧パス別名、ID生成と正規化を共通化しました。
+
+- `scripts/tools/migrate_team_ids.py`
+
+  既存チームJSONとリーグ・セーブ参照を恒久IDへ一括移行します。
+
+- `tests/test_team_identity.py`
+
+  ID生成、冪等な移行、参照更新、重複検出を検証します。
+
+変更したファイル
+
+- `scripts/team/team_data.py` / `scripts/team/team_editor_data.py`
+
+  読込・新規作成・保存・移動で恒久IDを使用し、旧json:パスは移行別名として保持します。
+
+- `scripts/league/league_manager.py`
+
+  旧パスIDをチームJSONの別名から恒久IDへ安全に解決します。
+
+- `teams/**/*.json` / `leagues.json` / `league_state.json`
+
+  既存標準データを一度だけ恒久IDへ移行しました。
+
+- `tests/test_team_file_organization.py` / `doc/versions.md`
+
+  ファイル移動後もIDが変わらない回帰テストと履歴を追加しました。
+
+---
+
 ver 0.7.5
 
 リーグセーブ形式のバージョン管理と安全マイグレーション

@@ -1257,5 +1257,9 @@
     "バージョン": 2,
     "最小": 0,
     "最大": 5500
-  }
+  },
+  "チームID": "team:cddae1db-2b68-5f4b-8e58-e834ea6bf172",
+  "チームID別名": [
+    "json:kadoka_original_A/夕張kadoka_japan.json"
+  ]
 }

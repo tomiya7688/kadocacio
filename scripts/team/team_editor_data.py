@@ -8,6 +8,12 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.core.paths import (
+    LEAGUES_PATH,
+    LEAGUE_SAVE_DIR,
+    LEAGUE_STATE_PATH,
+    LEAGUE_TEMPLATE_DIR,
+)
 from scripts.match.player_style_system import PLAYER_TYPES
 from scripts.core.settings import TACTIC_NAMES, TEAMS_DIR
 from scripts.match.skill_system import ALL_SKILLS, normalize_skill_name
@@ -25,6 +31,12 @@ from scripts.core.stat_scale import (
     remap_player_stat,
 )
 from scripts.team.team_data import PLAYER_KEY_ALIASES
+from scripts.team.team_identity import (
+    TEAM_ID_KEY,
+    ensure_team_identity,
+    legacy_team_id,
+    new_team_id,
+)
 from scripts.team.team_editor_config import load_editor_options
 from scripts.team.team_template_profile import generation_field_targets, profile_label
 from scripts.team.uniform_data import default_uniform, normalize_uniform, validate_uniform
@@ -451,6 +463,7 @@ def create_team_template(
     target = round(max(PLAYER_STAT_MIN, min(PLAYER_STAT_MAX, int(target))))
     field_targets = generation_field_targets(target, profile_id, options, STAT_FIELDS)
     payload = {
+        TEAM_ID_KEY: new_team_id(),
         "選手一覧": [
             _default_player(
                 index, rng, mode=mode, target=target, spread=spread,
@@ -680,7 +693,7 @@ def team_relative_path(path: Path) -> Path:
 
 
 def team_id_for_path(path: Path) -> str:
-    return f"json:{team_relative_path(path).as_posix()}"
+    return legacy_team_id(team_relative_path(path).as_posix())
 
 
 def _replace_json_identifier(value, old_id: str, new_id: str):
@@ -698,14 +711,17 @@ def update_team_file_references(old_id: str, new_id: str) -> None:
     if not old_id or old_id == new_id:
         return
     root = TEAMS_DIR.parent
-    targets = [root / "leagues.json", root / "league_state.json"]
-    template_dir = root / "league_templates"
-    if template_dir.exists():
-        targets.extend(template_dir.glob("*.json"))
-    save_dir = root / "league_save"
-    if save_dir.exists():
-        targets.extend(save_dir.glob("*.json"))
-    for target in targets:
+    targets = [
+        LEAGUES_PATH, LEAGUE_STATE_PATH,
+        root / "leagues.json", root / "league_state.json",
+    ]
+    for directory in (
+        LEAGUE_TEMPLATE_DIR, LEAGUE_SAVE_DIR,
+        root / "league_templates", root / "league_save",
+    ):
+        if directory.exists():
+            targets.extend(directory.glob("*.json"))
+    for target in dict.fromkeys(targets):
         if not target.exists():
             continue
         try:
@@ -730,6 +746,8 @@ def save_editor_payload(payload: dict, source_path: Path | None = None, folder_n
     old_path = source_path.resolve() if source_path is not None else None
     if old_path is not None:
         team_relative_path(old_path)
+    old_legacy_id = team_id_for_path(old_path) if old_path is not None else ""
+    persistent_id = ensure_team_identity(payload, legacy_id=old_legacy_id)
     folder = safe_team_folder(folder_name) if folder_name is not None else (team_relative_path(old_path).parent if old_path else Path())
     target_dir = (TEAMS_DIR / folder).resolve()
     try:
@@ -749,10 +767,9 @@ def save_editor_payload(payload: dict, source_path: Path | None = None, folder_n
         file.write("\n")
     temporary.replace(path)
     if old_path is not None and old_path != path.resolve():
-        old_id = team_id_for_path(old_path)
-        new_id = team_id_for_path(path)
         old_path.unlink()
-        update_team_file_references(old_id, new_id)
+    if old_legacy_id:
+        update_team_file_references(old_legacy_id, persistent_id)
     return path
 
 

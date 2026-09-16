@@ -766,5 +766,9 @@
     "バージョン": 2,
     "最小": 0,
     "最大": 5500
-  }
+  },
+  "チームID": "team:bd068370-92ca-596e-b985-a48d9f1d08b7",
+  "チームID別名": [
+    "json:kadoka_original_A/LOAD SPIn.json"
+  ]
 }
