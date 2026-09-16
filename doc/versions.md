@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.5
+
+リーグセーブ形式のバージョン管理と安全マイグレーション
+
+追加したファイル
+
+- `scripts/league/save_migrations.py`
+
+  format_version判定、v0からv1への移行、現行形式の最小スキーマ検証を担当します。
+
+- `tests/test_save_migrations.py`
+
+  旧形式移行、バックアップ、未来バージョン拒否、形式検証を回帰テストします。
+
+変更したファイル
+
+- `scripts/league/league_manager.py`
+
+  保存時にformat_version=1を書き込み、旧形式はバックアップ後に移行し、未来形式は元データを変更せず拒否します。
+
+- `doc/versions.md`
+
+  ver 0.7.5の変更内容を追記しました。
+
+---
+
 ver 0.7.4
 
 手動リーグ進行でも裏試合失敗を通知

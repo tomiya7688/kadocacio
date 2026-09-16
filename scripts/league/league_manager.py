@@ -11,6 +11,11 @@ from pathlib import Path
 from scripts.core.paths import LEAGUE_TEMPLATE_DIR, PROJECT_ROOT
 from scripts.core.settings import clamp, parse_hex_color
 from scripts.league.league_simulation_session import LeagueSimulationSession
+from scripts.league.save_migrations import (
+    CURRENT_FORMAT_VERSION,
+    SaveFormatError,
+    migrate_save_payload,
+)
 from scripts.league.league_simulation_workers import (
     _run_headless_league_match,
     _run_synchronized_match_batch,
@@ -770,6 +775,13 @@ class LeagueManager:
     def _default_save_path(self) -> Path:
         return LEAGUE_SAVE_DIR / f"{DEFAULT_SAVE_NAME}.json"
 
+    @staticmethod
+    def _backup_before_migration(target: Path, source_version: int) -> Path:
+        backup = target.with_name(f"{target.name}.v{source_version}.bak")
+        if not backup.exists():
+            shutil.copy2(target, backup)
+        return backup
+
     def _apply_state(self, state: dict) -> None:
         self._historical_teams_cache = None
         competition = state.get("competition_template", {})
@@ -829,13 +841,15 @@ class LeagueManager:
             self.failed_save_path = target
             return False
 
-        if not isinstance(state, dict):
-            self.last_load_error = "セーブデータを読み込めません: JSONの一番外側がオブジェクトではありません"
+        try:
+            state, source_version = migrate_save_payload(state)
+            if source_version < CURRENT_FORMAT_VERSION:
+                self._backup_before_migration(target, source_version)
+            self._apply_state(state)
+        except SaveFormatError as error:
+            self.last_load_error = f"セーブ形式に互換性がありません: {error}"
             self.failed_save_path = target
             return False
-
-        try:
-            self._apply_state(state)
         except Exception as error:
             # Save migrations and schema conversions run behind the same safety
             # boundary: a failed migration must not make the source overwritable.
@@ -851,6 +865,7 @@ class LeagueManager:
     def _state_payload(self) -> dict:
         self._update_team_snapshots()
         return {
+            "format_version": CURRENT_FORMAT_VERSION,
             "save_version": SAVE_VERSION,
             "save_name": self.save_name,
             "saved_at": datetime.now().isoformat(timespec="seconds"),
@@ -907,10 +922,11 @@ class LeagueManager:
             try:
                 with path.open("r", encoding="utf-8-sig") as file:
                     loaded = json.load(file)
-                if not isinstance(loaded, dict):
-                    errors.append("JSONの一番外側がオブジェクトではありません")
-                else:
-                    state = loaded
+                try:
+                    state, _source_version = migrate_save_payload(loaded)
+                except SaveFormatError as error:
+                    errors.append(f"セーブ形式に互換性がありません: {error}")
+                    state = {}
             except (OSError, json.JSONDecodeError, UnicodeError) as error:
                 errors.append(f"JSONを読み込めません: {error}")
             fixtures = state.get("fixtures", [])
