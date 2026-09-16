@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from scripts.core.paths import (
@@ -12,65 +13,108 @@ from scripts.core.paths import (
     PROJECT_ROOT,
     TEAMS_DIR,
 )
-from scripts.team.team_identity import ensure_team_identity, legacy_team_id
+from scripts.team.team_identity import (
+    TEAM_ID_ALIASES_KEY,
+    TEAM_ID_KEY,
+    ensure_team_identity,
+    legacy_team_id,
+    team_id_aliases,
+)
 
 
-def _replace_identifiers(value, replacements: dict[str, str]):
-    if isinstance(value, dict):
-        return {
-            replacements.get(str(key), key): _replace_identifiers(item, replacements)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_replace_identifiers(item, replacements) for item in value]
-    if isinstance(value, str):
-        return replacements.get(value, value)
-    return value
+def _decode_json_bytes(raw: bytes) -> tuple[str, bytes]:
+    bom = b"\xef\xbb\xbf" if raw.startswith(b"\xef\xbb\xbf") else b""
+    return raw[len(bom):].decode("utf-8"), bom
 
 
-def _write_json(path: Path, payload: object) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8", newline="\n") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
-        file.write("\n")
-    temporary.replace(path)
+def _append_root_fields(path: Path, fields: list[tuple[str, object]]) -> None:
+    """Append root JSON fields while preserving the file's existing formatting."""
+    if not fields:
+        return
+    raw = path.read_bytes()
+    text, bom = _decode_json_bytes(raw)
+    json.loads(text)
+    newline = "\r\n" if "\r\n" in text else "\n"
+    stripped_end = len(text.rstrip())
+    closing = text.rfind("}", 0, stripped_end)
+    if closing < 0:
+        raise ValueError(f"JSONのルート終端が見つかりません: {path}")
+    before = text[:closing]
+    after = text[closing:]
+    trimmed = before.rstrip()
+    whitespace = before[len(trimmed):]
+    separator = "" if trimmed.endswith("{") else ","
+    indent_match = re.search(r"(?:\r?\n)([ \t]+)\"", text)
+    indent = indent_match.group(1) if indent_match else "  "
+    additions = ("," + newline).join(
+        f"{indent}{json.dumps(key, ensure_ascii=False)}: "
+        f"{json.dumps(value, ensure_ascii=False)}"
+        for key, value in fields
+    )
+    if whitespace:
+        inserted = trimmed + separator + whitespace + additions + newline + after
+    else:
+        inserted = trimmed + separator + newline + additions + newline + after
+    json.loads(inserted)
+    path.write_bytes(bom + inserted.encode("utf-8"))
+
+
+def _replace_reference_ids(path: Path, replacements: dict[str, str]) -> None:
+    """Replace only complete JSON string tokens, preserving surrounding layout."""
+    raw = path.read_bytes()
+    text, bom = _decode_json_bytes(raw)
+    json.loads(text)
+    changed = text
+    for old_id, new_id in replacements.items():
+        changed = changed.replace(
+            json.dumps(old_id, ensure_ascii=False),
+            json.dumps(new_id, ensure_ascii=False),
+        )
+    if changed == text:
+        return
+    json.loads(changed)
+    path.write_bytes(bom + changed.encode("utf-8"))
 
 
 def migrate_team_tree(
     teams_root: Path,
     reference_paths: list[Path] | tuple[Path, ...] = (),
 ) -> dict[str, str]:
-    """Persist permanent IDs and migrate JSON references from legacy path IDs."""
+    """Persist permanent IDs without reformatting existing JSON files."""
     teams_root = Path(teams_root).resolve()
     replacements: dict[str, str] = {}
+    records: list[tuple[Path, str, list[str], bool, bool]] = []
     team_id_sources: dict[str, Path] = {}
 
     for path in sorted(teams_root.rglob("*.json")):
-        with path.open("r", encoding="utf-8-sig") as file:
-            payload = json.load(file)
+        text, _bom = _decode_json_bytes(path.read_bytes())
+        payload = json.loads(text)
         if not isinstance(payload, dict):
             raise ValueError(f"チームJSONの最上位がオブジェクトではありません: {path}")
         relative = path.relative_to(teams_root).as_posix()
         old_id = legacy_team_id(relative)
-        before = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        had_id = bool(str(payload.get(TEAM_ID_KEY, "")).strip())
+        had_aliases = TEAM_ID_ALIASES_KEY in payload
         team_id = ensure_team_identity(payload, legacy_id=old_id, deterministic=True)
+        aliases = team_id_aliases(payload)
         previous = team_id_sources.get(team_id)
         if previous is not None and previous != path:
             raise ValueError(f"チームIDが重複しています: {team_id}: {previous} / {path}")
         team_id_sources[team_id] = path
         replacements[old_id] = team_id
-        after = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-        if before != after:
-            _write_json(path, payload)
+        records.append((path, team_id, aliases, had_id, had_aliases))
+
+    for path, team_id, aliases, had_id, had_aliases in records:
+        fields: list[tuple[str, object]] = []
+        if not had_id:
+            fields.append((TEAM_ID_KEY, team_id))
+        if not had_aliases:
+            fields.append((TEAM_ID_ALIASES_KEY, aliases))
+        _append_root_fields(path, fields)
 
     for reference in dict.fromkeys(Path(path) for path in reference_paths):
-        if not reference.is_file():
-            continue
-        with reference.open("r", encoding="utf-8-sig") as file:
-            payload = json.load(file)
-        replaced = _replace_identifiers(payload, replacements)
-        if replaced != payload:
-            _write_json(reference, replaced)
+        if reference.is_file():
+            _replace_reference_ids(reference, replacements)
     return replacements
 
 
