@@ -5,10 +5,7 @@ from copy import deepcopy
 
 CURRENT_FORMAT_VERSION = 1
 LEGACY_FORMAT_VERSION = 0
-
-
-class SaveFormatError(ValueError):
-    """Raised when a league save cannot be migrated safely."""
+SaveFormatError = ValueError
 
 
 def detect_format_version(payload: dict) -> int:
