@@ -31,6 +31,7 @@ class FakeLeagueManager:
         self.year = 1
         self.watch_fixture_id = ""
         self.last_results = []
+        self.applied_results = []
 
     def _fixture_selected(self, fixture: dict) -> bool:
         return True
@@ -54,6 +55,25 @@ class FakeLeagueManager:
 
     def save(self) -> None:
         return None
+
+    def apply_headless_results(self, results: list[dict]) -> None:
+        self.applied_results = list(results)
+        completed = {str(result.get("fixture_id", "")) for result in results}
+        for fixture in self.fixtures:
+            if str(fixture.get("id", "")) in completed:
+                fixture["played"] = True
+
+
+class _FinishedLeagueSession:
+    def __init__(self, *, results: list[dict], errors: list[str]) -> None:
+        self.results = list(results)
+        self.errors = list(errors)
+        self.finished = True
+        self.live_updates = False
+        self.live_status = {}
+
+    def poll(self) -> bool:
+        return True
 
 
 class LeagueAutoProgressTests(unittest.TestCase):
@@ -123,6 +143,7 @@ class LeagueAutoProgressTests(unittest.TestCase):
         game.league_auto_result_delay = 0.0
         game.league_auto_matchdays = 0
         game.league_simulation_session = None
+        game.league_live_last_status = []
         game.active_league_fixture_id = ""
         game.league_save_message = ""
         game.match = SimpleNamespace(speed_multiplier=1)
@@ -136,6 +157,41 @@ class LeagueAutoProgressTests(unittest.TestCase):
         game.start_league_fixture = start_fixture
         game.start_league_simulations = lambda fixtures: setattr(game, "headless_fixtures", list(fixtures))
         return game
+
+    def test_manual_headless_failure_is_reported_and_failed_fixture_stays_unplayed(self) -> None:
+        game = self._game(LeagueAutoProgressConfig(watch_mode=WATCH_NONE))
+        game.league_auto_config_open = False
+        game.league_auto_running = False
+        game.league_simulation_session = _FinishedLeagueSession(
+            results=[{"fixture_id": "m1", "home_score": 2, "away_score": 0}],
+            errors=["m2: worker failed"],
+        )
+
+        game.update_league_simulations()
+
+        fixtures = {fixture["id"]: fixture for fixture in game.league_manager.fixtures}
+        self.assertTrue(fixtures["m1"]["played"])
+        self.assertFalse(fixtures["m2"]["played"])
+        self.assertIn("裏試合の処理に失敗しました", game.league_save_message)
+        self.assertIn("m2", game.league_save_message)
+        self.assertIn("未消化", game.league_save_message)
+        self.assertIsNone(game.league_simulation_session)
+
+    def test_auto_headless_failure_still_stops_auto_progress_and_reports_fixture(self) -> None:
+        game = self._game(LeagueAutoProgressConfig(watch_mode=WATCH_NONE))
+        game.league_auto_config_open = False
+        game.league_auto_running = True
+        game.league_simulation_session = _FinishedLeagueSession(
+            results=[{"fixture_id": "m1", "home_score": 1, "away_score": 1}],
+            errors=["m2: worker failed"],
+        )
+
+        game.update_league_simulations()
+
+        self.assertFalse(game.league_auto_running)
+        self.assertIn("オート進行を停止しました", game.league_save_message)
+        self.assertIn("m2", game.league_save_message)
+        self.assertIn("未消化", game.league_save_message)
 
     def test_watch_none_starts_every_due_match_headlessly(self) -> None:
         game = self._game(LeagueAutoProgressConfig(watch_mode=WATCH_NONE))

@@ -568,9 +568,20 @@ class Game(RendererMixin):
         if not session.finished:
             return
         self.league_manager.apply_headless_results(session.results)
-        if session.errors and self.league_auto_running:
-            self.stop_league_auto_progress(announce=False)
-            self.league_save_message = "オート進行を停止しました: " + str(session.errors[0])
+        if session.errors:
+            details = " / ".join(str(error) for error in session.errors[:2])
+            remaining = len(session.errors) - 2
+            if remaining > 0:
+                details += f" / 他{remaining}件"
+            if self.league_auto_running:
+                self.stop_league_auto_progress(announce=False)
+                prefix = "オート進行を停止しました"
+            else:
+                prefix = "裏試合の処理に失敗しました"
+            self.league_save_message = (
+                f"{prefix}: {details}。"
+                "成功した試合は反映済み、失敗した試合は未消化です"
+            )
         self.league_simulation_session = None
 
     def league_live_clock_ready(self) -> bool:

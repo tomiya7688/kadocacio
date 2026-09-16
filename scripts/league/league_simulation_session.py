@@ -89,7 +89,8 @@ class LeagueSimulationSession:
             away_choice = choices_by_id.get(str(fixture.get("away_id")))
             if home_choice is None or away_choice is None:
                 self.completed += 1
-                self.errors.append(str(fixture.get("id", "missing team")))
+                fixture_id = str(fixture.get("id", "missing fixture"))
+                self.errors.append(f"{fixture_id}: チームデータが見つかりません")
                 continue
             job = {
                 "fixture": fixture,
