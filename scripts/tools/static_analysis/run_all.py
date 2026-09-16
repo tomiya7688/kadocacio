@@ -40,6 +40,10 @@ def default_checks(python: str = sys.executable) -> tuple[Check, ...]:
             "architecture-boundary",
             (python, "-m", "scripts.tools.static_analysis.architecture_boundary"),
         ),
+        Check(
+            "upd-commander",
+            (python, "-m", "scripts.tools.static_analysis.upd_checker"),
+        ),
         Check("pytest", (python, "-m", "pytest", "-q")),
     )
 
