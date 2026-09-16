@@ -1,0 +1,180 @@
+name: Apply issue 34 fix
+
+on:
+  push:
+    branches: ["feat/issue-34-stable-team-ids"]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[issue-34-applied]') }}
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/issue-34-stable-team-ids
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Wire persistent IDs into team loading and editing
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/team/team_data.py")
+          text = path.read_text(encoding="utf-8")
+          marker = "from scripts.team.uniform_data import normalize_uniform\n"
+          insert = '''from scripts.team.team_identity import (\n    TEAM_ID_KEY,\n    legacy_team_id,\n    normalize_team_id,\n    team_id_aliases,\n)\n'''
+          if marker not in text:
+              raise SystemExit("team_data import marker missing")
+          text = text.replace(marker, insert + marker, 1)
+
+          start = text.index("def load_team_config(")
+          end = text.index("\n\ndef discover_team_choices", start)
+          replacement = '''def load_team_config(path: Path, teams_root: Path = TEAMS_DIR) -> dict | None:\n    try:\n        with path.open("r", encoding="utf-8-sig") as file:\n            payload = json.load(file)\n        source_name = path.relative_to(teams_root).as_posix()\n        path_id = legacy_team_id(source_name)\n        choice = team_choice_from_payload(payload, source_name)\n        persistent_id = normalize_team_id(payload.get(TEAM_ID_KEY, "")) if isinstance(payload, dict) else ""\n        team_id = persistent_id or path_id\n        aliases = team_id_aliases(payload)\n        if path_id != team_id and path_id not in aliases:\n            aliases.append(path_id)\n        choice.update({"id": team_id, "legacy_ids": aliases})\n        return choice\n    except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:\n        print(f"Team file could not be loaded ({path.name}): {error}")\n        return None\n'''
+          text = text[:start] + replacement + text[end:]
+
+          start = text.index("def discover_team_choices()")
+          replacement = '''def discover_team_choices() -> list[dict]:\n    choices = []\n    seen_ids: dict[str, Path] = {}\n    roots = [TEAMS_DIR]\n    if DEFAULT_TEAMS_DIR.resolve() != TEAMS_DIR.resolve():\n        roots.append(DEFAULT_TEAMS_DIR)\n\n    for teams_root in roots:\n        if not teams_root.exists():\n            continue\n        for path in sorted(\n            teams_root.rglob("*.json"),\n            key=lambda item: item.relative_to(teams_root).as_posix().casefold(),\n        ):\n            try:\n                if path.stat().st_size == 0:\n                    continue\n            except OSError:\n                continue\n            config = load_team_config(path, teams_root)\n            if config:\n                team_id = str(config.get("id", ""))\n                previous_root = seen_ids.get(team_id)\n                if previous_root is not None:\n                    if previous_root.resolve() == teams_root.resolve():\n                        raise ValueError(f"Duplicate team ID: {team_id}")\n                    # user_data/teams is scanned first; matching bundled IDs are\n                    # intentional overrides and stay hidden behind the user copy.\n                    continue\n                seen_ids[team_id] = teams_root\n                config.update(\n                    {\n                        "kind": "JSON",\n                        "short": config["short"] or ("KAD" if "kadoka" in config["name"].casefold() else config["name"][:3]),\n                    }\n                )\n                choices.append(config)\n\n    if not choices:\n        searched = ", ".join(str(root) for root in roots)\n        raise RuntimeError(f"No valid team JSON files were found in: {searched}")\n    return choices\n'''
+          text = text[:start] + replacement
+          path.write_text(text, encoding="utf-8")
+
+          path = Path("scripts/team/team_editor_data.py")
+          text = path.read_text(encoding="utf-8")
+          marker = "from scripts.match.player_style_system import PLAYER_TYPES\n"
+          insert = '''from scripts.core.paths import (\n    LEAGUES_PATH,\n    LEAGUE_SAVE_DIR,\n    LEAGUE_STATE_PATH,\n    LEAGUE_TEMPLATE_DIR,\n)\n'''
+          if marker not in text:
+              raise SystemExit("team_editor_data import marker missing")
+          text = text.replace(marker, insert + marker, 1)
+          marker = "from scripts.team.team_data import PLAYER_KEY_ALIASES\n"
+          insert = '''from scripts.team.team_identity import (\n    TEAM_ID_KEY,\n    ensure_team_identity,\n    legacy_team_id,\n    new_team_id,\n)\n'''
+          text = text.replace(marker, marker + insert, 1)
+
+          old = '''    payload = {\n        "選手一覧": [\n'''
+          new = '''    payload = {\n        TEAM_ID_KEY: new_team_id(),\n        "選手一覧": [\n'''
+          if text.count(old) != 1:
+              raise SystemExit("create_team_template payload marker missing")
+          text = text.replace(old, new, 1)
+
+          old = '''def team_id_for_path(path: Path) -> str:\n    return f"json:{team_relative_path(path).as_posix()}"\n'''
+          new = '''def team_id_for_path(path: Path) -> str:\n    return legacy_team_id(team_relative_path(path).as_posix())\n'''
+          if text.count(old) != 1:
+              raise SystemExit("team_id_for_path marker missing")
+          text = text.replace(old, new, 1)
+
+          start = text.index("def update_team_file_references(")
+          end = text.index("\n\ndef save_editor_payload", start)
+          replacement = '''def update_team_file_references(old_id: str, new_id: str) -> None:\n    if not old_id or old_id == new_id:\n        return\n    root = TEAMS_DIR.parent\n    targets = [\n        LEAGUES_PATH, LEAGUE_STATE_PATH,\n        root / "leagues.json", root / "league_state.json",\n    ]\n    for directory in (\n        LEAGUE_TEMPLATE_DIR, LEAGUE_SAVE_DIR,\n        root / "league_templates", root / "league_save",\n    ):\n        if directory.exists():\n            targets.extend(directory.glob("*.json"))\n    for target in dict.fromkeys(targets):\n        if not target.exists():\n            continue\n        try:\n            with target.open("r", encoding="utf-8-sig") as file:\n                payload = json.load(file)\n            replaced = _replace_json_identifier(payload, old_id, new_id)\n            if replaced == payload:\n                continue\n            temporary = target.with_suffix(target.suffix + ".tmp")\n            with temporary.open("w", encoding="utf-8", newline="\\n") as file:\n                json.dump(replaced, file, ensure_ascii=False, indent=2)\n                file.write("\\n")\n            temporary.replace(target)\n        except (OSError, ValueError, TypeError, json.JSONDecodeError):\n            continue\n'''
+          text = text[:start] + replacement + text[end:]
+
+          old = '''    old_path = source_path.resolve() if source_path is not None else None\n    if old_path is not None:\n        team_relative_path(old_path)\n    folder = safe_team_folder(folder_name) if folder_name is not None else (team_relative_path(old_path).parent if old_path else Path())\n'''
+          new = '''    old_path = source_path.resolve() if source_path is not None else None\n    if old_path is not None:\n        team_relative_path(old_path)\n    old_legacy_id = team_id_for_path(old_path) if old_path is not None else ""\n    persistent_id = ensure_team_identity(payload, legacy_id=old_legacy_id)\n    folder = safe_team_folder(folder_name) if folder_name is not None else (team_relative_path(old_path).parent if old_path else Path())\n'''
+          if text.count(old) != 1:
+              raise SystemExit("save identity insertion marker missing")
+          text = text.replace(old, new, 1)
+
+          old = '''    if old_path is not None and old_path != path.resolve():\n        old_id = team_id_for_path(old_path)\n        new_id = team_id_for_path(path)\n        old_path.unlink()\n        update_team_file_references(old_id, new_id)\n    return path\n'''
+          new = '''    if old_path is not None and old_path != path.resolve():\n        old_path.unlink()\n    if old_legacy_id:\n        update_team_file_references(old_legacy_id, persistent_id)\n    return path\n'''
+          if text.count(old) != 1:
+              raise SystemExit("save rename block marker missing")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Migrate league references through team aliases
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/league/league_manager.py")
+          text = path.read_text(encoding="utf-8")
+          start = text.index("    def _migrate_stale_team_ids(self) -> bool:")
+          end = text.index("\n    def refresh_teams", start)
+          replacement = '''    def _migrate_stale_team_ids(self) -> bool:\n        """Resolve legacy path IDs to the permanent IDs carried by team JSON."""\n        current_ids = {str(choice["id"]) for choice in self.team_choices}\n        alias_candidates: dict[str, list[str]] = {}\n        ids_by_filename: dict[str, list[str]] = {}\n        for choice in self.team_choices:\n            team_id = str(choice.get("id", ""))\n            for alias in choice.get("legacy_ids", []):\n                alias_candidates.setdefault(str(alias), []).append(team_id)\n            source = str(choice.get("source", ""))\n            if source:\n                filename = source.rsplit("/", 1)[-1].casefold()\n                ids_by_filename.setdefault(filename, []).append(team_id)\n        referenced_ids = {\n            str(team_id)\n            for definition in self.definitions\n            for team_id in definition.get("所属チーム", [])\n        } | set(self.league_memberships) | set(self.league_participations)\n        replacements: dict[str, str] = {}\n        for old_id in referenced_ids - current_ids:\n            candidates = list(dict.fromkeys(alias_candidates.get(old_id, [])))\n            if len(candidates) == 1:\n                replacements[old_id] = candidates[0]\n                continue\n            # Compatibility fallback for very old saves that predate aliases.\n            filename = old_id.removeprefix("json:").rsplit("/", 1)[-1].casefold()\n            candidates = list(dict.fromkeys(ids_by_filename.get(filename, [])))\n            if len(candidates) == 1:\n                replacements[old_id] = candidates[0]\n        for old_id, new_id in replacements.items():\n            self.definitions = self._replace_team_identifier(self.definitions, old_id, new_id)\n            self.league_memberships = self._replace_team_identifier(self.league_memberships, old_id, new_id)\n            self.league_participations = self._replace_team_identifier(self.league_participations, old_id, new_id)\n            self.fixtures = self._replace_team_identifier(self.fixtures, old_id, new_id)\n            self.last_results = self._replace_team_identifier(self.last_results, old_id, new_id)\n            self.history = self._replace_team_identifier(self.history, old_id, new_id)\n            self.team_signature = self._replace_team_identifier(self.team_signature, old_id, new_id)\n            self.season_standings_snapshot = self._replace_team_identifier(self.season_standings_snapshot, old_id, new_id)\n            self.promotion_events = self._replace_team_identifier(self.promotion_events, old_id, new_id)\n            self.tournament_progress = self._replace_team_identifier(self.tournament_progress, old_id, new_id)\n        if replacements:\n            self._save_definitions()\n        return bool(replacements)\n'''
+          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+          PY
+
+      - name: Update team organization regressions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_team_file_organization.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              '        self.assertEqual(choices[0]["id"], "json:関東/一部/東京サンプル.json")\n',
+              '        self.assertEqual(choices[0]["id"], payload["チームID"])\n        self.assertTrue(choices[0]["id"].startswith("team:"))\n',
+              1,
+          )
+          start = text.index("    def test_team_name_renames_file_and_updates_all_json_references")
+          end = text.index("\n    def test_duplicate_target_name", start)
+          replacement = '''    def test_team_move_keeps_persistent_id_and_migrates_legacy_references(self):\n        payload = create_team_template("initial")\n        payload["チーム情報"]["チーム名"] = "旧チーム"\n        old_path = save_editor_payload(payload)\n        persistent_id = payload["チームID"]\n        old_legacy_id = team_id_for_path(old_path)\n        league_payload = {"リーグ一覧": [{"リーグ名": "A", "所属チーム": [old_legacy_id]}]}\n        (self.root / "leagues.json").write_text(json.dumps(league_payload, ensure_ascii=False), encoding="utf-8")\n        save_dir = self.root / "league_save"\n        save_dir.mkdir()\n        save_path = save_dir / "season.json"\n        save_path.write_text(json.dumps({"league_memberships": {old_legacy_id: "A"}}, ensure_ascii=False), encoding="utf-8")\n\n        payload["チーム情報"]["チーム名"] = "新チーム"\n        new_path = save_editor_payload(payload, old_path, "九州")\n\n        self.assertFalse(old_path.exists())\n        self.assertEqual(new_path.relative_to(self.teams).as_posix(), "九州/新チーム.json")\n        saved_team = json.loads(new_path.read_text(encoding="utf-8"))\n        self.assertEqual(saved_team["チームID"], persistent_id)\n        self.assertIn(old_legacy_id, saved_team["チームID別名"])\n        self.assertIn(persistent_id, (self.root / "leagues.json").read_text(encoding="utf-8"))\n        save_text = save_path.read_text(encoding="utf-8")\n        self.assertIn(persistent_id, save_text)\n        self.assertNotIn(old_legacy_id, save_text)\n        discovered = next(choice for choice in discover_team_choices() if choice["source"] == "九州/新チーム.json")\n        self.assertEqual(discovered["id"], persistent_id)\n\n    def test_duplicate_persistent_id_in_same_root_is_rejected(self):\n        first = create_team_template("initial")\n        first["チーム情報"]["チーム名"] = "重複A"\n        second = create_team_template("initial")\n        second["チーム情報"]["チーム名"] = "重複B"\n        second["チームID"] = first["チームID"]\n        save_editor_payload(first)\n        save_editor_payload(second)\n\n        with self.assertRaisesRegex(ValueError, "Duplicate team ID"):\n            discover_team_choices()\n'''
+          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+          PY
+
+      - name: Add version entry
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("doc/versions.md")
+          text = path.read_text(encoding="utf-8")
+          marker = "---\n\nver 0.7.5\n"
+          lines = [
+              "---", "", "ver 0.7.6", "", "チームIDをファイルパスから分離", "",
+              "追加したファイル", "", "- `scripts/team/team_identity.py`", "",
+              "  恒久チームID、旧パス別名、ID生成と正規化を共通化しました。", "",
+              "- `scripts/tools/migrate_team_ids.py`", "",
+              "  既存チームJSONとリーグ・セーブ参照を恒久IDへ一括移行します。", "",
+              "- `tests/test_team_identity.py`", "",
+              "  ID生成、冪等な移行、参照更新、重複検出を検証します。", "",
+              "変更したファイル", "", "- `scripts/team/team_data.py` / `scripts/team/team_editor_data.py`", "",
+              "  読込・新規作成・保存・移動で恒久IDを使用し、旧json:パスは移行別名として保持します。", "",
+              "- `scripts/league/league_manager.py`", "",
+              "  旧パスIDをチームJSONの別名から恒久IDへ安全に解決します。", "",
+              "- `teams/**/*.json` / `leagues.json` / `league_state.json`", "",
+              "  既存標準データを一度だけ恒久IDへ移行しました。", "",
+              "- `tests/test_team_file_organization.py` / `doc/versions.md`", "",
+              "  ファイル移動後もIDが変わらない回帰テストと履歴を追加しました。", "", "---", "", "ver 0.7.5", "",
+          ]
+          entry = "\n".join(lines)
+          if marker not in text:
+              raise SystemExit("version marker missing")
+          path.write_text(text.replace(marker, entry, 1), encoding="utf-8")
+          PY
+
+      - name: Migrate repository team data
+        run: python -m scripts.tools.migrate_team_ids
+
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Run focused regression tests
+        run: |
+          python -m pytest -q \
+            tests/test_team_identity.py \
+            tests/test_team_file_organization.py \
+            tests/test_team_metadata.py \
+            tests/test_league_manager.py \
+            tests/test_original_league_rosters.py
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/team scripts/league/league_manager.py scripts/tools/migrate_team_ids.py tests/test_team_identity.py tests/test_team_file_organization.py doc/versions.md teams leagues.json league_state.json
+          git commit -m "[issue-34-applied] Add path-independent team IDs"
+          git push origin HEAD:feat/issue-34-stable-team-ids
