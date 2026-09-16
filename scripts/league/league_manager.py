@@ -177,6 +177,8 @@ class LeagueManager:
         self.save_name = DEFAULT_SAVE_NAME
         self.save_path: Path | None = None
         self.last_save_error = ""
+        self.last_load_error = ""
+        self.failed_save_path: Path | None = None
         self._prepare_save_directory()
         if load_state:
             self._load_state()
@@ -803,18 +805,48 @@ class LeagueManager:
         self.team_snapshots = saved_teams if isinstance(saved_teams, dict) else {}
         self.schedule_version = int(state.get("schedule_version", 0))
 
-    def _load_state(self, path: Path | None = None) -> None:
+    def _load_state(self, path: Path | None = None) -> bool:
         target = path or self._default_save_path()
         try:
             with target.open("r", encoding="utf-8-sig") as file:
                 state = json.load(file)
-            if not isinstance(state, dict):
-                return
-            self._apply_state(state)
-            self.save_path = target
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        except FileNotFoundError as error:
             if path is None:
+                # No default save yet is a normal first-run state. Allow the
+                # post-load refresh to create the initial automatic save.
                 self.save_path = target
+                self.last_load_error = ""
+                self.failed_save_path = None
+                return False
+            self.last_load_error = f"セーブデータを読み込めません: {error}"
+            self.failed_save_path = target
+            return False
+        except (OSError, ValueError, TypeError, UnicodeError) as error:
+            # Existing but unreadable data is never selected as an autosave
+            # destination. Keeping save_path unchanged prevents refresh_teams()
+            # and later incidental saves from destroying recovery evidence.
+            self.last_load_error = f"セーブデータを読み込めません: {error}"
+            self.failed_save_path = target
+            return False
+
+        if not isinstance(state, dict):
+            self.last_load_error = "セーブデータを読み込めません: JSONの一番外側がオブジェクトではありません"
+            self.failed_save_path = target
+            return False
+
+        try:
+            self._apply_state(state)
+        except Exception as error:
+            # Save migrations and schema conversions run behind the same safety
+            # boundary: a failed migration must not make the source overwritable.
+            self.last_load_error = f"セーブデータを適用できません: {error}"
+            self.failed_save_path = target
+            return False
+
+        self.save_path = target
+        self.last_load_error = ""
+        self.failed_save_path = None
+        return True
 
     def _state_payload(self) -> dict:
         self._update_team_snapshots()
@@ -944,6 +976,8 @@ class LeagueManager:
             suffix += 1
         self.save_name = target.stem
         self.save_path = target
+        self.last_load_error = ""
+        self.failed_save_path = None
         self.year = 1
         self.day = 1
         self.selected_leagues = set()
@@ -989,13 +1023,21 @@ class LeagueManager:
         try:
             target.resolve().relative_to(LEAGUE_SAVE_DIR.resolve())
         except (OSError, ValueError):
-            return ["league_saveフォルダ外のファイルは読み込めません"]
+            self.last_load_error = "league_saveフォルダ外のファイルは読み込めません"
+            self.failed_save_path = None
+            return [self.last_load_error]
         info = next((item for item in self.list_saves() if item["path"].resolve() == target.resolve()), None)
         if info is None:
-            return ["セーブデータが見つかりません"]
+            self.last_load_error = "セーブデータが見つかりません"
+            self.failed_save_path = target
+            return [self.last_load_error]
         if info["errors"]:
-            return list(info["errors"])
-        self._load_state(target)
+            errors = list(info["errors"])
+            self.last_load_error = " / ".join(errors[:2])
+            self.failed_save_path = target
+            return errors
+        if not self._load_state(target):
+            return [self.last_load_error or "セーブデータを読み込めません"]
         self.refresh_teams(self.base_team_choices)
         return []
 

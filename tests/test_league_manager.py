@@ -218,6 +218,55 @@ class LeagueScheduleTests(unittest.TestCase):
         self.assertFalse(saves["missing"]["loadable"])
         self.assertTrue(any("チームが見つかりません" in error for error in saves["missing"]["errors"]))
 
+        active_path = manager.save_path
+        errors = manager.load_save("broken.json")
+        self.assertTrue(errors)
+        self.assertEqual(manager.save_path, active_path)
+        self.assertEqual(manager.failed_save_path, save_dir / "broken.json")
+        self.assertTrue(manager.last_load_error)
+
+    def test_corrupt_default_save_is_preserved_on_startup(self):
+        save_dir = Path(self.temp_dir.name) / "league_save"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        default_path = save_dir / "自動セーブ.json"
+        original = "{broken-default-save"
+        default_path.write_text(original, encoding="utf-8")
+
+        manager = LeagueManager(discover_team_choices())
+
+        self.assertEqual(default_path.read_text(encoding="utf-8"), original)
+        self.assertIsNone(manager.save_path)
+        self.assertEqual(manager.failed_save_path, default_path)
+        self.assertIn("読み込めません", manager.last_load_error)
+        manager.save()
+        self.assertEqual(default_path.read_text(encoding="utf-8"), original)
+
+    def test_default_save_is_created_when_no_previous_save_exists(self):
+        save_dir = Path(self.temp_dir.name) / "league_save"
+        default_path = save_dir / "自動セーブ.json"
+
+        manager = LeagueManager(discover_team_choices())
+
+        self.assertTrue(default_path.exists())
+        self.assertEqual(manager.save_path, default_path)
+        self.assertEqual(manager.last_load_error, "")
+        self.assertIsNone(manager.failed_save_path)
+
+    def test_failed_save_migration_preserves_source_file(self):
+        save_dir = Path(self.temp_dir.name) / "league_save"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        default_path = save_dir / "自動セーブ.json"
+        original = json.dumps({"save_version": 999, "save_name": "future"}, ensure_ascii=False)
+        default_path.write_text(original, encoding="utf-8")
+
+        with patch.object(LeagueManager, "_apply_state", side_effect=ValueError("migration failed")):
+            manager = LeagueManager(discover_team_choices())
+
+        self.assertEqual(default_path.read_text(encoding="utf-8"), original)
+        self.assertIsNone(manager.save_path)
+        self.assertEqual(manager.failed_save_path, default_path)
+        self.assertIn("migration failed", manager.last_load_error)
+
     def test_completed_year_keeps_full_historical_standings_and_results(self):
         manager = LeagueManager(discover_team_choices())
         league = "Aリーグ"
