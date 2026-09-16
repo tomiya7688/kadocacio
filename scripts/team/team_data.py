@@ -341,6 +341,7 @@ def load_team_config(path: Path, teams_root: Path = TEAMS_DIR) -> dict | None:
 def discover_team_choices() -> list[dict]:
     choices = []
     seen_ids: dict[str, Path] = {}
+    seen_sources: set[str] = set()
     roots = [TEAMS_DIR]
     if DEFAULT_TEAMS_DIR.resolve() != TEAMS_DIR.resolve():
         roots.append(DEFAULT_TEAMS_DIR)
@@ -357,6 +358,7 @@ def discover_team_choices() -> list[dict]:
                     continue
             except OSError:
                 continue
+            relative = path.relative_to(teams_root).as_posix()
             config = load_team_config(path, teams_root)
             if config:
                 team_id = str(config.get("id", ""))
@@ -367,7 +369,13 @@ def discover_team_choices() -> list[dict]:
                     # user_data/teams is scanned first; matching bundled IDs are
                     # intentional overrides and stay hidden behind the user copy.
                     continue
+                # Preserve the pre-stable-ID override contract too: a user team
+                # at the same relative path hides the bundled copy even when an
+                # independently-created file carries a different persistent ID.
+                if relative in seen_sources:
+                    continue
                 seen_ids[team_id] = teams_root
+                seen_sources.add(relative)
                 config.update(
                     {
                         "kind": "JSON",
