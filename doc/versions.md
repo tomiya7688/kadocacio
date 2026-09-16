@@ -22,6 +22,36 @@ ver num.num.num
 
 ---
 
+ver 0.7.4
+
+手動リーグ進行でも裏試合失敗を通知
+
+追加したファイル
+
+- なし
+
+  既存のリーグ進行処理とテストを修正しました。
+
+変更したファイル
+
+- `scripts/app/game_app.py`
+
+  裏試合workerの失敗を手動進行でも表示し、成功分は反映済み・失敗分は未消化であることを明示します。オート進行時の停止挙動は維持します。
+
+- `scripts/league/league_simulation_session.py`
+
+  チームデータ欠落エラーにもfixture IDと理由を含めます。
+
+- `tests/test_league_auto_progress.py`
+
+  手動・オート双方の部分失敗とfixture状態を回帰テストします。
+
+- `doc/versions.md`
+
+  ver 0.7.4の変更内容を追記しました。
+
+---
+
 ver 0.7.3
 
 破損リーグセーブを上書きしない安全ロード
