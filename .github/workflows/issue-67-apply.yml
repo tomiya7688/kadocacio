@@ -1,0 +1,135 @@
+name: Apply issue 67 fix
+
+on:
+  push:
+    branches: ["fix/issue-67-preserve-corrupt-save"]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[issue-67-applied]') }}
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/issue-67-preserve-corrupt-save
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Apply safe save-load changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/league/league_manager.py")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''        self.save_path: Path | None = None\n        self.last_save_error = ""\n        self._prepare_save_directory()\n'''
+          new = '''        self.save_path: Path | None = None\n        self.last_save_error = ""\n        self.last_load_error = ""\n        self.failed_save_path: Path | None = None\n        self._prepare_save_directory()\n'''
+          if text.count(old) != 1:
+              raise SystemExit("init save-state block not found exactly once")
+          text = text.replace(old, new, 1)
+
+          old = '''    def _load_state(self, path: Path | None = None) -> None:\n        target = path or self._default_save_path()\n        try:\n            with target.open("r", encoding="utf-8-sig") as file:\n                state = json.load(file)\n            if not isinstance(state, dict):\n                return\n            self._apply_state(state)\n            self.save_path = target\n        except (OSError, ValueError, TypeError, json.JSONDecodeError):\n            if path is None:\n                self.save_path = target\n'''
+          new = '''    def _load_state(self, path: Path | None = None) -> bool:\n        target = path or self._default_save_path()\n        try:\n            with target.open("r", encoding="utf-8-sig") as file:\n                state = json.load(file)\n        except FileNotFoundError as error:\n            if path is None:\n                # No default save yet is a normal first-run state. Allow the\n                # post-load refresh to create the initial automatic save.\n                self.save_path = target\n                self.last_load_error = ""\n                self.failed_save_path = None\n                return False\n            self.last_load_error = f"セーブデータを読み込めません: {error}"\n            self.failed_save_path = target\n            return False\n        except (OSError, ValueError, TypeError, UnicodeError) as error:\n            # Existing but unreadable data is never selected as an autosave\n            # destination. Keeping save_path unchanged prevents refresh_teams()\n            # and later incidental saves from destroying recovery evidence.\n            self.last_load_error = f"セーブデータを読み込めません: {error}"\n            self.failed_save_path = target\n            return False\n\n        if not isinstance(state, dict):\n            self.last_load_error = "セーブデータを読み込めません: JSONの一番外側がオブジェクトではありません"\n            self.failed_save_path = target\n            return False\n\n        try:\n            self._apply_state(state)\n        except Exception as error:\n            # Save migrations and schema conversions run behind the same safety\n            # boundary: a failed migration must not make the source overwritable.\n            self.last_load_error = f"セーブデータを適用できません: {error}"\n            self.failed_save_path = target\n            return False\n\n        self.save_path = target\n        self.last_load_error = ""\n        self.failed_save_path = None\n        return True\n'''
+          if text.count(old) != 1:
+              raise SystemExit("_load_state block not found exactly once")
+          text = text.replace(old, new, 1)
+
+          old = '''        self.save_name = target.stem\n        self.save_path = target\n        self.year = 1\n'''
+          new = '''        self.save_name = target.stem\n        self.save_path = target\n        self.last_load_error = ""\n        self.failed_save_path = None\n        self.year = 1\n'''
+          if text.count(old) != 1:
+              raise SystemExit("create_new_save activation block not found exactly once")
+          text = text.replace(old, new, 1)
+
+          old = '''    def load_save(self, path_or_name: str | Path) -> list[str]:\n        requested = Path(path_or_name)\n        target = requested if requested.is_absolute() else LEAGUE_SAVE_DIR / requested.name\n        try:\n            target.resolve().relative_to(LEAGUE_SAVE_DIR.resolve())\n        except (OSError, ValueError):\n            return ["league_saveフォルダ外のファイルは読み込めません"]\n        info = next((item for item in self.list_saves() if item["path"].resolve() == target.resolve()), None)\n        if info is None:\n            return ["セーブデータが見つかりません"]\n        if info["errors"]:\n            return list(info["errors"])\n        self._load_state(target)\n        self.refresh_teams(self.base_team_choices)\n        return []\n'''
+          new = '''    def load_save(self, path_or_name: str | Path) -> list[str]:\n        requested = Path(path_or_name)\n        target = requested if requested.is_absolute() else LEAGUE_SAVE_DIR / requested.name\n        try:\n            target.resolve().relative_to(LEAGUE_SAVE_DIR.resolve())\n        except (OSError, ValueError):\n            self.last_load_error = "league_saveフォルダ外のファイルは読み込めません"\n            self.failed_save_path = None\n            return [self.last_load_error]\n        info = next((item for item in self.list_saves() if item["path"].resolve() == target.resolve()), None)\n        if info is None:\n            self.last_load_error = "セーブデータが見つかりません"\n            self.failed_save_path = target\n            return [self.last_load_error]\n        if info["errors"]:\n            errors = list(info["errors"])\n            self.last_load_error = " / ".join(errors[:2])\n            self.failed_save_path = target\n            return errors\n        if not self._load_state(target):\n            return [self.last_load_error or "セーブデータを読み込めません"]\n        self.refresh_teams(self.base_team_choices)\n        return []\n'''
+          if text.count(old) != 1:
+              raise SystemExit("load_save block not found exactly once")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Add regression tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_league_manager.py")
+          text = path.read_text(encoding="utf-8")
+          marker = '''        self.assertFalse(saves["missing"]["loadable"])\n        self.assertTrue(any("チームが見つかりません" in error for error in saves["missing"]["errors"]))\n\n    def test_completed_year_keeps_full_historical_standings_and_results(self):\n'''
+          replacement = '''        self.assertFalse(saves["missing"]["loadable"])\n        self.assertTrue(any("チームが見つかりません" in error for error in saves["missing"]["errors"]))\n\n        active_path = manager.save_path\n        errors = manager.load_save("broken.json")\n        self.assertTrue(errors)\n        self.assertEqual(manager.save_path, active_path)\n        self.assertEqual(manager.failed_save_path, save_dir / "broken.json")\n        self.assertTrue(manager.last_load_error)\n\n    def test_corrupt_default_save_is_preserved_on_startup(self):\n        save_dir = Path(self.temp_dir.name) / "league_save"\n        save_dir.mkdir(parents=True, exist_ok=True)\n        default_path = save_dir / "自動セーブ.json"\n        original = "{broken-default-save"\n        default_path.write_text(original, encoding="utf-8")\n\n        manager = LeagueManager(discover_team_choices())\n\n        self.assertEqual(default_path.read_text(encoding="utf-8"), original)\n        self.assertIsNone(manager.save_path)\n        self.assertEqual(manager.failed_save_path, default_path)\n        self.assertIn("読み込めません", manager.last_load_error)\n        manager.save()\n        self.assertEqual(default_path.read_text(encoding="utf-8"), original)\n\n    def test_default_save_is_created_when_no_previous_save_exists(self):\n        save_dir = Path(self.temp_dir.name) / "league_save"\n        default_path = save_dir / "自動セーブ.json"\n\n        manager = LeagueManager(discover_team_choices())\n\n        self.assertTrue(default_path.exists())\n        self.assertEqual(manager.save_path, default_path)\n        self.assertEqual(manager.last_load_error, "")\n        self.assertIsNone(manager.failed_save_path)\n\n    def test_failed_save_migration_preserves_source_file(self):\n        save_dir = Path(self.temp_dir.name) / "league_save"\n        save_dir.mkdir(parents=True, exist_ok=True)\n        default_path = save_dir / "自動セーブ.json"\n        original = json.dumps({"save_version": 999, "save_name": "future"}, ensure_ascii=False)\n        default_path.write_text(original, encoding="utf-8")\n\n        with patch.object(LeagueManager, "_apply_state", side_effect=ValueError("migration failed")):\n            manager = LeagueManager(discover_team_choices())\n\n        self.assertEqual(default_path.read_text(encoding="utf-8"), original)\n        self.assertIsNone(manager.save_path)\n        self.assertEqual(manager.failed_save_path, default_path)\n        self.assertIn("migration failed", manager.last_load_error)\n\n    def test_completed_year_keeps_full_historical_standings_and_results(self):\n'''
+          if text.count(marker) != 1:
+              raise SystemExit("league manager test insertion marker not found exactly once")
+          path.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+          PY
+
+      - name: Add version entry
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("doc/versions.md")
+          text = path.read_text(encoding="utf-8")
+          marker = "---\n\nver 0.7.2\n"
+          entry = '''---
+
+ver 0.7.3
+
+破損リーグセーブを上書きしない安全ロード
+
+追加したファイル
+
+- なし
+
+  既存のリーグ保存処理と回帰テストを修正しました。
+
+変更したファイル
+
+- `scripts/league/league_manager.py`
+
+  既存セーブの読込・適用に失敗した場合は自動保存先へ採用せず、エラーと対象パスを保持して元ファイルを保護します。初回起動でセーブが存在しない場合の自動作成は維持します。
+
+- `tests/test_league_manager.py`
+
+  破損した既定セーブ、明示ロード失敗、セーブ未作成の初回起動、将来のマイグレーション失敗を検証します。
+
+- `doc/versions.md`
+
+  ver 0.7.3の変更内容を追記しました。
+
+---
+
+ver 0.7.2
+'''
+          if text.count(marker) != 1:
+              raise SystemExit("version insertion marker not found exactly once")
+          path.write_text(text.replace(marker, entry, 1), encoding="utf-8")
+          PY
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r requirements.txt pytest
+
+      - name: Run league manager regression tests
+        run: python -m pytest -q tests/test_league_manager.py
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/league/league_manager.py tests/test_league_manager.py doc/versions.md
+          git commit -m "[issue-67-applied] Preserve corrupt league saves"
+          git push origin HEAD:fix/issue-67-preserve-corrupt-save
