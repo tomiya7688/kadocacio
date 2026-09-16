@@ -1076,7 +1076,5 @@
     "最大": 5500
   },
   "チームID": "team:53d75e1f-ccdb-50ba-81a1-7c8653784199",
-  "チームID別名": [
-    "json:kadoka_original_B/富山マウンテンズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/富山マウンテンズ.json"]
 }

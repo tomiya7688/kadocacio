@@ -1068,7 +1068,5 @@
     "最大": 5500
   },
   "チームID": "team:28eca4a8-7e02-56df-869b-6acc8f9b3bd6",
-  "チームID別名": [
-    "json:kadoka_original_B/相模原スターズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/相模原スターズ.json"]
 }

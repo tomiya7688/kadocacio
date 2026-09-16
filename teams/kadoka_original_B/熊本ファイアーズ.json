@@ -1076,7 +1076,5 @@
     "最大": 5500
   },
   "チームID": "team:eec9a076-b879-5610-ad28-395e54deac93",
-  "チームID別名": [
-    "json:kadoka_original_B/熊本ファイアーズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/熊本ファイアーズ.json"]
 }

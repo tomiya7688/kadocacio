@@ -1072,7 +1072,5 @@
     "最大": 5500
   },
   "チームID": "team:83dd20ce-4ff8-5cd4-9a43-7c87cb996d0b",
-  "チームID別名": [
-    "json:kadoka_original_B/湘南シーブリーズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/湘南シーブリーズ.json"]
 }

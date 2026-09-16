@@ -1080,7 +1080,5 @@
     "最大": 5500
   },
   "チームID": "team:5eb62388-db80-5f55-883e-62ecbb913b99",
-  "チームID別名": [
-    "json:kadoka_original_A/京都パープルズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/京都パープルズ.json"]
 }

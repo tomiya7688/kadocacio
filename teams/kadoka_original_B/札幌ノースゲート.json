@@ -1078,7 +1078,5 @@
     "最大": 5500
   },
   "チームID": "team:0a4cbca8-43fd-555f-8b43-9074f43338c6",
-  "チームID別名": [
-    "json:kadoka_original_B/札幌ノースゲート.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/札幌ノースゲート.json"]
 }

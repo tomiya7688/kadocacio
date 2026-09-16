@@ -1076,7 +1076,5 @@
     "最大": 5500
   },
   "チームID": "team:3ceba324-5ccc-5448-9467-e2010177457a",
-  "チームID別名": [
-    "json:kadoka_original_A/信州アルプス.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/信州アルプス.json"]
 }

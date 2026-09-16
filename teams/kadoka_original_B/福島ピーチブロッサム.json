@@ -1072,7 +1072,5 @@
     "最大": 5500
   },
   "チームID": "team:cabbc4d1-c03c-58c1-8acb-89f9ea1c87ab",
-  "チームID別名": [
-    "json:kadoka_original_B/福島ピーチブロッサム.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/福島ピーチブロッサム.json"]
 }

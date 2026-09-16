@@ -1077,7 +1077,5 @@
     "最大": 5500
   },
   "チームID": "team:ca088628-ad5b-54a7-8120-e6931a683145",
-  "チームID別名": [
-    "json:kadoka_original_A/名古屋シャチホコ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/名古屋シャチホコ.json"]
 }

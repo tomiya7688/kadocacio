@@ -1078,7 +1078,5 @@
     "最大": 5500
   },
   "チームID": "team:8e6ce4c4-678f-5aa1-b35c-26bd2079745c",
-  "チームID別名": [
-    "json:kadoka_original_B/盛岡グラナイト.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/盛岡グラナイト.json"]
 }

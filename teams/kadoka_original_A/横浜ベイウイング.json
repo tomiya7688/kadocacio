@@ -1081,7 +1081,5 @@
     "最大": 5500
   },
   "チームID": "team:2d5a541e-b8d6-5267-bd00-1b94ee353754",
-  "チームID別名": [
-    "json:kadoka_original_A/横浜ベイウイング.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/横浜ベイウイング.json"]
 }

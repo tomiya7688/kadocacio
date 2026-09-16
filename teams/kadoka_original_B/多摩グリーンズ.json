@@ -1077,7 +1077,5 @@
     "最大": 5500
   },
   "チームID": "team:92b45984-34a9-5b85-98ab-2fdb4cf6bd11",
-  "チームID別名": [
-    "json:kadoka_original_B/多摩グリーンズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/多摩グリーンズ.json"]
 }

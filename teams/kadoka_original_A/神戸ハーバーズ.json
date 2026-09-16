@@ -1074,7 +1074,5 @@
     "最大": 5500
   },
   "チームID": "team:4b24fa9e-ef45-514a-8b2d-b0e85ccc0d70",
-  "チームID別名": [
-    "json:kadoka_original_A/神戸ハーバーズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/神戸ハーバーズ.json"]
 }

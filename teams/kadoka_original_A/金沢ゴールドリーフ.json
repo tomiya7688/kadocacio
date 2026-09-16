@@ -1082,7 +1082,5 @@
     "最大": 5500
   },
   "チームID": "team:83f342bf-6221-55d1-944b-b7e32bb765df",
-  "チームID別名": [
-    "json:kadoka_original_A/金沢ゴールドリーフ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/金沢ゴールドリーフ.json"]
 }

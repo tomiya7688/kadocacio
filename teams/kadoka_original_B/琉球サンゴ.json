@@ -1066,7 +1066,5 @@
     "最大": 5500
   },
   "チームID": "team:8ae4ced9-589d-503e-bbc7-a626d1e52463",
-  "チームID別名": [
-    "json:kadoka_original_B/琉球サンゴ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/琉球サンゴ.json"]
 }

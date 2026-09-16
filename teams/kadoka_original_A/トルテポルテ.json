@@ -1002,7 +1002,5 @@
     "最大": 5500
   },
   "チームID": "team:0f280977-a623-5945-abda-c072f355536a",
-  "チームID別名": [
-    "json:kadoka_original_A/トルテポルテ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/トルテポルテ.json"]
 }

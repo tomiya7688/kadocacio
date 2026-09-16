@@ -1070,7 +1070,5 @@
     "最大": 5500
   },
   "チームID": "team:aa5c824a-8a1e-5751-b805-13393b43c881",
-  "チームID別名": [
-    "json:kadoka_original_B/岡山ピーチボーイズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/岡山ピーチボーイズ.json"]
 }

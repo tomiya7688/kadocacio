@@ -1070,7 +1070,5 @@
     "最大": 5500
   },
   "チームID": "team:970b117a-f236-569e-8843-f868bfa56005",
-  "チームID別名": [
-    "json:kadoka_original_B/秋田ライスフィールド.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/秋田ライスフィールド.json"]
 }

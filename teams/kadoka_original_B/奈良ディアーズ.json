@@ -1078,7 +1078,5 @@
     "最大": 5500
   },
   "チームID": "team:08dd55e5-0564-50d0-b45c-1e5a329ae45e",
-  "チームID別名": [
-    "json:kadoka_original_B/奈良ディアーズ.json"
-  ]
+  "チームID別名": ["json:kadoka_original_B/奈良ディアーズ.json"]
 }

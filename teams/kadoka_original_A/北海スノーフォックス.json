@@ -1079,7 +1079,5 @@
     "最大": 5500
   },
   "チームID": "team:950ebe0b-babc-5e10-b87d-4ffefb1a7459",
-  "チームID別名": [
-    "json:kadoka_original_A/北海スノーフォックス.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/北海スノーフォックス.json"]
 }

@@ -1075,7 +1075,5 @@
     "最大": 5500
   },
   "チームID": "team:08c0d439-51dd-5e80-aef6-90b0247b61d1",
-  "チームID別名": [
-    "json:kadoka_original_A/仙台フォレスト.json"
-  ]
+  "チームID別名": ["json:kadoka_original_A/仙台フォレスト.json"]
 }
