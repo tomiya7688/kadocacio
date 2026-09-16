@@ -10,6 +10,7 @@ from scripts.match.match_engine import (
     PASS_OVERHIT,
     PASS_UNDERHIT,
     PASS_WRONG_DIRECTION,
+    offside_position_active,
     score_pass_candidate,
 )
 from scripts.match.player_commands import PlayerCommand
@@ -52,6 +53,73 @@ class PassCandidateScoringTests(unittest.TestCase):
         match.home.direction = 1
 
         self.assertEqual(match.offside_line(match.home), 200.0)
+
+    def test_offside_position_is_symmetric_for_attack_direction(self):
+        right_attack = offside_position_active(
+            team_direction=1,
+            attacker_x=500.0,
+            passer_x=300.0,
+            offside_line=450.0,
+            in_opponent_half=True,
+        )
+        left_attack = offside_position_active(
+            team_direction=-1,
+            attacker_x=500.0,
+            passer_x=700.0,
+            offside_line=550.0,
+            in_opponent_half=True,
+        )
+
+        self.assertTrue(right_attack)
+        self.assertTrue(left_attack)
+        self.assertEqual(right_attack, left_attack)
+
+    def test_offside_position_is_inactive_on_the_line_for_both_directions(self):
+        self.assertFalse(
+            offside_position_active(
+                team_direction=1,
+                attacker_x=450.0,
+                passer_x=300.0,
+                offside_line=450.0,
+                in_opponent_half=True,
+            )
+        )
+        self.assertFalse(
+            offside_position_active(
+                team_direction=-1,
+                attacker_x=550.0,
+                passer_x=700.0,
+                offside_line=550.0,
+                in_opponent_half=True,
+            )
+        )
+
+    def test_offside_position_requires_forward_progress(self):
+        for direction in (1, -1):
+            self.assertFalse(
+                offside_position_active(
+                    team_direction=direction,
+                    attacker_x=500.0,
+                    passer_x=500.0,
+                    offside_line=450.0 if direction == 1 else 550.0,
+                    in_opponent_half=True,
+                )
+            )
+
+    def test_offside_position_is_inactive_in_own_half(self):
+        for direction, attacker_x, passer_x, line in (
+            (1, 500.0, 300.0, 450.0),
+            (-1, 500.0, 700.0, 550.0),
+        ):
+            self.assertFalse(
+                offside_position_active(
+                    team_direction=direction,
+                    attacker_x=attacker_x,
+                    passer_x=passer_x,
+                    offside_line=line,
+                    in_opponent_half=False,
+                )
+            )
 
     def test_higher_intelligence_receivers_are_preferred(self):
         owner = DummyPlayer((0, 0), intelligence=0.4)
