@@ -169,7 +169,7 @@ def offside_position_active(
 ) -> bool:
     if not in_opponent_half:
         return False
-    forward_progress = attacker_x - passer_x
+    forward_progress = (attacker_x - passer_x) * team_direction
     if forward_progress <= 0.0:
         return False
     if team_direction == 1:
