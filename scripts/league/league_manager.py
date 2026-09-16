@@ -620,25 +620,32 @@ class LeagueManager:
         }
 
     def _migrate_stale_team_ids(self) -> bool:
-        """Resolve old root-level IDs after a team was moved into a folder.
-
-        A basename is only migrated when it identifies exactly one current team,
-        so two folders may safely contain different teams with the same filename.
-        """
+        """Resolve legacy path IDs to the permanent IDs carried by team JSON."""
         current_ids = {str(choice["id"]) for choice in self.team_choices}
+        alias_candidates: dict[str, list[str]] = {}
         ids_by_filename: dict[str, list[str]] = {}
-        for team_id in current_ids:
-            filename = team_id.removeprefix("json:").rsplit("/", 1)[-1].casefold()
-            ids_by_filename.setdefault(filename, []).append(team_id)
+        for choice in self.team_choices:
+            team_id = str(choice.get("id", ""))
+            for alias in choice.get("legacy_ids", []):
+                alias_candidates.setdefault(str(alias), []).append(team_id)
+            source = str(choice.get("source", ""))
+            if source:
+                filename = source.rsplit("/", 1)[-1].casefold()
+                ids_by_filename.setdefault(filename, []).append(team_id)
         referenced_ids = {
             str(team_id)
             for definition in self.definitions
             for team_id in definition.get("所属チーム", [])
         } | set(self.league_memberships) | set(self.league_participations)
-        replacements = {}
+        replacements: dict[str, str] = {}
         for old_id in referenced_ids - current_ids:
+            candidates = list(dict.fromkeys(alias_candidates.get(old_id, [])))
+            if len(candidates) == 1:
+                replacements[old_id] = candidates[0]
+                continue
+            # Compatibility fallback for very old saves that predate aliases.
             filename = old_id.removeprefix("json:").rsplit("/", 1)[-1].casefold()
-            candidates = ids_by_filename.get(filename, [])
+            candidates = list(dict.fromkeys(ids_by_filename.get(filename, [])))
             if len(candidates) == 1:
                 replacements[old_id] = candidates[0]
         for old_id, new_id in replacements.items():

@@ -44,34 +44,48 @@ class TeamFileOrganizationTests(unittest.TestCase):
         self.assertTrue(path.exists())
         self.assertEqual(scan_team_files()[0][0], path)
         choices = discover_team_choices()
-        self.assertEqual(choices[0]["id"], "json:関東/一部/東京サンプル.json")
+        self.assertEqual(choices[0]["id"], payload["チームID"])
+        self.assertTrue(choices[0]["id"].startswith("team:"))
 
-    def test_team_name_renames_file_and_updates_all_json_references(self):
+    def test_team_move_keeps_persistent_id_and_migrates_legacy_references(self):
         payload = create_team_template("initial")
         payload["チーム情報"]["チーム名"] = "旧チーム"
         old_path = save_editor_payload(payload)
-        old_id = team_id_for_path(old_path)
-        league_payload = {"リーグ一覧": [{"リーグ名": "A", "所属チーム": [old_id]}]}
+        persistent_id = payload["チームID"]
+        old_legacy_id = team_id_for_path(old_path)
+        league_payload = {"リーグ一覧": [{"リーグ名": "A", "所属チーム": [old_legacy_id]}]}
         (self.root / "leagues.json").write_text(json.dumps(league_payload, ensure_ascii=False), encoding="utf-8")
-        template_dir = self.root / "league_templates"
-        template_dir.mkdir()
-        template_path = template_dir / "custom.json"
-        template_path.write_text(json.dumps(league_payload, ensure_ascii=False), encoding="utf-8")
         save_dir = self.root / "league_save"
         save_dir.mkdir()
-        (save_dir / "season.json").write_text(json.dumps({"league_memberships": {old_id: "A"}}, ensure_ascii=False), encoding="utf-8")
+        save_path = save_dir / "season.json"
+        save_path.write_text(json.dumps({"league_memberships": {old_legacy_id: "A"}}, ensure_ascii=False), encoding="utf-8")
 
         payload["チーム情報"]["チーム名"] = "新チーム"
         new_path = save_editor_payload(payload, old_path, "九州")
-        new_id = team_id_for_path(new_path)
 
         self.assertFalse(old_path.exists())
         self.assertEqual(new_path.relative_to(self.teams).as_posix(), "九州/新チーム.json")
-        self.assertIn(new_id, (self.root / "leagues.json").read_text(encoding="utf-8"))
-        self.assertIn(new_id, template_path.read_text(encoding="utf-8"))
-        save_text = (save_dir / "season.json").read_text(encoding="utf-8")
-        self.assertIn(new_id, save_text)
-        self.assertNotIn(old_id, save_text)
+        saved_team = json.loads(new_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved_team["チームID"], persistent_id)
+        self.assertIn(old_legacy_id, saved_team["チームID別名"])
+        self.assertIn(persistent_id, (self.root / "leagues.json").read_text(encoding="utf-8"))
+        save_text = save_path.read_text(encoding="utf-8")
+        self.assertIn(persistent_id, save_text)
+        self.assertNotIn(old_legacy_id, save_text)
+        discovered = next(choice for choice in discover_team_choices() if choice["source"] == "九州/新チーム.json")
+        self.assertEqual(discovered["id"], persistent_id)
+
+    def test_duplicate_persistent_id_in_same_root_is_rejected(self):
+        first = create_team_template("initial")
+        first["チーム情報"]["チーム名"] = "重複A"
+        second = create_team_template("initial")
+        second["チーム情報"]["チーム名"] = "重複B"
+        second["チームID"] = first["チームID"]
+        save_editor_payload(first)
+        save_editor_payload(second)
+
+        with self.assertRaisesRegex(ValueError, "Duplicate team ID"):
+            discover_team_choices()
 
     def test_duplicate_target_name_gets_a_non_destructive_suffix(self):
         first = create_team_template("initial")

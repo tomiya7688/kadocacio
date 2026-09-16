@@ -102,33 +102,34 @@ def test_bind_runtime_paths_updates_legacy_league_globals(monkeypatch, tmp_path)
     assert module.LEAGUE_SAVE_DIR == saves
 
 
-def _write_team(root: Path, relative: str, name: str) -> None:
+def _write_team(root: Path, relative: str, name: str) -> str:
     payload = create_team_template("initial")
     payload["チーム情報"]["チーム名"] = name
     target = root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return str(payload["チームID"])
 
 
 def test_user_team_overrides_bundled_team_with_same_relative_id(monkeypatch, tmp_path):
     user_root = tmp_path / "user_data" / "teams"
     default_root = tmp_path / "_internal" / "teams"
     _write_team(default_root, "league/sample.json", "標準チーム")
-    _write_team(user_root, "league/sample.json", "ユーザー編集チーム")
+    user_id = _write_team(user_root, "league/sample.json", "ユーザー編集チーム")
 
     monkeypatch.setattr(team_data, "TEAMS_DIR", user_root)
     monkeypatch.setattr(team_data, "DEFAULT_TEAMS_DIR", default_root)
 
     choices = team_data.discover_team_choices()
 
-    assert [choice["id"] for choice in choices] == ["json:league/sample.json"]
+    assert [choice["id"] for choice in choices] == [user_id]
     assert choices[0]["name"] == "ユーザー編集チーム"
 
 
 def test_invalid_user_override_falls_back_to_bundled_team(monkeypatch, tmp_path):
     user_root = tmp_path / "user_data" / "teams"
     default_root = tmp_path / "_internal" / "teams"
-    _write_team(default_root, "sample.json", "標準チーム")
+    bundled_id = _write_team(default_root, "sample.json", "標準チーム")
     user_root.mkdir(parents=True)
     (user_root / "sample.json").write_text("{broken", encoding="utf-8")
 
@@ -137,5 +138,5 @@ def test_invalid_user_override_falls_back_to_bundled_team(monkeypatch, tmp_path)
 
     choices = team_data.discover_team_choices()
 
-    assert [choice["id"] for choice in choices] == ["json:sample.json"]
+    assert [choice["id"] for choice in choices] == [bundled_id]
     assert choices[0]["name"] == "標準チーム"

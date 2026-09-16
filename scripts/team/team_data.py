@@ -18,6 +18,12 @@ from scripts.core.stat_scale import (
     payload_stat_bounds,
     remap_player_stat,
 )
+from scripts.team.team_identity import (
+    TEAM_ID_KEY,
+    legacy_team_id,
+    normalize_team_id,
+    team_id_aliases,
+)
 from scripts.team.uniform_data import normalize_uniform
 
 
@@ -318,7 +324,15 @@ def load_team_config(path: Path, teams_root: Path = TEAMS_DIR) -> dict | None:
         with path.open("r", encoding="utf-8-sig") as file:
             payload = json.load(file)
         source_name = path.relative_to(teams_root).as_posix()
-        return team_choice_from_payload(payload, source_name)
+        path_id = legacy_team_id(source_name)
+        choice = team_choice_from_payload(payload, source_name)
+        persistent_id = normalize_team_id(payload.get(TEAM_ID_KEY, "")) if isinstance(payload, dict) else ""
+        team_id = persistent_id or path_id
+        aliases = team_id_aliases(payload)
+        if path_id != team_id and path_id not in aliases:
+            aliases.append(path_id)
+        choice.update({"id": team_id, "legacy_ids": aliases})
+        return choice
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
         print(f"Team file could not be loaded ({path.name}): {error}")
         return None
@@ -326,7 +340,8 @@ def load_team_config(path: Path, teams_root: Path = TEAMS_DIR) -> dict | None:
 
 def discover_team_choices() -> list[dict]:
     choices = []
-    seen_ids: set[str] = set()
+    seen_ids: dict[str, Path] = {}
+    seen_sources: set[str] = set()
     roots = [TEAMS_DIR]
     if DEFAULT_TEAMS_DIR.resolve() != TEAMS_DIR.resolve():
         roots.append(DEFAULT_TEAMS_DIR)
@@ -344,15 +359,25 @@ def discover_team_choices() -> list[dict]:
             except OSError:
                 continue
             relative = path.relative_to(teams_root).as_posix()
-            team_id = f"json:{relative}"
-            if team_id in seen_ids:
-                continue
             config = load_team_config(path, teams_root)
             if config:
-                seen_ids.add(team_id)
+                team_id = str(config.get("id", ""))
+                previous_root = seen_ids.get(team_id)
+                if previous_root is not None:
+                    if previous_root.resolve() == teams_root.resolve():
+                        raise ValueError(f"Duplicate team ID: {team_id}")
+                    # user_data/teams is scanned first; matching bundled IDs are
+                    # intentional overrides and stay hidden behind the user copy.
+                    continue
+                # Preserve the pre-stable-ID override contract too: a user team
+                # at the same relative path hides the bundled copy even when an
+                # independently-created file carries a different persistent ID.
+                if relative in seen_sources:
+                    continue
+                seen_ids[team_id] = teams_root
+                seen_sources.add(relative)
                 config.update(
                     {
-                        "id": team_id,
                         "kind": "JSON",
                         "short": config["short"] or ("KAD" if "kadoka" in config["name"].casefold() else config["name"][:3]),
                     }
