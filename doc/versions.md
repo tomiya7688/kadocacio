@@ -56,6 +56,32 @@ ver 0.7.7
 
 ---
 
+ver 0.7.9
+
+コミット前チェックの機械可読レポート
+
+追加したファイル
+
+- `scripts/tools/static_analysis/reporting.py`
+
+  pytest JUnit、flake8、各チェック結果からJSON/Markdownの短い統合サマリーを生成します。
+
+変更したファイル
+
+- `scripts/tools/static_analysis/run_all.py`
+
+  各チェックのstdout/stderr、終了コード、所要時間を記録し、pytest JUnitと `precommit_summary.json/.md` を生成するようにしました。
+
+- `tests/test_static_analysis_runner.py`
+
+  JUnit解析、lint件数、first-failure、keep-going、レポート無効化、失敗要約を検証します。
+
+- `doc/versions.md`
+
+  ver 0.7.9の変更内容を追記しました。
+
+---
+
 ver 0.7.6
 
 チームIDをファイルパスから分離
