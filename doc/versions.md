@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.7
+
+実行成果物をuser_dataへ分離
+
+追加したファイル
+
+- `doc/実行時データ配置.md`
+
+  Git管理する既定データと、Git管理しない実行時セーブ・ログ・バックアップの配置契約を整理しました。
+
+変更したファイル
+
+- `scripts/core/paths.py` / `scripts/tools/reseed_k_league_teams.py`
+
+  AI評価・性能ログ・開発評価・再配置バックアップを `user_data/logs/` 配下へ統一しました。
+
+- `.gitignore`
+
+  旧版が生成するルート直下の実行成果物も引き続き無視するようにしました。
+
+- `tests/test_runtime_paths.py`
+
+  実行時出力とリーグ状態が `user_data/` 配下へ分離される契約を回帰テストします。
+
+- `AGENTS.md` / `AI_CONTEXT.md` / `README.md` / 開発者向けドキュメント
+
+  実際の保存先に合わせてデータ地図とCLI例を更新しました。
+
+- `ai_evaluation/*` / `performance_logs/*`
+
+  過去の実測生成物をGit追跡対象から外しました。
+
+---
+
 ver 0.7.8
 
 開発完了フローを1本化
@@ -49,6 +83,32 @@ ver 0.7.8
 - `doc/versions.md`
 
   ver 0.7.8の変更内容を追記しました。
+
+---
+
+ver 0.7.9
+
+コミット前チェックの機械可読レポート
+
+追加したファイル
+
+- `scripts/tools/static_analysis/reporting.py`
+
+  pytest JUnit、flake8、各チェック結果からJSON/Markdownの短い統合サマリーを生成します。
+
+変更したファイル
+
+- `scripts/tools/static_analysis/run_all.py`
+
+  各チェックのstdout/stderr、終了コード、所要時間を記録し、pytest JUnitと `precommit_summary.json/.md` を生成するようにしました。
+
+- `tests/test_static_analysis_runner.py`
+
+  JUnit解析、lint件数、first-failure、keep-going、レポート無効化、失敗要約を検証します。
+
+- `doc/versions.md`
+
+  ver 0.7.9の変更内容を追記しました。
 
 ---
 

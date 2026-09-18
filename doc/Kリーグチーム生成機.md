@@ -68,7 +68,7 @@ run_developer_evaluation.bat --template K1-K9 --leagues all --seasons 5 --hours 
 最初は必ずプレビューします。
 
 ```bat
-.venv\Scripts\python.exe -m scripts.tools.reseed_k_league_teams development_evaluation\league_eval_日時\checkpoint.json
+.venv\Scripts\python.exe -m scripts.tools.reseed_k_league_teams user_data\logs\development_evaluation\league_eval_日時\checkpoint.json
 ```
 
 評価チェックポイントと`league_templates/K1-K9.json`について、Kリーグ数と全チームIDが完全一致する場合だけ移動計画を表示します。近似的な独自順位は使わず、実試合の入れ替え戦を経た所属をそのまま採用します。
@@ -76,7 +76,7 @@ run_developer_evaluation.bat --template K1-K9 --leagues all --seasons 5 --hours 
 内容を確認してから適用します。
 
 ```bat
-.venv\Scripts\python.exe -m scripts.tools.reseed_k_league_teams development_evaluation\league_eval_日時\checkpoint.json --apply
+.venv\Scripts\python.exe -m scripts.tools.reseed_k_league_teams user_data\logs\development_evaluation\league_eval_日時\checkpoint.json --apply
 ```
 
 - 昇降格したチームJSONを対応する`KadokaOriginalK*`フォルダへ移します。
