@@ -24,6 +24,15 @@ def test_source_mode_keeps_developer_team_root_in_repository():
     assert paths.USER_TEAMS_DIR == paths.PROJECT_ROOT / "user_data" / "teams"
 
 
+def test_generated_outputs_live_under_ignored_user_data_root():
+    assert paths.AI_EVALUATION_DIR == paths.USER_LOG_DIR / "ai_evaluation"
+    assert paths.PERFORMANCE_LOG_DIR == paths.USER_LOG_DIR / "performance"
+    assert paths.DEVELOPMENT_EVALUATION_DIR == paths.USER_LOG_DIR / "development_evaluation"
+    assert paths.DEVELOPMENT_RESEED_BACKUP_DIR == paths.USER_LOG_DIR / "development_reseed_backup"
+    assert paths.LEAGUE_STATE_PATH == paths.USER_SAVE_DIR / "league_state.json"
+    assert paths.DEFAULT_LEAGUE_STATE_PATH == paths.INTERNAL_ROOT / "league_state.json"
+
+
 def test_resolve_runtime_roots_separates_executable_and_internal_data(tmp_path):
     app = tmp_path / "Kadocacio"
     internal = app / "_internal"

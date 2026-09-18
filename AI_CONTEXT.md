@@ -34,11 +34,8 @@ README / SPEC / docs / 全Issueを最初から全読しない。
 次のread/searchが不足・矛盾・Acceptance確認のどれを埋めるか説明できない場合、探索停止を優先する。正確性が不足する場合は原典へ戻る。
 
 ## Ignore Normally
-- `ai_evaluation/`
-- `performance_logs/`
-- `development_evaluation/`
-- `development_reseed_backup/`
-- runtime saves / backups
+- `user_data/` (runtime saves, logs, exports, packaged-team edits)
+- legacy root runtime dirs: `ai_evaluation/`, `performance_logs/`, `development_evaluation/`, `development_reseed_backup/`
 - generated reports / caches
 - unrelated Issues / docs / history
 

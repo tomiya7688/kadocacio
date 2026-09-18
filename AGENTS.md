@@ -69,11 +69,12 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - `teameditor_templete/`: エディタ選択肢、能力カテゴリ、ランク、フォーメーション。
 - `leagues.json`: リーグ・トーナメント定義とチーム配置。
 - `performance_settings.json`: CPU演算枠の上限とGPU描画の有効設定。
-- `league_save/`: 実行時セーブ。開始時の参加チーム能力スナップショットを持つ。明示依頼なしにサンプル扱いで書き換えない。
+- `user_data/saves/`: 実行時リーグセーブ。開始時の参加チーム能力スナップショットを持つ。Git管理しない。
+- ルートの `league_state.json`: 新規環境へseedする既定データ。実行中の状態ファイルではない。
 - `assets/`: スタジアム、観客等。
-- `ai_evaluation/`, `performance_logs/`: 実測出力。通常の実装変更へ混ぜない。
-- `development_evaluation/`: 放置リーグ評価のJSONL、CSV、チェックポイント。通常のリーグセーブとは独立。
-- `development_reseed_backup/`: Kリーグ再配置前のチームとリーグテンプレート。復旧確認前に削除しない。
+- `user_data/logs/ai_evaluation/`, `user_data/logs/performance/`: AI評価・性能実測の実行時出力。Git管理しない。
+- `user_data/logs/development_evaluation/`: 放置リーグ評価のJSONL、CSV、チェックポイント。通常のリーグセーブとは独立。
+- `user_data/logs/development_reseed_backup/`: Kリーグ再配置前のチームとリーグテンプレート。Git管理しない。
 - `teams/カルチョビット/`: 参考データで公開対象外。削除・公開・一括変換は明示指示時のみ。
 
 ## 検証コマンド

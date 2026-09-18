@@ -55,11 +55,12 @@ DEFAULT_LEAGUES_PATH = INTERNAL_ROOT / "leagues.json"
 DEFAULT_LEAGUE_STATE_PATH = INTERNAL_ROOT / "league_state.json"
 DEFAULT_PERFORMANCE_SETTINGS_PATH = INTERNAL_ROOT / "performance_settings.json"
 
-# Developer-only outputs keep their existing repository locations. They are not
-# part of the player-facing packaged game.
-AI_EVALUATION_DIR = PROJECT_ROOT / "ai_evaluation"
-PERFORMANCE_LOG_DIR = PROJECT_ROOT / "performance_logs"
-DEVELOPMENT_EVALUATION_DIR = PROJECT_ROOT / "development_evaluation"
+# Runtime-generated developer outputs live under ignored user_data/logs in both
+# source and packaged runs. Repository-root copies are legacy-only and ignored.
+AI_EVALUATION_DIR = USER_LOG_DIR / "ai_evaluation"
+PERFORMANCE_LOG_DIR = USER_LOG_DIR / "performance"
+DEVELOPMENT_EVALUATION_DIR = USER_LOG_DIR / "development_evaluation"
+DEVELOPMENT_RESEED_BACKUP_DIR = USER_LOG_DIR / "development_reseed_backup"
 UNIFORMS_DIR = PROJECT_ROOT / "uniforms"
 
 USER_DATA_DIRS = (

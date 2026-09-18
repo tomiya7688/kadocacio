@@ -9,7 +9,9 @@ user_data/
 # Legacy runtime-generated league save data
 league_save/
 
-# Runtime-generated unattended evaluation logs
+# Legacy repository-root runtime outputs (new runs use user_data/)
+ai_evaluation/
+performance_logs/
 development_evaluation/
 development_reseed_backup/
 
