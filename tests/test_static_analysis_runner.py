@@ -305,3 +305,64 @@ def test_terminal_count_parser_accepts_singular_error(tmp_path):
     assert summary["errors"] == 1
     assert summary["failed"] == 1
     assert summary["passed"] == 2
+
+
+def test_run_check_captures_output_and_writes_logs(monkeypatch, tmp_path, capsys):
+    class Result:
+        returncode = 3
+        stdout = "hello\n"
+        stderr = "oops"
+
+    monkeypatch.setattr(run_all.subprocess, "run", lambda *args, **kwargs: Result())
+    monkeypatch.setattr(run_all.time, "perf_counter", iter((10.0, 10.25)).__next__)
+
+    result = run_all.run_check(
+        {"name": "sample", "command": ("python", "-m", "sample")},
+        tmp_path,
+    )
+
+    assert result["returncode"] == 3
+    assert result["duration_seconds"] == 0.25
+    assert (tmp_path / "sample.stdout.log").read_text(encoding="utf-8") == "hello\n"
+    assert (tmp_path / "sample.stderr.log").read_text(encoding="utf-8") == "oops"
+    captured = capsys.readouterr()
+    assert "hello" in captured.out
+    assert "oops" in captured.err
+
+
+def test_run_check_without_output_or_report_dir(monkeypatch, capsys):
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(run_all.subprocess, "run", lambda *args, **kwargs: Result())
+    result = run_all.run_check(
+        {"name": "quiet", "command": ("python", "-m", "quiet")},
+        None,
+    )
+
+    assert result["stdout_log"] == ""
+    assert result["stderr_log"] == ""
+    captured = capsys.readouterr()
+    assert "== quiet ==" in captured.out
+    assert captured.err == ""
+
+
+def test_main_routes_report_and_no_report_modes(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run_all(checks, *, keep_going, report_dir):
+        calls.append((checks[-1]["command"], keep_going, report_dir))
+        return 0
+
+    monkeypatch.setattr(run_all, "run_all", fake_run_all)
+
+    assert run_all.main(["--no-reports", "--keep-going"]) == 0
+    assert calls[-1][0] == ("python", "-m", "pytest", "-q") or calls[-1][0][1:4] == ("-m", "pytest", "-q")
+    assert calls[-1][1] is True
+    assert calls[-1][2] is None
+
+    assert run_all.main(["--report-dir", str(tmp_path)]) == 0
+    assert calls[-1][2] == tmp_path
+    assert any(str(tmp_path / "pytest_junit.xml") in part for part in calls[-1][0])
