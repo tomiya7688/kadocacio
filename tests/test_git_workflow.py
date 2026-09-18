@@ -384,3 +384,15 @@ def test_commit_mode_skips_push_and_pr(monkeypatch):
 def test_main_returns_finalize_success(monkeypatch):
     monkeypatch.setattr(git_workflow, "finalize", lambda args: 0)
     assert git_workflow.main(["check"]) == 0
+
+
+def test_require_success_and_current_branch_normal_paths(monkeypatch):
+    monkeypatch.setattr(
+        git_workflow,
+        "run_command",
+        lambda command, **kwargs: completed(command, returncode=0, stdout="ok"),
+    )
+    assert git_workflow.require_success(("git", "status")).stdout == "ok"
+
+    monkeypatch.setattr(git_workflow, "git_output", lambda *args: "feat/normal")
+    assert git_workflow.current_branch() == "feat/normal"
