@@ -22,6 +22,36 @@ ver num.num.num
 
 ---
 
+ver 0.7.8
+
+開発完了フローを1本化
+
+追加したファイル
+
+- `run_dev_finalize.bat`
+
+  差分確認・検証・commit・push・PR作成の安全なWindows入口を追加しました。
+
+- `scripts/tools/git_workflow.py`
+
+  `check / commit / pr` の3モード、main/master保護、静的解析再利用、Git/gh操作の安全停止と最終要約を実装しました。
+
+- `tests/test_git_workflow.py`
+
+  非破壊check、ブランチ生成、安全停止、空commit拒否、PRモードを検証します。
+
+変更したファイル
+
+- `AGENTS.md`
+
+  作業完了後の標準入口と破壊的操作を自動化しないルールを追記しました。
+
+- `doc/versions.md`
+
+  ver 0.7.8の変更内容を追記しました。
+
+---
+
 ver 0.7.6
 
 チームIDをファイルパスから分離
