@@ -215,3 +215,93 @@ def test_parse_args_supports_report_controls(tmp_path):
 
     args = run_all.parse_args(["--no-reports"])
     assert args.no_reports is True
+
+
+def test_summarize_pytest_handles_missing_junit_and_error_nodes(tmp_path):
+    missing = summarize_pytest(tmp_path / "missing.xml", "2 passed")
+    assert missing["total"] == 2
+    assert missing["duration_seconds"] == 0.0
+    assert missing["failures"] == []
+
+    junit = tmp_path / "errors.xml"
+    junit.write_text(
+        """<testsuite tests="1" failures="0" errors="1" skipped="0">
+  <testcase name="test_error">
+    <error message="boom">trace</error>
+  </testcase>
+</testsuite>""",
+        encoding="utf-8",
+    )
+    summary = summarize_pytest(junit, "")
+    assert summary["errors"] == 1
+    assert summary["failures"][0]["kind"] == "error"
+    assert summary["failures"][0]["type"] == ""
+    assert summary["failures"][0]["test"] == "test_error"
+
+
+def test_summarize_pytest_handles_document_without_testsuite(tmp_path):
+    junit = tmp_path / "empty.xml"
+    junit.write_text("<testsuites></testsuites>", encoding="utf-8")
+    summary = summarize_pytest(junit, "")
+    assert summary["total"] == 0
+    assert summary["failures"] == []
+
+
+def test_summarize_pytest_ignores_passing_testcases(tmp_path):
+    junit = tmp_path / "passing.xml"
+    junit.write_text(
+        '<testsuite tests="1" failures="0" errors="0" skipped="0">'
+        '<testcase classname="tests.test_ok" name="test_ok" />'
+        '</testsuite>',
+        encoding="utf-8",
+    )
+    summary = summarize_pytest(junit, "")
+    assert summary["passed"] == 1
+    assert summary["failures"] == []
+
+
+def test_write_reports_handles_success_without_optional_summaries(tmp_path):
+    clean = {key: value for key, value in fake_result("compileall").items() if not key.startswith("_")}
+    json_path, md_path = write_reports([clean], tmp_path)
+
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "PASS"
+    assert payload["pytest"] is None
+    assert payload["flake8"] is None
+
+    markdown = md_path.read_text(encoding="utf-8")
+    assert "STATUS: PASS" in markdown
+    assert "## Pytest" not in markdown
+    assert "Detail logs" not in markdown
+
+
+def test_write_reports_uses_failure_kind_when_type_missing(tmp_path):
+    pytest_summary = {
+        "total": 1,
+        "passed": 0,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0,
+        "duration_seconds": 0.0,
+        "failures": [
+            {
+                "test": "test_error",
+                "file": "",
+                "kind": "error",
+                "type": "",
+                "message": "boom",
+            }
+        ],
+    }
+    clean = {key: value for key, value in fake_result("pytest").items() if not key.startswith("_")}
+    _, md_path = write_reports([clean], tmp_path, pytest_summary=pytest_summary)
+    assert "test_error [error]" in md_path.read_text(encoding="utf-8")
+
+
+def test_terminal_count_parser_accepts_singular_error(tmp_path):
+    summary = summarize_pytest(tmp_path / "missing.xml", "1 error, 1 failed, 2 passed")
+    assert summary["errors"] == 1
+    assert summary["failed"] == 1
+    assert summary["passed"] == 2
