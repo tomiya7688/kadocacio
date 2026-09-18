@@ -20,6 +20,13 @@ ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_REPORT_DIR = ROOT / "static_analysis" / "reports"
 
 
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def default_checks(
     python: str = sys.executable,
     *,
@@ -87,8 +94,8 @@ def run_check(check: dict, report_dir: Path | None = None) -> dict:
         stderr_path = report_dir / f"{name}.stderr.log"
         stdout_path.write_text(completed.stdout, encoding="utf-8")
         stderr_path.write_text(completed.stderr, encoding="utf-8")
-        stdout_log = str(stdout_path.relative_to(ROOT))
-        stderr_log = str(stderr_path.relative_to(ROOT))
+        stdout_log = display_path(stdout_path)
+        stderr_log = display_path(stderr_path)
 
     return {
         "name": name,
@@ -144,8 +151,8 @@ def run_all(
             pytest_summary=pytest_summary,
             flake8_summary=flake8_summary,
         )
-        print(f"Summary JSON: {json_path.relative_to(ROOT)}")
-        print(f"Summary Markdown: {md_path.relative_to(ROOT)}")
+        print(f"Summary JSON: {display_path(json_path)}")
+        print(f"Summary Markdown: {display_path(md_path)}")
 
     return 0 if not failed else 1
 
