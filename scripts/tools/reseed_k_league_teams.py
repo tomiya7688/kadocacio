@@ -9,11 +9,11 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from scripts.core.paths import PROJECT_ROOT, TEAMS_DIR
+from scripts.core.paths import DEVELOPMENT_RESEED_BACKUP_DIR, PROJECT_ROOT, TEAMS_DIR
 
 
 DEFAULT_TEMPLATE_PATH = PROJECT_ROOT / "league_templates" / "K1-K9.json"
-DEFAULT_BACKUP_ROOT = PROJECT_ROOT / "development_reseed_backup"
+DEFAULT_BACKUP_ROOT = DEVELOPMENT_RESEED_BACKUP_DIR
 K_LEAGUE_PATTERN = re.compile(r"^K([1-9][0-9]{0,2})リーグ$")
 JSON_TEAM_PREFIX = "json:"
 
@@ -210,7 +210,7 @@ def apply_reseed_plan(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="実試合評価後の所属に合わせてKリーグチームを再配置します")
-    parser.add_argument("checkpoint", type=Path, help="development_evaluation内のcheckpoint.json")
+    parser.add_argument("checkpoint", type=Path, help="user_data/logs/development_evaluation内のcheckpoint.json")
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE_PATH)
     parser.add_argument("--teams-root", type=Path, default=TEAMS_DIR)
     parser.add_argument("--backup-root", type=Path, default=DEFAULT_BACKUP_ROOT)
