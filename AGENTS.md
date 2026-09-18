@@ -9,6 +9,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - Python: `.venv\Scripts\python.exe`
 - 起動: `run_game.bat` または `.venv\Scripts\python.exe main.py`
 - 作業開始: `start_task.bat [ISSUE_NUMBER]`。番号指定時はそのIssue、未指定時は `P0 -> P1 -> P2 -> P3 -> priorityなし` の順でopen Issueを1件だけ選び、`context/<issue>/`へTask Capsuleを生成する。
+- 作業完了: `run_dev_finalize.bat check` で差分確認＋共通静的解析＋pytestを実行する。ローカルでcommitまで行う場合は `commit`、push＋PR作成まで行う場合は `pr` を明示する。main/masterへの直接commit/push、force push、mergeは自動化しない。
 - Issue一覧本文を広く読まず、`start_task.bat` が選んだ1件と生成されたTask Capsuleから開始する。
 - ルートのPythonは`main.py`だけに保ち、実装は必ず`scripts/`の役割別パッケージへ置く。
 - importは`from scripts.<role>...`の絶対importを使う。
