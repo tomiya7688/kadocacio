@@ -23,6 +23,18 @@ AI/Codex が最初に読む最小入口です。詳細仕様はここへ複製�
 
 README / SPEC / docs / 全Issueを最初から全読しない。
 
+## Folder Context Index
+対象フォルダへ入る前に、該当する短い生成済み説明書だけ読む。
+- `scripts/app/CONTEXT.md`
+- `scripts/core/CONTEXT.md`
+- `scripts/match/CONTEXT.md`
+- `scripts/league/CONTEXT.md`
+- `scripts/team/CONTEXT.md`
+- `scripts/tools/CONTEXT.md`
+- `scripts/tools/static_analysis/CONTEXT.md`
+
+これらは `python -m scripts.tools.context_docs` で生成し、手編集しない。コミット前チェックは `--check` で実コードとの乖離を検出する。
+
 ## Exploration Stop Condition
 次が十分に分かったら追加探索を止め、実装へ進む。
 - Goal
