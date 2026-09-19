@@ -29,6 +29,7 @@ def test_default_checks_match_ci_entry_points(tmp_path):
         "flake8",
         "compileall",
         "architecture-boundary",
+        "context-docs",
         "upd-commander",
         "pytest",
     ]
@@ -49,10 +50,16 @@ def test_default_checks_match_ci_entry_points(tmp_path):
     assert checks[3]["command"] == (
         "python",
         "-m",
+        "scripts.tools.context_docs",
+        "--check",
+    )
+    assert checks[4]["command"] == (
+        "python",
+        "-m",
         "scripts.tools.static_analysis.upd_checker",
     )
-    assert checks[4]["command"][:4] == ("python", "-m", "pytest", "-q")
-    assert checks[4]["command"][4] == f"--junitxml={tmp_path / 'pytest_junit.xml'}"
+    assert checks[5]["command"][:4] == ("python", "-m", "pytest", "-q")
+    assert checks[5]["command"][4] == f"--junitxml={tmp_path / 'pytest_junit.xml'}"
 
 
 def test_default_checks_can_disable_junit_output():
@@ -102,6 +109,7 @@ def test_run_all_can_keep_going(monkeypatch, tmp_path):
         "flake8",
         "compileall",
         "architecture-boundary",
+        "context-docs",
         "upd-commander",
         "pytest",
     ]

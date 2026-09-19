@@ -58,6 +58,10 @@ def default_checks(
             "command": (python, "-m", "scripts.tools.static_analysis.architecture_boundary"),
         },
         {
+            "name": "context-docs",
+            "command": (python, "-m", "scripts.tools.context_docs", "--check"),
+        },
+        {
             "name": "upd-commander",
             "command": (python, "-m", "scripts.tools.static_analysis.upd_checker"),
         },

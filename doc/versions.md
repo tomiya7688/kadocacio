@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.10
+
+主要フォルダのCodex向け説明書を自動生成
+
+追加したファイル
+
+- `scripts/tools/context_docs.py`
+
+  app/core/match/league/team/tools/static_analysisの責務、入口、依存ルール、読む範囲と現在モジュールを決定論的に生成し、`--check` で乖離を検出します。
+
+- `scripts/app/CONTEXT.md` / `scripts/core/CONTEXT.md` / `scripts/match/CONTEXT.md` / `scripts/league/CONTEXT.md` / `scripts/team/CONTEXT.md` / `scripts/tools/CONTEXT.md` / `scripts/tools/static_analysis/CONTEXT.md`
+
+  Codexが全体探索せず対象フォルダへ入れる短い自動生成ガイドです。
+
+- `tests/test_context_docs.py`
+
+  モジュール探索、生成、欠落・古い説明書の検出、CLIモードを検証します。
+
+変更したファイル
+
+- `scripts/tools/static_analysis/run_all.py` / `tests/test_static_analysis_runner.py`
+
+  コミット前チェックへ `context_docs --check` を追加しました。
+
+- `AI_CONTEXT.md` / `AGENTS.md`
+
+  フォルダ説明書への最短入口と、自動生成物を手編集しない運用を追加しました。
+
+- `doc/versions.md`
+
+  ver 0.7.10の変更内容を追記しました。
+
+---
+
 ver 0.7.7
 
 実行成果物をuser_dataへ分離
