@@ -148,3 +148,7 @@ def test_repository_specs_cover_major_source_folders():
         "scripts/tools",
         "scripts/tools/static_analysis",
     )
+
+
+def test_repository_context_docs_are_current():
+    assert context_docs.generate_context_docs(root=context_docs.ROOT, check=True) == 0
