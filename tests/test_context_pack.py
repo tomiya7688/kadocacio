@@ -40,6 +40,28 @@ class ContextPackTests(unittest.TestCase):
             ["Run matching targeted tests first; run broader checks before PR when required."],
         )
 
+    def test_main_branch_does_not_route_to_match_from_embedded_ai(self):
+        for title in ("main branch maintenance", "maintain branch", "OpenAI tooling"):
+            with self.subTest(title=title):
+                source, _ = context_pack.infer_routes({"title": title, "body": "", "labels": []})
+                self.assertNotIn("scripts/match/", source)
+
+        source, _ = context_pack.infer_routes({
+            "title": "static analysis", "body": "maintain main branch", "labels": [],
+        })
+        self.assertIn("scripts/tools/", source)
+        self.assertNotIn("scripts/match/", source)
+
+    def test_ai_words_and_underscore_tokens_route_to_match(self):
+        for title in ("AI decision", "ai evaluator", "ai_evaluator"):
+            with self.subTest(title=title):
+                source, _ = context_pack.infer_routes({"title": title, "body": "", "labels": []})
+                self.assertIn("scripts/match/", source)
+
+    def test_japanese_match_keyword_keeps_substring_matching(self):
+        source, _ = context_pack.infer_routes({"title": "試合結果を修正", "body": "", "labels": []})
+        self.assertIn("scripts/match/", source)
+
     def test_priority_accepts_title_prefix_and_label(self):
         self.assertEqual(0, context_pack.issue_priority({"title": "[P0] urgent", "labels": []}))
         self.assertEqual(1, context_pack.issue_priority({"title": "normal", "labels": [{"name": "P1"}]}))

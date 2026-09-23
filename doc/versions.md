@@ -22,6 +22,30 @@ ver num.num.num
 
 ---
 
+ver 0.7.11
+
+Issue #70のTask Capsule試合ルート誤検出を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/context_pack.py
+
+  英語キーワードを単語境界で判定し、main内のai等の部分一致を除外。日本語は従来の部分一致を維持。
+
+- tests/test_context_pack.py
+
+  main/maintainの誤検出、AI表記と日本語の正しい検出を確認。
+
+- doc/versions.md
+
+  修正内容と回帰テストを記録。
+
+---
+
 ver 0.7.10
 
 主要フォルダのCodex向け説明書を自動生成
