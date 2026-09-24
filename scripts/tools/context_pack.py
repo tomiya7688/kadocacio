@@ -94,13 +94,21 @@ def compact(text: str, limit: int = 1800) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "\n… (truncated; see source Issue)"
 
 
+def keyword_matches(haystack: str, keyword: str) -> bool:
+    """Match English route words as tokens and Japanese route words in text."""
+    if keyword.isascii():
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(keyword)}(?![A-Za-z0-9])"
+        return re.search(pattern, haystack, flags=re.IGNORECASE) is not None
+    return keyword in haystack
+
+
 def infer_routes(issue: dict) -> tuple[list[str], list[str]]:
     labels = " ".join(label.get("name", "") for label in issue.get("labels", []))
     haystack = f"{issue.get('title', '')} {labels} {issue.get('body', '')}".lower()
     source: list[str] = []
     tests: list[str] = []
     for keywords, source_items, test_items in ROUTES:
-        if any(keyword.lower() in haystack for keyword in keywords):
+        if any(keyword_matches(haystack, keyword) for keyword in keywords):
             source.extend(source_items)
             tests.extend(test_items)
     if not source:
