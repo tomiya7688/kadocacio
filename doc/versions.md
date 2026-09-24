@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.14
+
+試合エンジンからチームファイル探索を分離
+
+追加したファイル
+
+- tests/test_match_input_contract.py
+
+  読込済みチームの受け取りと不足時の明示的な拒否を検証。
+
+- doc/試合エンジン境界.md
+
+  現在の入力契約と未完了の外部契約を明記。
+
+変更したファイル
+
+- scripts/match/match_engine.py
+
+  チーム選択の自動探索を除き、試合生成時に両チームを必須にした。
+
+- static_analysis/architecture_rules.json
+
+  試合層からチームファイル読込への依存をエラーとして検出。
+
+- tests/test_architecture_boundary.py
+
+  新しい依存境界ルールの適用を確認。
+
+- doc/versions.md
+
+  Issue #23の段階的な境界整理を記録。
+
+---
+
 ver 0.7.13
 
 Codex向け5項目の作業指示と現在状態の入口を追加

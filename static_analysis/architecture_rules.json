@@ -9,6 +9,13 @@
       "message": "Match logic must not depend on the application/rendering layer."
     },
     {
+      "id": "match-no-team-loader",
+      "source": "scripts/match",
+      "forbidden_imports": ["scripts.team.team_data"],
+      "severity": "error",
+      "message": "Match logic must receive normalized teams instead of loading team files."
+    },
+    {
       "id": "core-no-app-imports",
       "source": "scripts/core",
       "forbidden_imports": ["scripts.app"],
