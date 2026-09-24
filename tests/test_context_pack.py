@@ -20,6 +20,11 @@ class ContextPackTests(unittest.TestCase):
         self.assertIn("truncated", context_pack.compact("x" * 2000, limit=10))
         self.assertEqual(context_pack.compact(" short "), "short")
 
+    def test_instruction_field_stays_on_one_line(self):
+        self.assertEqual(context_pack.instruction_field("first\n- second"), "first - second")
+        self.assertEqual(context_pack.instruction_field(""), "(原Issueを確認)")
+        self.assertIn("続きはtask.md", context_pack.instruction_field("x" * 400))
+
     def test_infer_routes_uses_issue_text(self):
         issue = {"title": "リーグ保存を修正", "body": "", "labels": []}
         source, tests = context_pack.infer_routes(issue)
@@ -113,6 +118,14 @@ class ContextPackTests(unittest.TestCase):
                 output = context_pack.write_pack(issue)
             self.assertTrue((output / "task.md").exists())
             self.assertTrue((output / "files.txt").exists())
+            request = (output / "request.md").read_text(encoding="utf-8")
+            for heading in ("対象:", "目的:", "制約:", "読むべきファイル:", "完了条件:"):
+                self.assertIn(heading, request)
+            self.assertIn("#999 Context test", request)
+            self.assertIn("Small goal", request)
+            self.assertIn("Pass tests", request)
+            self.assertIn("CONTEXT.md", request)
+            self.assertEqual(sum(line.startswith("- ") for line in request.splitlines()), 5)
             validation = (output / "validation.md").read_text(encoding="utf-8")
             self.assertIn("UNVERIFIED", validation)
 

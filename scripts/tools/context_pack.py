@@ -94,6 +94,14 @@ def compact(text: str, limit: int = 1800) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "\n… (truncated; see source Issue)"
 
 
+def instruction_field(text: str, limit: int = 360) -> str:
+    """Keep one work-request field on one line even for Markdown lists."""
+    value = " ".join(text.split())
+    if not value:
+        return "(原Issueを確認)"
+    return value if len(value) <= limit else value[:limit].rstrip() + "… (続きはtask.md)"
+
+
 def keyword_matches(haystack: str, keyword: str) -> bool:
     """Match English route words as tokens and Japanese route words in text."""
     if keyword.isascii():
@@ -160,6 +168,17 @@ This capsule is an index, not the specification. Return to the source Issue, imp
 """
     (output / "task.md").write_text(task, encoding="utf-8")
     (output / "files.txt").write_text("[source candidates]\n" + "\n".join(source) + "\n\n[test candidates]\n" + "\n".join(tests) + "\n", encoding="utf-8")
+    request = f"""# Codex Work Request: #{issue_number}
+
+- 対象: #{issue_number} {issue['title']} ({issue['url']})
+- 目的: {instruction_field(goal)}
+- 制約: {instruction_field(required)}
+- 読むべきファイル: `files.txt` の候補と該当フォルダの `CONTEXT.md`。不足時だけ原Issueと実装を確認。
+- 完了条件: {instruction_field(acceptance)}
+
+詳細は `task.md`、最新の作業状態はIssueとGitで確認する。候補ファイルは推定であり、正本ではない。
+"""
+    (output / "request.md").write_text(request, encoding="utf-8")
     (output / "validation.md").write_text(
         "# Validation\n\n"
         "- VERIFIED: add checks actually run\n"
