@@ -105,6 +105,10 @@ class Team:
 
     def assign_zone_ranks(self) -> None:
         outfield = [player for player in self.players if not player.is_keeper]
+        if not outfield:
+            for player in self.players:
+                player.zone_rank = 0.0
+            return
         minimum = min(player.home_x for player in outfield)
         maximum = max(player.home_x for player in outfield)
         span = max(0.001, maximum - minimum)
