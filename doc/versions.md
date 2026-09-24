@@ -22,6 +22,30 @@ ver num.num.num
 
 ---
 
+ver 0.7.12
+
+全員GKの合法チームでも試合を開始できるよう修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/match/team.py
+
+  GK以外がいない編成では全員のゾーン順位を0として扱う。
+
+- tests/test_flexible_formations.py
+
+  全員GKの試合開始・再開始・交代と、通常編成のゾーン順位を検証。
+
+- doc/versions.md
+
+  Issue #69の修正内容を記録。
+
+---
+
 ver 0.7.11
 
 Issue #70のTask Capsule試合ルート誤検出を修正
