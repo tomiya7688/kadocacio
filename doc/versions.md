@@ -22,6 +22,34 @@ ver num.num.num
 
 ---
 
+ver 0.7.13
+
+Codex向け5項目の作業指示と現在状態の入口を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/context_pack.py
+
+  IssueごとのTask Capsuleに5項目のrequest.mdを生成。
+
+- tests/test_context_pack.py
+
+  生成された作業指示の必須項目と参照先を確認。
+
+- AI_CONTEXT.md
+
+  現行構成と最新状態の参照先、生成される作業指示の使い分けを記載。
+
+- doc/versions.md
+
+  Issue #5の段階的な改善を記録。
+
+---
+
 ver 0.7.12
 
 全員GKの合法チームでも試合を開始できるよう修正

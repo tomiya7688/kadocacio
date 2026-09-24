@@ -7,6 +7,11 @@ AI/Codex が最初に読む最小入口です。詳細仕様はここへ複製�
 - Purpose: サッカーゲーム本体、編集/評価ツール、将来の再利用可能なゲームエンジン層を開発する。
 - Runtime: Python / Pygame
 
+## Current State
+- 現行構成は `main.py` を入口に、試合・リーグ・チーム編集・開発ツールを `scripts/` の役割別パッケージへ分けている。
+- 直近の実装履歴は `doc/versions.md` の先頭、進行中の作業はGitHub Issues/PRを確認する。ここに固定のIssue件数やブランチ状態は書かない。
+- フォルダ別の生成済み `CONTEXT.md` を入口にする。#27 の推奨entrypointレポートが整備されたら、その派生情報もここから案内する。
+
 ## Source of Truth
 - AI作業ルール・コード地図: `AGENTS.md`
 - 人間向け概要: `README.md`
@@ -55,4 +60,4 @@ README / SPEC / docs / 全Issueを最初から全読しない。
 検証結果は `VERIFIED` / `UNVERIFIED` / `BLOCKED` / `NOT_APPLICABLE` を区別する。`UNVERIFIED` をゼロにするためだけの全探索は行わず、Acceptance・安全性・互換性に必要な確認だけ必須へ昇格する。
 
 ## Task Capsule
-`start_task.bat [issue-number]` で `context/<issue-number>/` に短い作業入口を生成する。Task CapsuleはSource of Truthではなく索引であり、必要なら原Issue・コード・テストへ戻る。
+`start_task.bat [issue-number]` で `context/<issue-number>/` に短い作業入口を生成する。`request.md` は「対象・目的・制約・読むべきファイル・完了条件」の5項目だけで渡せる作業指示、`task.md` は詳細、`files.txt` は推定された候補。Task CapsuleはSource of Truthではなく索引であり、必要なら原Issue・コード・テストへ戻る。
