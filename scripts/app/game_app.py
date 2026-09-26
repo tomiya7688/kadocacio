@@ -744,10 +744,11 @@ class Game(RendererMixin):
             return
         if self.league_simulation_session is not None:
             self.league_simulation_session.finish_remaining_as_fast_as_possible()
+        result = self.match.final_result()
         remaining = self.league_manager.complete_watched_fixture(
             self.active_league_fixture_id,
-            self.match.home.score,
-            self.match.away.score,
+            result.home_score,
+            result.away_score,
         )
         self.start_league_simulations(remaining)
         self.league_match_finalized = True

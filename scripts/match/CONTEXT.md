@@ -12,6 +12,7 @@ Soccer match domain: fixed-step rules, player/team/ball state, AI decisions, phy
 
 ## Notable classes
 - `Match`
+- `MatchResult`
 - `Player`
 - `Team`
 - `Ball`
@@ -48,6 +49,7 @@ Forbidden / avoid:
 - `jump_system.py`
 - `manager_system.py`
 - `match_engine.py`
+- `match_result.py`
 - `pass_route.py`
 - `pending_kick.py`
 - `physical_system.py`

@@ -31,6 +31,7 @@ from scripts.match.manager_system import (
     substitution_fatigue_threshold,
     tactic_target as manager_tactic_target,
 )
+from scripts.match.match_result import MatchResult
 from scripts.match.pass_route import PassRoute
 from scripts.match.pending_kick import PendingKick
 from scripts.match.player_commands import PlayerCommand, dribble_movement_speed, movement_speed
@@ -96,7 +97,6 @@ from scripts.match.skill_system import (
 )
 from scripts.match.stamina_system import command_stamina_cost
 from scripts.core.simulation_geometry import Vec2
-from scripts.team.team_data import discover_team_choices
 from scripts.match.technique_system import (
     choose_trap_style,
     interception_reach,
@@ -180,20 +180,18 @@ def offside_position_active(
 class Match:
     def __init__(
         self,
-        home_choice: dict | None = None,
-        away_choice: dict | None = None,
+        home_choice: dict,
+        away_choice: dict,
         venue_mode: str = "HOME",
         *,
         ai_rethink_multiplier: float = 1.0,
     ) -> None:
+        if home_choice is None or away_choice is None:
+            raise ValueError("Match requires two preloaded team choices")
         self.rng = random.Random()
         # Only tactical replanning frequency changes between headless league
         # modes. Movement, ball physics, contacts and the game clock stay 20 Hz.
         self.ai_rethink_multiplier = clamp(float(ai_rethink_multiplier), 0.5, 3.0)
-        if home_choice is None or away_choice is None:
-            defaults = discover_team_choices()
-            home_choice = home_choice or next((choice for choice in defaults if "夕張kadoka" in choice["name"]), defaults[0])
-            away_choice = away_choice or next((choice for choice in defaults if choice["name"] == "AOBA UNITED"), defaults[1] if len(defaults) > 1 else defaults[0])
         home_short = home_choice["short"]
         away_short = away_choice["short"]
         self.home = self.build_team(home_choice, 1, home_short)
@@ -399,6 +397,21 @@ class Match:
 
     def add_event(self, text: str) -> None:
         self.events.appendleft((int(self.game_time // 60), text))
+
+    def final_result(self) -> MatchResult:
+        """Expose completed-match values without leaking mutable team state."""
+        if self.state != "FULLTIME":
+            raise RuntimeError("Match result is available only after full time")
+        return MatchResult(
+            home_score=int(self.home.score),
+            away_score=int(self.away.score),
+            home_shots=int(self.home.shots),
+            away_shots=int(self.away.shots),
+            home_possession=float(self.home.possession),
+            away_possession=float(self.away.possession),
+            goal_scorers=tuple(self.goal_scorers),
+            game_time=float(self.game_time),
+        )
 
     @staticmethod
     def manager_profile(team: Team) -> ManagerProfile:

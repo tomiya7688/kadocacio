@@ -16,6 +16,14 @@ def test_matches_forbidden_matches_package_and_children():
     assert not matches_forbidden("scripts.application", "scripts.app")
 
 
+def test_match_layer_rejects_team_loader_imports():
+    rules = load_rules()
+    rule = next(rule for rule in rules if rule.rule_id == "match-no-team-loader")
+    assert rule.severity == "error"
+    assert rule.forbidden_imports == ("scripts.team.team_data",)
+    assert not check_boundaries((rule,))
+
+
 def test_checker_reports_error_and_warning(tmp_path: Path):
     (tmp_path / "scripts" / "match").mkdir(parents=True)
     (tmp_path / "scripts" / "core").mkdir(parents=True)

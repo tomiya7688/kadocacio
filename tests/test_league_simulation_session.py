@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from scripts.league.league_simulation_session import LeagueSimulationSession
 from scripts.league.league_simulation_workers import _run_synchronized_match_batch
+from scripts.match.match_result import MatchResult
 
 
 class _SharedValue:
@@ -37,6 +38,16 @@ class _FakeMatch:
 
     def start_new(self) -> None:
         return None
+
+    def final_result(self) -> MatchResult:
+        if self.state != "FULLTIME":
+            raise RuntimeError("not finished")
+        return MatchResult(
+            self.home.score, self.away.score,
+            self.home.shots, self.away.shots,
+            self.home.possession, self.away.possession,
+            tuple(self.goal_scorers), self.game_time,
+        )
 
 
 def _advance_fake_match(match: _FakeMatch) -> None:

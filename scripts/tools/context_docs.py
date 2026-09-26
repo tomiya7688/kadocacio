@@ -36,7 +36,7 @@ CONTEXT_SPECS = {
     "scripts/match": {
         "responsibility": "Soccer match domain: fixed-step rules, player/team/ball state, AI decisions, physics, commands, and match results.",
         "entrypoints": ("match_engine.py", "player.py", "team.py"),
-        "classes": ("Match", "Player", "Team", "Ball", "PlayerCommand"),
+        "classes": ("Match", "MatchResult", "Player", "Team", "Ball", "PlayerCommand"),
         "data": ("Consumes normalized team snapshots; match hot paths should not perform filesystem I/O.",),
         "allowed": ("scripts.core", "other scripts.match modules"),
         "forbidden": ("scripts.app", "scripts.tools", "filesystem discovery/persistence in match hot paths"),

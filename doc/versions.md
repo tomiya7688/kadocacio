@@ -22,6 +22,74 @@ ver num.num.num
 
 ---
 
+ver 0.7.15
+
+表示試合と裏試合の確定結果を共通契約へ移行
+
+追加したファイル
+
+- scripts/match/match_result.py
+
+  試合終了後の変更不能な結果とJSON化可能な値を定義。
+
+- tests/test_match_result_contract.py
+
+  終了前の拒否、値の独立性、シリアライズと裏試合出力を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/game_app.py / scripts/league/league_simulation_workers.py
+
+  確定結果を試合層から取り出し、表示試合・裏試合で共通利用。
+
+- tests/test_league_simulation_session.py
+
+  同期試合のテスト用Matchに確定結果契約を適用。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md / doc/試合エンジン境界.md
+
+  新しい結果クラスの役割と未完了の外部契約を記録。
+
+- doc/versions.md
+
+  Issue #23のResult契約を記録。
+
+---
+
+ver 0.7.14
+
+試合エンジンからチームファイル探索を分離
+
+追加したファイル
+
+- tests/test_match_input_contract.py
+
+  読込済みチームの受け取りと不足時の明示的な拒否を検証。
+
+- doc/試合エンジン境界.md
+
+  現在の入力契約と未完了の外部契約を明記。
+
+変更したファイル
+
+- scripts/match/match_engine.py
+
+  チーム選択の自動探索を除き、試合生成時に両チームを必須にした。
+
+- static_analysis/architecture_rules.json
+
+  試合層からチームファイル読込への依存をエラーとして検出。
+
+- tests/test_architecture_boundary.py
+
+  新しい依存境界ルールの適用を確認。
+
+- doc/versions.md
+
+  Issue #23の段階的な境界整理を記録。
+
+---
+
 ver 0.7.13
 
 Codex向け5項目の作業指示と現在状態の入口を追加
