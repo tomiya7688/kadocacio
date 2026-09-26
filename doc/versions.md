@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.15
+
+表示試合と裏試合の確定結果を共通契約へ移行
+
+追加したファイル
+
+- scripts/match/match_result.py
+
+  試合終了後の変更不能な結果とJSON化可能な値を定義。
+
+- tests/test_match_result_contract.py
+
+  終了前の拒否、値の独立性、シリアライズと裏試合出力を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/game_app.py / scripts/league/league_simulation_workers.py
+
+  確定結果を試合層から取り出し、表示試合・裏試合で共通利用。
+
+- tests/test_league_simulation_session.py
+
+  同期試合のテスト用Matchに確定結果契約を適用。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md / doc/試合エンジン境界.md
+
+  新しい結果クラスの役割と未完了の外部契約を記録。
+
+- doc/versions.md
+
+  Issue #23のResult契約を記録。
+
+---
+
 ver 0.7.14
 
 試合エンジンからチームファイル探索を分離

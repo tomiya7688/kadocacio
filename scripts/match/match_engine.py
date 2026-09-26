@@ -31,6 +31,7 @@ from scripts.match.manager_system import (
     substitution_fatigue_threshold,
     tactic_target as manager_tactic_target,
 )
+from scripts.match.match_result import MatchResult
 from scripts.match.pass_route import PassRoute
 from scripts.match.pending_kick import PendingKick
 from scripts.match.player_commands import PlayerCommand, dribble_movement_speed, movement_speed
@@ -396,6 +397,21 @@ class Match:
 
     def add_event(self, text: str) -> None:
         self.events.appendleft((int(self.game_time // 60), text))
+
+    def final_result(self) -> MatchResult:
+        """Expose completed-match values without leaking mutable team state."""
+        if self.state != "FULLTIME":
+            raise RuntimeError("Match result is available only after full time")
+        return MatchResult(
+            home_score=int(self.home.score),
+            away_score=int(self.away.score),
+            home_shots=int(self.home.shots),
+            away_shots=int(self.away.shots),
+            home_possession=float(self.home.possession),
+            away_possession=float(self.away.possession),
+            goal_scorers=tuple(self.goal_scorers),
+            game_time=float(self.game_time),
+        )
 
     @staticmethod
     def manager_profile(team: Team) -> ManagerProfile:

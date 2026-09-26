@@ -18,6 +18,22 @@ SYNCED_LIVE_REPORT_INTERVAL = 5.0
 SYNCED_FAST_FINISH_REPORT_INTERVAL = 60.0
 
 
+def _match_output(match: Match) -> dict:
+    """Use the public final result; keep incomplete step-limit diagnostics."""
+    if match.state == "FULLTIME":
+        return match.final_result().to_payload()
+    return {
+        "home_score": match.home.score,
+        "away_score": match.away.score,
+        "home_shots": match.home.shots,
+        "away_shots": match.away.shots,
+        "home_possession": match.home.possession,
+        "away_possession": match.away.possession,
+        "goal_scorers": list(match.goal_scorers),
+        "game_time": match.game_time,
+    }
+
+
 def _run_headless_league_match(job: dict) -> dict:
     """Play a complete real Match in a worker process without rendering."""
     fixture = job["fixture"]
@@ -65,18 +81,11 @@ def _run_headless_league_match(job: dict) -> dict:
         })
     result = {
         "fixture_id": fixture["id"],
-        "home_score": match.home.score,
-        "away_score": match.away.score,
-        "home_shots": match.home.shots,
-        "away_shots": match.away.shots,
-        "home_possession": match.home.possession,
-        "away_possession": match.away.possession,
-        "goal_scorers": list(match.goal_scorers),
+        **_match_output(match),
         "engine_steps": steps,
         "simulation_mode": str(job.get("simulation_mode", "PRECISE")),
         "fulltime": match.state == "FULLTIME",
         "finish_reason": "fulltime" if match.state == "FULLTIME" else "step_limit",
-        "game_time": match.game_time,
         "simulation_elapsed": match.simulation_elapsed,
         "restart_type": match.restart_type,
         "restart_elapsed": match.restart_elapsed,
@@ -184,14 +193,10 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
             "state": match.state,
         })
         results.append({
-            "fixture_id": fixture["id"], "home_score": match.home.score, "away_score": match.away.score,
-            "home_shots": match.home.shots, "away_shots": match.away.shots,
-            "home_possession": match.home.possession, "away_possession": match.away.possession,
-            "goal_scorers": list(match.goal_scorers), "engine_steps": context["steps"],
+            "fixture_id": fixture["id"], **_match_output(match), "engine_steps": context["steps"],
             "simulation_mode": str(context.get("simulation_mode", "PRECISE")),
             "fulltime": match.state == "FULLTIME",
             "finish_reason": "fulltime" if match.state == "FULLTIME" else "step_limit",
-            "game_time": match.game_time,
             "simulation_elapsed": match.simulation_elapsed,
             "restart_type": str(getattr(match, "restart_type", "")),
             "restart_elapsed": float(getattr(match, "restart_elapsed", 0.0)),
