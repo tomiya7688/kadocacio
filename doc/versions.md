@@ -22,6 +22,36 @@ ver num.num.num
 
 ---
 
+ver 0.7.16
+
+試合中スコアボードの状態を不変Snapshotから表示
+
+追加したファイル
+
+- scripts/match/match_status_snapshot.py
+
+  略称、得点、時計、バナー、倍速を値として保持する読み取り専用状態を定義。
+
+- tests/test_match_status_snapshot.py
+
+  Snapshotの独立性とスコアボードの可変チーム非依存を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/rendering.py
+
+  試合から表示用の時点状態を取得し、スコアボードに利用。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md / doc/試合エンジン境界.md
+
+  新しい状態クラスの役割と境界移行の残作業を記録。
+
+- doc/versions.md
+
+  Issue #22の段階的なSnapshot導入を記録。
+
+---
+
 ver 0.7.15
 
 表示試合と裏試合の確定結果を共通契約へ移行
