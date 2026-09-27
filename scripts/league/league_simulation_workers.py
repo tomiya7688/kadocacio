@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import time
 from statistics import mean
 
 from scripts.core.cpu_usage_limiter import CpuUsageLimiter
+from scripts.core.match_seed import league_fixture_seed
 from scripts.core.match_telemetry import MatchTelemetry
 from scripts.core.simulation_runtime import MAX_FULL_MATCH_STEPS, advance_match_fixed
 from scripts.match.match_engine import Match
@@ -37,13 +37,14 @@ def _match_output(match: Match) -> dict:
 def _run_headless_league_match(job: dict) -> dict:
     """Play a complete real Match in a worker process without rendering."""
     fixture = job["fixture"]
+    seed = league_fixture_seed(
+        fixture.get("id"), job["home_choice"].get("name"), job["away_choice"].get("name"),
+    )
     match = Match(
         job["home_choice"], job["away_choice"], "HOME",
         ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
+        seed=seed,
     )
-    seed_text = f"{fixture.get('id')}:{job['home_choice'].get('name')}:{job['away_choice'].get('name')}"
-    seed = int.from_bytes(hashlib.sha256(seed_text.encode("utf-8")).digest()[:8], "big")
-    match.rng.seed(seed)
     match.start_new()
     collect_telemetry = bool(job.get("collect_telemetry", False))
     telemetry = MatchTelemetry(match) if collect_telemetry else None
@@ -106,13 +107,14 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
     cpu_limiter = CpuUsageLimiter(jobs[0].get("cpu_duty_cycle", 1.0) if jobs else 1.0)
     for job in jobs:
         fixture = job["fixture"]
+        seed = league_fixture_seed(
+            fixture.get("id"), job["home_choice"].get("name"), job["away_choice"].get("name"),
+        )
         match = Match(
             job["home_choice"], job["away_choice"], "HOME",
             ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
+            seed=seed,
         )
-        seed_text = f"{fixture.get('id')}:{job['home_choice'].get('name')}:{job['away_choice'].get('name')}"
-        seed = int.from_bytes(hashlib.sha256(seed_text.encode("utf-8")).digest()[:8], "big")
-        match.rng.seed(seed)
         match.start_new()
         contexts.append({
             "fixture": fixture,

@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.17
+
+試合開始前からseedを注入してリーグ観戦・裏試合の再現性を揃える
+
+追加したファイル
+
+- scripts/core/match_seed.py
+
+  リーグ試合の既存seed算出規則を共通化。
+
+- tests/test_match_seed_contract.py / doc/試合再現性.md
+
+  初期状態と固定ステップの再現性を検証し、契約と残作業を明文化。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/game_app.py / scripts/league/league_simulation_workers.py
+
+  乱数を試合生成時に注入し、観戦・裏試合に共通のfixture seedを使用。
+
+- scripts/tools/ai_evaluator.py / scripts/team/team_tuner.py
+
+  評価・チューニング時の試合生成にもseedを注入。
+
+- tests/test_league_simulation_session.py / tests/test_team_tuner_optimizer.py
+
+  テスト用試合を新しい生成契約へ合わせる。
+
+- scripts/core/CONTEXT.md / doc/versions.md
+
+  新しいseedモジュールとIssue #36の段階的な変更を記録。
+
+---
+
 ver 0.7.15
 
 表示試合と裏試合の確定結果を共通契約へ移行

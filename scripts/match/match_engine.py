@@ -185,10 +185,12 @@ class Match:
         venue_mode: str = "HOME",
         *,
         ai_rethink_multiplier: float = 1.0,
+        seed: int | None = None,
     ) -> None:
         if home_choice is None or away_choice is None:
             raise ValueError("Match requires two preloaded team choices")
-        self.rng = random.Random()
+        self.seed = int(seed) if seed is not None else None
+        self.rng = random.Random(self.seed)
         # Only tactical replanning frequency changes between headless league
         # modes. Movement, ball physics, contacts and the game clock stay 20 Hz.
         self.ai_rethink_multiplier = clamp(float(ai_rethink_multiplier), 0.5, 3.0)

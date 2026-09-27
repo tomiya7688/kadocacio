@@ -7,6 +7,7 @@ from copy import deepcopy
 
 import pygame
 
+from scripts.core.match_seed import league_fixture_seed
 from scripts.match.match_engine import Match
 from scripts.app.performance_backend import GpuPresenter
 from scripts.league.league_auto_progress import (
@@ -533,7 +534,10 @@ class Game(RendererMixin):
         self.active_league_fixture_id = str(fixture["id"])
         self.league_match_finalized = False
         self.league_screen_open = False
-        self.match = Match(home_choice, away_choice, "HOME")
+        self.match = Match(
+            home_choice, away_choice, "HOME",
+            seed=league_fixture_seed(fixture.get("id"), home_choice.get("name"), away_choice.get("name")),
+        )
         self.match.start_new()
         self.visible_simulation.reset(self.match)
         self.roll_stadium_guests()

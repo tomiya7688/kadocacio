@@ -156,7 +156,7 @@ class TeamTunerOptimizerTests(unittest.TestCase):
                 self.possession = 1.0
 
         class FakeMatch:
-            def __init__(self, home, away, venue):
+            def __init__(self, home, away, venue, *, seed=None):
                 calls.append((home.get("id"), away.get("id")))
                 self.home = FakeTeam()
                 self.away = FakeTeam()
@@ -201,7 +201,7 @@ class TeamTunerOptimizerTests(unittest.TestCase):
                 self.possession = 1.0
 
         class FakeMatch:
-            def __init__(self, home, away, venue):
+            def __init__(self, home, away, venue, *, seed=None):
                 self.home = FakeTeam()
                 self.away = FakeTeam()
                 self.rng = random.Random()
