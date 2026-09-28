@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.18
+
+ヘッドレス試合とPygame描画試合の再現性を比較する開発者ツールを追加
+
+追加したファイル
+
+- scripts/tools/match_repro_check.py
+
+  同じseedの両試合を固定ステップで進め、状態差をJSONで報告。
+
+- tests/test_match_repro_check.py
+
+  実際のPygame描画によって試合状態が変わらないことを短時間で検証。
+
+変更したファイル
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md
+
+  開発者ツールの入口、実行方法、比較対象と残作業を記録。
+
+- doc/versions.md
+
+  Issue #36の描画あり・なし比較を記録。
+
+---
+
 ver 0.7.17
 
 試合開始前からseedを注入してリーグ観戦・裏試合の再現性を揃える
