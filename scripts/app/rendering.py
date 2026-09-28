@@ -707,18 +707,19 @@ class RendererMixin(LeagueRendererMixin):
             pygame.draw.rect(self.screen, INK, card, 1, border_radius=1)
 
     def draw_scoreboard(self) -> None:
+        status = self.match.status_snapshot()
         pitch_screen_center = PANEL.left // 2
         board = pygame.Rect(pitch_screen_center - 190, 17, 380, 46)
         pygame.draw.rect(self.screen, INK, board, border_radius=8)
-        self.text(self.match.home.short_name, 17, CREAM, (board.left + 18, board.top + 12), bold=True, center=False)
-        self.text(self.match.away.short_name, 17, CREAM, (board.right - 18, board.top + 12), bold=True, right=True)
-        score = f"{self.match.home.score}  -  {self.match.away.score}"
+        self.text(status.home_short_name, 17, CREAM, (board.left + 18, board.top + 12), bold=True, center=False)
+        self.text(status.away_short_name, 17, CREAM, (board.right - 18, board.top + 12), bold=True, right=True)
+        score = f"{status.home_score}  -  {status.away_score}"
         self.text(score, 25, GOLD, (board.centerx, board.centery), bold=True, center=True)
-        minute = min(90, int(self.match.game_time // 60))
-        second = 0 if minute >= 90 else int(self.match.game_time % 60)
-        time_label = "HT" if self.match.banner == "HALF TIME" and self.match.banner_timer > 0 else f"{minute}:{second:02d}"
+        minute = min(90, int(status.game_time // 60))
+        second = 0 if minute >= 90 else int(status.game_time % 60)
+        time_label = "HT" if status.banner == "HALF TIME" and status.banner_timer > 0 else f"{minute}:{second:02d}"
         self.text(time_label, 16, INK, (20, 28), bold=True)
-        self.text(f"SPEED ×{self.match.speed_multiplier}", 13, MUTED, (PANEL.left - 20, 31), bold=True, right=True)
+        self.text(f"SPEED ×{status.speed_multiplier}", 13, MUTED, (PANEL.left - 20, 31), bold=True, right=True)
 
     def draw_panel(self) -> None:
         pygame.draw.rect(self.screen, PAPER, PANEL, border_radius=12)

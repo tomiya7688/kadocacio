@@ -32,6 +32,7 @@ from scripts.match.manager_system import (
     tactic_target as manager_tactic_target,
 )
 from scripts.match.match_result import MatchResult
+from scripts.match.match_status_snapshot import MatchStatusSnapshot
 from scripts.match.pass_route import PassRoute
 from scripts.match.pending_kick import PendingKick
 from scripts.match.player_commands import PlayerCommand, dribble_movement_speed, movement_speed
@@ -399,6 +400,20 @@ class Match:
 
     def add_event(self, text: str) -> None:
         self.events.appendleft((int(self.game_time // 60), text))
+
+    def status_snapshot(self) -> MatchStatusSnapshot:
+        """Copy the small set of values used by the live scoreboard."""
+        return MatchStatusSnapshot(
+            home_short_name=str(self.home.short_name),
+            away_short_name=str(self.away.short_name),
+            home_score=int(self.home.score),
+            away_score=int(self.away.score),
+            game_time=float(self.game_time),
+            state=str(self.state),
+            banner=str(self.banner),
+            banner_timer=float(self.banner_timer),
+            speed_multiplier=int(self.speed_multiplier),
+        )
 
     def final_result(self) -> MatchResult:
         """Expose completed-match values without leaking mutable team state."""
