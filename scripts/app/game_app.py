@@ -54,7 +54,7 @@ from scripts.team.team_editor import TeamEditor
 
 
 class Game(RendererMixin):
-    def __init__(self) -> None:
+    def __init__(self, *, team_choices: list[dict] | None = None) -> None:
         pygame.init()
         title = PROJECT_NAME
         self.window_title = title
@@ -89,7 +89,7 @@ class Game(RendererMixin):
         self.clock = pygame.time.Clock()
         self.fonts: dict[tuple[int, bool], pygame.font.Font] = {}
         self.text_surface_cache: dict[tuple[str, int, tuple[int, int, int], bool], pygame.Surface] = {}
-        self.team_choices = discover_team_choices()
+        self.team_choices = discover_team_choices() if team_choices is None else deepcopy(team_choices)
         self.league_manager = LeagueManager(self.team_choices)
         self.league_manager_before_editor: LeagueManager | None = None
         self.league_screen_open = False

@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.19
+
+チーム編集後も同じ入力で比較できる試合条件JSONの保存・再実行を追加
+
+追加したファイル
+
+- scripts/tools/match_repro_input.py
+
+  チーム能力を丸めず複製し、seed・計算条件とともにバージョン付き入力として検証・復元。
+
+- tests/test_match_repro_input.py
+
+  保存後の能力変更、チーム探索なしの再実行、不正入力・条件上書きの拒否を検証。
+
+変更したファイル
+
+- scripts/tools/match_repro_check.py / scripts/app/game_app.py
+
+  入力JSONの保存・読込と会場・AI判断頻度指定を追加し、描画側へ保存済みチームを注入。
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md / doc/versions.md
+
+  入力形式、使用方法、再現範囲と未対応の外部操作を記録。
+
+---
+
 ver 0.7.18
 
 ヘッドレス試合とPygame描画試合の再現性を比較する開発者ツールを追加
