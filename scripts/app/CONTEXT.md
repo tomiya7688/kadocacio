@@ -39,6 +39,7 @@ Forbidden / avoid:
 
 ## Current modules
 - `game_app.py`
+- `main_menu_view.py`
 - `performance_backend.py`
 - `rendering.py`
 - `stadium_system.py`

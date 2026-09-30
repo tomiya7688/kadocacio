@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.21
+
+開始メニューの情報階層と可読性を整理し、描画分離とキーボード操作を追加
+
+追加したファイル
+
+- scripts/app/main_menu_view.py
+
+  リーグ進行を主役に、試合テストと編集ツールを分類する描画専用クラス。
+
+- tests/test_main_menu_view.py
+
+  カードの非重複、文字の領域内配置、フォーカス表示の安定性を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  クリックとキーの遷移を共通化し、Tab・矢印・Enter操作を追加。旧TITLEの誤開始を修正し、設定中の入力遮断をハンドラーでも保証。
+
+- scripts/app/rendering.py
+
+  開始メニューの描画を専用ビューへ委譲。毎フレームの影・ベール用Surface生成を廃止。
+
+- tests/test_main_menu.py
+
+  旧TITLE、既存数字ショートカット、フォーカス移動、設定中の入力遮断を回帰検証。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  生成地図、クラスの役割、変更履歴を更新。試合演算・能力値・セーブ形式の変更なし。
+
+---
+
 ver 0.7.20
 
 試合ログの全履歴を比較して序盤の差分も検出し、調査用JSONへ保存

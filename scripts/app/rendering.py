@@ -1249,53 +1249,7 @@ class RendererMixin(LeagueRendererMixin):
         self.text(info, 11, (192, 200, 199), (WIDTH // 2, 664), center=True)
 
     def draw_title(self) -> None:
-        self.screen.fill((10, 17, 25))
-        # A restrained stadium/pitch motif gives the hub depth without making
-        # the navigation cards compete with an animated match.
-        for y in range(0, HEIGHT, 48):
-            tone = 23 + min(18, y // 48)
-            pygame.draw.rect(self.screen, (tone, tone + 9, tone + 15), (0, y, WIDTH, 48))
-        pygame.draw.polygon(self.screen, (24, 83, 57), [(0, 305), (WIDTH, 236), (WIDTH, HEIGHT), (0, HEIGHT)])
-        for index in range(9):
-            x = index * 190 - 120
-            pygame.draw.polygon(self.screen, (29, 101, 67) if index % 2 else (27, 94, 63), [(x, 274), (x + 150, 266), (x + 360, HEIGHT), (x + 145, HEIGHT)])
-        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        veil.fill((7, 12, 18, 118))
-        self.screen.blit(veil, (0, 0))
-
-        self.main_menu_buttons.clear()
-        self.text("KADOCALCIO", 13, (77, 198, 178), (64, 38), bold=True)
-        self.text("カドカルチョ", 44, CREAM, (64, 58), bold=True)
-        self.text("FOOTBALL CLUB SIMULATOR", 12, (154, 171, 181), (67, 112), bold=True)
-        self.text("クラブ作成、リーグ構築、シーズン進行、単体試合テストをここから開始します。", 14, (204, 214, 218), (66, 150))
-
-        cards = (
-            ("TEAM", "チームエディタ", "選手・能力・色・フォーメーションを編集", "team_editor", (77, 198, 178)),
-            ("LEAGUE", "リーグ戦エディタ", "リーグ・大会・参加チーム・日程を編集", "league_editor", (100, 151, 235)),
-            ("SEASON", "リーグ戦を開始", "新規セーブを作成、または途中データを再開", "league_start", (232, 174, 72)),
-            ("MATCH", "試合テスト", "任意の2チームと会場で単体試合を実行", "match_test", (224, 94, 88)),
-        )
-        mouse = self.logical_mouse_pos()
-        for index, (eyebrow, title, detail, action, accent) in enumerate(cards):
-            column, row = index % 2, index // 2
-            rect = pygame.Rect(64 + column * 588, 205 + row * 190, 552, 158)
-            hover = rect.collidepoint(mouse)
-            shadow = pygame.Surface((rect.width + 14, rect.height + 14), pygame.SRCALPHA)
-            pygame.draw.rect(shadow, (0, 0, 0, 90), shadow.get_rect(), border_radius=17)
-            self.screen.blit(shadow, (rect.left - 3, rect.top + 6))
-            pygame.draw.rect(self.screen, (29, 40, 52) if not hover else (38, 52, 66), rect, border_radius=14)
-            pygame.draw.rect(self.screen, accent, (rect.left, rect.top, 5, rect.height), border_radius=3)
-            pygame.draw.rect(self.screen, (66, 82, 96) if not hover else accent, rect, 1, border_radius=14)
-            icon = pygame.Rect(rect.left + 24, rect.top + 28, 74, 74)
-            pygame.draw.rect(self.screen, (*accent, 255), icon, border_radius=13)
-            self.text(str(index + 1), 30, (12, 23, 31), icon.center, bold=True, center=True)
-            self.text(eyebrow, 9, accent, (rect.left + 122, rect.top + 25), bold=True)
-            self.text(title, 22, (245, 248, 249), (rect.left + 122, rect.top + 45), bold=True)
-            self.text(detail, 11, (157, 173, 183), (rect.left + 122, rect.top + 82))
-            self.text("開く  ›", 11, accent, (rect.right - 24, rect.bottom - 28), right=True, bold=True)
-            self.main_menu_buttons.append((rect, action))
-        self.text("1–4 キーでも選択できます", 11, (142, 158, 168), (64, HEIGHT - 31))
-        self.draw_settings_button(pygame.Rect(WIDTH - 238, HEIGHT - 46, 218, 30))
+        self.main_menu_view.draw(self)
 
     def draw(self) -> None:
         if self.league_screen_open:
