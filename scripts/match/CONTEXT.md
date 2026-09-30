@@ -14,6 +14,7 @@ Soccer match domain: fixed-step rules, player/team/ball state, AI decisions, phy
 - `Match`
 - `MatchResult`
 - `MatchStatusSnapshot`
+- `MatchLogEvent`
 - `Player`
 - `Team`
 - `Ball`
@@ -50,6 +51,7 @@ Forbidden / avoid:
 - `jump_system.py`
 - `manager_system.py`
 - `match_engine.py`
+- `match_log_event.py`
 - `match_result.py`
 - `match_status_snapshot.py`
 - `pass_route.py`

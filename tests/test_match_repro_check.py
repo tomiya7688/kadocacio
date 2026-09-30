@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from copy import deepcopy
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import patch
@@ -37,12 +38,38 @@ class MatchReproCheckTests(unittest.TestCase):
         self.assertEqual(report["rendered_frames"], 5)
 
     def test_step_mismatch_is_reported(self):
-        state = {"state": "PLAYING", "game_time": 1.0}
+        state = {"state": "PLAYING", "game_time": 1.0, "event_history": []}
         with patch("scripts.tools.match_repro_check.run_headless", return_value=(state, 2)):
             with patch("scripts.tools.match_repro_check.run_rendered", return_value=(state, 3, 1)):
                 report = compare_matches(self.home, self.away, seed=1, max_steps=3, render_every=1)
         self.assertFalse(report["same_state"])
         self.assertEqual(report["different_fields"], ["steps"])
+
+    def test_detects_an_early_event_difference_missing_from_the_last_eight(self):
+        history = [{"sequence": index + 1, "text": f"event {index}"} for index in range(12)]
+        left = {"state": "PLAYING", "game_time": 1.0, "events": history[-8:], "event_history": history}
+        right = deepcopy(left)
+        right["event_history"][0]["text"] = "different early event"
+        with patch("scripts.tools.match_repro_check.run_headless", return_value=(left, 20)):
+            with patch("scripts.tools.match_repro_check.run_rendered", return_value=(right, 20, 3)):
+                report = compare_matches(self.home, self.away, seed=1, max_steps=20, render_every=10)
+        self.assertFalse(report["same_state"])
+        self.assertEqual(report["different_fields"], ["event_history"])
+        self.assertEqual(report["first_event_difference"]["index"], 0)
+        self.assertNotEqual(report["headless_event_digest"], report["rendered_event_digest"])
+        self.assertNotIn("event_history", report)
+
+    def test_reports_a_missing_event_at_the_end(self):
+        left = {"state": "PLAYING", "game_time": 1.0, "event_history": [{"sequence": 1, "text": "kickoff"}]}
+        right = {**left, "event_history": []}
+        with patch("scripts.tools.match_repro_check.run_headless", return_value=(left, 20)):
+            with patch("scripts.tools.match_repro_check.run_rendered", return_value=(right, 20, 3)):
+                report = compare_matches(
+                    self.home, self.away, seed=1, max_steps=20, render_every=10, include_events=True,
+                )
+        self.assertEqual(report["first_event_difference"]["headless"], left["event_history"][0])
+        self.assertIsNone(report["first_event_difference"]["rendered"])
+        self.assertEqual(report["event_history"]["headless"], left["event_history"])
 
     def test_cli_accepts_explicit_teams_and_partial_result(self):
         report = {"same_state": True, "fulltime": False}

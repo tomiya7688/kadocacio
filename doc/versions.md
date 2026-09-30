@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.20
+
+試合ログの全履歴を比較して序盤の差分も検出し、調査用JSONへ保存
+
+追加したファイル
+
+- scripts/match/match_log_event.py
+
+  ログ一件の発生順・試合時計・演算経過・文面を不変値として保持。
+
+- tests/test_match_event_history.py
+
+  8件を超える履歴、順序・時計・初期化・不変性と試合状態への非干渉を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/tools/match_repro_check.py
+
+  既定オフの全ログ記録、全履歴比較、最初の不一致表示と詳細JSON出力を追加。
+
+- tests/test_match_repro_check.py / tests/test_match_repro_input.py
+
+  序盤の差分・末尾の欠落と、詳細レポートの保存・既存ファイル保護を検証。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md
+
+  ログ観測用クラスの役割と参照先を登録。
+
+- doc/試合再現性.md / doc/試合エンジン境界.md / doc/versions.md
+
+  観測契約、レポート形式、記録対象と残作業を明文化。
+
+---
+
 ver 0.7.19
 
 チーム編集後も同じ入力で比較できる試合条件JSONの保存・再実行を追加
