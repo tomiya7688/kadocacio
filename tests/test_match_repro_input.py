@@ -81,6 +81,28 @@ class MatchReproInputTests(unittest.TestCase):
             with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
                 main(["--load-input", str(path)])
 
+    def test_cli_exports_inputs_and_full_events_without_overwriting(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "全イベント.json"
+            output = StringIO()
+            args = ["--save-report", str(path), "--max-steps", "25", "--allow-partial"]
+            with redirect_stdout(output):
+                self.assertEqual(main(args), 0)
+            report = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(report["format"], "kadocalcio.match-repro-report")
+            self.assertEqual(report["version"], 1)
+            restore_input_record(report["input"])
+            comparison = report["comparison"]
+            self.assertTrue(comparison["same_state"])
+            self.assertIsNone(comparison["first_event_difference"])
+            self.assertEqual(comparison["event_history"]["headless"], comparison["event_history"]["rendered"])
+            self.assertEqual(comparison["event_history"]["headless"][0]["text"], "キックオフ！")
+            self.assertNotIn("event_history", json.loads(output.getvalue()))
+            previous = path.read_bytes()
+            with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+                main(args)
+            self.assertEqual(path.read_bytes(), previous)
+
     def test_rejects_incompatible_envelope(self):
         for record in (None, {}, {**self.record(), "version": 2}, {**self.record(), "version": True},
                        {**self.record(), "commands": [{"step": 0, "command": "unknown"}]},
