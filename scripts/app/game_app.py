@@ -11,6 +11,7 @@ from scripts.core.match_seed import league_fixture_seed
 from scripts.match.match_engine import Match
 from scripts.app.performance_backend import GpuPresenter
 from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTIONS
+from scripts.app.team_select_view import TeamSelectView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -177,6 +178,7 @@ class Game(RendererMixin):
         self.running = True
         self.speed_buttons: list[tuple[pygame.Rect, int]] = []
         self.team_select_buttons: list[tuple[pygame.Rect, str]] = []
+        self.team_select_view = TeamSelectView()
         self.main_menu_buttons: list[tuple[pygame.Rect, str]] = []
         self.main_menu_view = MainMenuView()
         self.main_menu_focus = 0

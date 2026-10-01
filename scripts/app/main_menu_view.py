@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from scripts.core.settings import HEIGHT, WIDTH
+from scripts.app.ui_theme import BACKGROUND, SURFACE, TEXT, MUTED, ACCENT, BORDER
 
 if TYPE_CHECKING:
     from scripts.app.game_app import Game
@@ -13,12 +14,6 @@ if TYPE_CHECKING:
 
 MENU_ACTIONS = ("league_start", "match_test", "team_editor", "league_editor")
 SHORTCUT_ACTIONS = ("team_editor", "league_editor", "league_start", "match_test")
-BACKGROUND = (12, 22, 29)
-SURFACE = (23, 38, 47)
-TEXT = (238, 244, 240)
-MUTED = (169, 188, 190)
-ACCENT = (126, 229, 187)
-BORDER = (56, 78, 85)
 
 
 class MainMenuView:

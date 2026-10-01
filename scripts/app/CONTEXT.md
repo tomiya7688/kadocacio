@@ -43,6 +43,8 @@ Forbidden / avoid:
 - `performance_backend.py`
 - `rendering.py`
 - `stadium_system.py`
+- `team_select_view.py`
+- `ui_theme.py`
 - `uniform_rendering.py`
 
 ## Child packages

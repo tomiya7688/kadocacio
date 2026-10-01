@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.22
+
+対戦設定画面を開始メニューと統一し、長い名前のはみ出しと描画中のファイル走査を解消
+
+追加したファイル
+
+- scripts/app/team_select_view.py
+
+  対戦カード・フォーメーション・会場・開始操作を描画専用クラスへ分離。
+
+- scripts/app/ui_theme.py
+
+  入口画面の共通配色と、文字サイズを保って長い名前を省略する関数。
+
+- tests/test_team_select_view.py
+
+  長文、同チーム、監督なし、全会場、各操作、描画中の走査禁止を検証。
+
+変更したファイル
+
+- scripts/app/rendering.py / scripts/app/game_app.py
+
+  対戦設定を専用ビューへ委譲し、JSONの毎フレーム走査を廃止。既存操作と試合計算は維持。
+
+- scripts/app/main_menu_view.py
+
+  共通テーマから配色を取得して対戦設定と統一。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画クラスと共通テーマの地図・役割・変更履歴を更新。能力値とセーブ形式は変更なし。
+
+---
+
 ver 0.7.21
 
 開始メニューの情報階層と可読性を整理し、描画分離とキーボード操作を追加
