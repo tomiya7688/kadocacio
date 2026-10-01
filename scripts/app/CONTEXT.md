@@ -39,9 +39,12 @@ Forbidden / avoid:
 
 ## Current modules
 - `game_app.py`
+- `main_menu_view.py`
 - `performance_backend.py`
 - `rendering.py`
 - `stadium_system.py`
+- `team_select_view.py`
+- `ui_theme.py`
 - `uniform_rendering.py`
 
 ## Child packages
