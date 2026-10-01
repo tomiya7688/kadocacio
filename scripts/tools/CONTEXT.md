@@ -49,6 +49,7 @@ Forbidden / avoid:
 - `league_evaluation_runner.py`
 - `league_stress_test.py`
 - `match_repro_check.py`
+- `match_repro_input.py`
 - `migrate_stat_scale.py`
 - `migrate_team_ids.py`
 - `migrate_team_metadata.py`

@@ -10,6 +10,8 @@ import pygame
 from scripts.core.match_seed import league_fixture_seed
 from scripts.match.match_engine import Match
 from scripts.app.performance_backend import GpuPresenter
+from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTIONS
+from scripts.app.team_select_view import TeamSelectView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -54,7 +56,7 @@ from scripts.team.team_editor import TeamEditor
 
 
 class Game(RendererMixin):
-    def __init__(self) -> None:
+    def __init__(self, *, team_choices: list[dict] | None = None) -> None:
         pygame.init()
         title = PROJECT_NAME
         self.window_title = title
@@ -89,7 +91,7 @@ class Game(RendererMixin):
         self.clock = pygame.time.Clock()
         self.fonts: dict[tuple[int, bool], pygame.font.Font] = {}
         self.text_surface_cache: dict[tuple[str, int, tuple[int, int, int], bool], pygame.Surface] = {}
-        self.team_choices = discover_team_choices()
+        self.team_choices = discover_team_choices() if team_choices is None else deepcopy(team_choices)
         self.league_manager = LeagueManager(self.team_choices)
         self.league_manager_before_editor: LeagueManager | None = None
         self.league_screen_open = False
@@ -176,7 +178,10 @@ class Game(RendererMixin):
         self.running = True
         self.speed_buttons: list[tuple[pygame.Rect, int]] = []
         self.team_select_buttons: list[tuple[pygame.Rect, str]] = []
+        self.team_select_view = TeamSelectView()
         self.main_menu_buttons: list[tuple[pygame.Rect, str]] = []
+        self.main_menu_view = MainMenuView()
+        self.main_menu_focus = 0
         self.fulltime_buttons: list[tuple[pygame.Rect, str]] = []
         self.pause_menu_buttons: list[tuple[pygame.Rect, str]] = []
         self.skip_match_in_progress = False
@@ -1335,6 +1340,33 @@ class Game(RendererMixin):
         self.camera_focus.y = clamp(self.camera_focus.y, FIELD.top + 230, FIELD.bottom - 230)
         self.refresh_camera_transform()
 
+    def handle_main_menu_action(self, action: str) -> None:
+        if action in MENU_ACTIONS:
+            self.main_menu_focus = MENU_ACTIONS.index(action)
+        if action == "team_editor":
+            self.open_team_editor()
+        elif action == "league_editor":
+            self.open_league_editor()
+        elif action == "league_start":
+            self.open_league_screen()
+        elif action == "match_test":
+            self.match.state = "TEAM_SELECT"
+
+    def handle_main_menu_key(self, key: int) -> None:
+        focus = getattr(self, "main_menu_focus", 0)
+        shortcuts = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4)
+        if key in shortcuts:
+            self.handle_main_menu_action(SHORTCUT_ACTIONS[shortcuts.index(key)])
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.handle_main_menu_action(MENU_ACTIONS[focus])
+        elif key == pygame.K_TAB:
+            step = -1 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 1
+            self.main_menu_focus = (focus + step) % len(MENU_ACTIONS)
+        elif key in (pygame.K_LEFT, pygame.K_RIGHT):
+            self.main_menu_focus = focus ^ 1
+        elif key in (pygame.K_UP, pygame.K_DOWN):
+            self.main_menu_focus = focus ^ 2
+
     def handle_key(self, key: int) -> None:
         match = self.match
         if key == pygame.K_ESCAPE:
@@ -1342,6 +1374,8 @@ class Game(RendererMixin):
                 self.close_settings()
             else:
                 self.open_settings()
+            return
+        if getattr(self, "settings_open", False):
             return
         if key == pygame.K_F10:
             self.cycle_window_size()
@@ -1389,15 +1423,8 @@ class Game(RendererMixin):
             if key in (pygame.K_ESCAPE, pygame.K_p, pygame.K_TAB):
                 self.player_list_open = False
             return
-        if match.state == "MAIN_MENU":
-            if key == pygame.K_1:
-                self.open_team_editor()
-            elif key == pygame.K_2:
-                self.open_league_editor()
-            elif key == pygame.K_3:
-                self.open_league_screen()
-            elif key == pygame.K_4:
-                match.state = "TEAM_SELECT"
+        if match.state in ("MAIN_MENU", "TITLE"):
+            self.handle_main_menu_key(key)
             return
         if match.state == "TEAM_SELECT":
             if key == pygame.K_q:
@@ -1418,12 +1445,7 @@ class Game(RendererMixin):
             else:
                 self.return_to_team_select()
         elif key == pygame.K_SPACE:
-            if match.state == "TITLE":
-                match.start_new()
-                self.visible_simulation.reset(match)
-                self.roll_stadium_guests()
-                self.reset_camera()
-            elif match.state == "PLAYING":
+            if match.state == "PLAYING":
                 match.state = "PAUSED"
             elif match.state == "PAUSED":
                 self.resume_match()
@@ -1481,18 +1503,11 @@ class Game(RendererMixin):
         if self.settings_button.collidepoint(pos):
             self.open_settings()
             return
-        if self.match.state == "MAIN_MENU":
+        if self.match.state in ("MAIN_MENU", "TITLE"):
             for rect, action in self.main_menu_buttons:
                 if not rect.collidepoint(pos):
                     continue
-                if action == "team_editor":
-                    self.open_team_editor()
-                elif action == "league_editor":
-                    self.open_league_editor()
-                elif action == "league_start":
-                    self.open_league_screen()
-                elif action == "match_test":
-                    self.match.state = "TEAM_SELECT"
+                self.handle_main_menu_action(action)
                 return
             return
         if self.match.state in ("PLAYING", "PAUSED", "FULLTIME"):
@@ -1539,12 +1554,6 @@ class Game(RendererMixin):
                 elif action == "main_menu":
                     self.return_to_main_menu()
                 return
-            return
-        if self.match.state == "TITLE":
-            self.match.start_new()
-            self.visible_simulation.reset(self.match)
-            self.roll_stadium_guests()
-            self.reset_camera()
             return
         if self.player_list_button.collidepoint(pos):
             self.player_list_open = True

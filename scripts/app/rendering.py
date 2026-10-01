@@ -19,13 +19,12 @@ from scripts.league.league_live_view import (
 from scripts.match.match_engine import Match
 from scripts.match.player_commands import PlayerCommand
 from scripts.team.team_rating import compact_entity_grade_text
-from scripts.core.stat_scale import denormalize_player_stat
 from scripts.core.settings import (
     AWAY_BLUE, CENTER_CIRCLE_RADIUS, CREAM, FIELD, GOAL_AREA_DEPTH, GOAL_AREA_WIDTH,
     GOAL_DEPTH, GOAL_HALF_HEIGHT, GOAL_HEIGHT, GOLD, HEIGHT, HOME_DARK, HOME_RED, INK,
     LINE, MUTED, PANEL, PAPER, PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH,
     PENALTY_SPOT_DISTANCE, PITCH_1, PITCH_2, PLAYER_VISUAL_SCALE, SPEED_OPTIONS,
-    TACTICS, TEAMS_DIR, WIDTH, clamp, darken_color,
+    TACTICS, WIDTH, clamp,
 )
 
 
@@ -1103,199 +1102,17 @@ class RendererMixin(LeagueRendererMixin):
                 self.text("R：再戦　　T / Enter / Space：チーム選択へ戻る", 16, GOLD, (center_x, 535), center=True)
 
     def draw_choice_formation(self, choice: dict, rect: pygame.Rect) -> None:
-        pygame.draw.rect(self.screen, (54, 124, 73), rect, border_radius=8)
-        pygame.draw.rect(self.screen, LINE, rect, 2, border_radius=8)
-        pygame.draw.line(self.screen, LINE, (rect.left, rect.centery), (rect.right, rect.centery), 1)
-        pygame.draw.circle(self.screen, LINE, rect.center, 25, 1)
-        primary = choice["primary"]
-        secondary = choice.get("secondary", darken_color(primary))
-        records = choice["starters"]
-        points = []
-        for record in records:
-            if record["position_y"] == 11:
-                normalized_x = 0.5
-                normalized_y = 0.94
-            else:
-                normalized_x = (record["position_x"] - 0.5) / 15.0
-                normalized_y = 0.08 + (record["position_y"] - 1) / 9.0 * 0.75
-            points.append((record["number"], normalized_x, normalized_y))
-        for number, normalized_x, normalized_y in points:
-            px = round(rect.left + normalized_x * rect.width)
-            py = round(rect.top + normalized_y * rect.height)
-            pygame.draw.circle(self.screen, secondary, (px + 1, py + 2), 8)
-            pygame.draw.circle(self.screen, primary, (px, py), 8)
-            jersey = self.font(9, True).render(str(number), True, CREAM)
-            self.screen.blit(jersey, jersey.get_rect(center=(px, py)))
+        self.team_select_view.draw_formation(self, choice, rect)
 
     def draw_team_card(self, rect: pygame.Rect, choice: dict, side: str) -> None:
-        pygame.draw.rect(self.screen, PAPER, rect, border_radius=14)
-        pygame.draw.rect(self.screen, choice["primary"], rect, 4, border_radius=14)
-        side_label = "HOME / 操作チーム" if side == "home" else "AWAY / 相手チーム"
-        self.text(side_label, 14, MUTED, (rect.centerx, rect.top + 24), bold=True, center=True)
-        self.text(choice["name"].replace("_", " "), 25, INK, (rect.centerx, rect.top + 68), bold=True, center=True)
-        badge = pygame.Rect(rect.right - 92, rect.top + 18, 72, 24)
-        pygame.draw.rect(self.screen, GOLD, badge, border_radius=5)
-        self.text(choice["kind"], 10, INK, badge.center, bold=True, center=True)
-
-        manager = choice.get("manager") or "—"
-        manager_intelligence = round(denormalize_player_stat(choice.get("manager_intelligence", 0.542)))
-        tactic_aggression = round(denormalize_player_stat(choice.get("manager_tactic_aggression", 0.375)))
-        substitution_aggression = round(denormalize_player_stat(choice.get("manager_substitution_aggression", 0.375)))
-        manager_detail = (
-            f"監督 {manager}　知{manager_intelligence} 戦{tactic_aggression} 交{substitution_aggression}"
-            if choice.get("manager")
-            else "監督 —"
-        )
-        self.text(
-            f"{manager_detail}　略称 {choice['short']}",
-            10, MUTED, (rect.centerx, rect.top + 101), center=True,
-        )
-        formation_rect = pygame.Rect(rect.left + 65, rect.top + 125, rect.width - 130, 185)
-        self.draw_choice_formation(choice, formation_rect)
-        player_count = len(choice["starters"])
-        bench_count = len(choice.get("bench", []))
-        formation_label = "15×10 JSON配置"
-        self.text(formation_label, 13, INK, (rect.left + 30, rect.top + 330), bold=True)
-        self.text(f"先発 {player_count}人　控え {bench_count}人", 12, MUTED, (rect.right - 30, rect.top + 332), right=True)
-        tactic_label = choice.get("tactic_label", "バランス")
-        zone_label = f"ゾーン {choice.get('zone_near', 3)}–{choice.get('zone_far', 7)}"
-        discipline = round(choice.get("tactical_discipline", 0.5) * 100)
-        self.text(
-            f"戦術 {tactic_label}　/　{zone_label}　/　チーム忠実さ {discipline}",
-            12, INK, (rect.centerx, rect.top + 360), bold=True, center=True,
-        )
-        self.text(
-            f"所属：{choice.get('league') or '未所属'}　/　ホームコート：{choice.get('home_court', '—')}",
-            10, MUTED, (rect.centerx, rect.top + 384), center=True,
-        )
-
-        prev_rect = pygame.Rect(rect.left + 18, rect.top + 184, 38, 58)
-        next_rect = pygame.Rect(rect.right - 56, rect.top + 184, 38, 58)
-        for button, label in ((prev_rect, "‹"), (next_rect, "›")):
-            hover = button.collidepoint(self.logical_mouse_pos())
-            pygame.draw.rect(self.screen, GOLD if hover else (224, 220, 205), button, border_radius=7)
-            pygame.draw.rect(self.screen, INK, button, 2, border_radius=7)
-            self.text(label, 30, INK, button.center, bold=True, center=True)
-        self.team_select_buttons.append((prev_rect, f"{side}_prev"))
-        self.team_select_buttons.append((next_rect, f"{side}_next"))
+        index = self.home_choice_index if side == "home" else self.away_choice_index
+        self.team_select_view.draw_card(self, rect, choice, side, index)
 
     def draw_team_select(self) -> None:
-        self.screen.fill(INK)
-        for index in range(12):
-            color = (35, 82, 55) if index % 2 == 0 else (40, 91, 61)
-            pygame.draw.polygon(
-                self.screen,
-                color,
-                [(0, index * 72), (WIDTH, index * 72 - 180), (WIDTH, index * 72 - 105), (0, index * 72 + 75)],
-            )
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((19, 25, 32, 145))
-        self.screen.blit(shade, (0, 0))
-        self.text("DEBUG TEAM SELECT", 16, GOLD, (WIDTH // 2, 27), bold=True, center=True)
-        self.text("対戦チームを選択", 34, CREAM, (WIDTH // 2, 67), bold=True, center=True)
-
-        self.team_select_buttons.clear()
-        home_rect = pygame.Rect(72, 108, 520, 410)
-        away_rect = pygame.Rect(688, 108, 520, 410)
-        home_choice = self.team_choices[self.home_choice_index]
-        away_choice = self.team_choices[self.away_choice_index]
-        self.draw_team_card(home_rect, home_choice, "home")
-        self.draw_team_card(away_rect, away_choice, "away")
-        self.text("VS", 31, GOLD, (WIDTH // 2, 302), bold=True, center=True)
-
-        if home_choice["id"] == away_choice["id"]:
-            self.text("同チーム対戦：AWAY側は青ユニフォームになります", 11, CREAM, (WIDTH // 2, 520), center=True)
-        venue_labels = (("HOME", "HOMEのホーム"), ("NEUTRAL", "中立地"), ("AWAY", "AWAYのホーム"))
-        for index, (mode, label) in enumerate(venue_labels):
-            rect = pygame.Rect(WIDTH // 2 - 261 + index * 174, 531, 166, 34)
-            active = self.venue_modes[self.venue_mode_index] == mode
-            hover = rect.collidepoint(self.logical_mouse_pos())
-            color = GOLD if active else (238, 233, 216) if hover else (211, 210, 199)
-            pygame.draw.rect(self.screen, color, rect, border_radius=6)
-            pygame.draw.rect(self.screen, INK, rect, 2, border_radius=6)
-            self.text(label, 12, INK, rect.center, bold=True, center=True)
-            self.team_select_buttons.append((rect, f"venue_{mode.lower()}"))
-        start_rect = pygame.Rect(WIDTH // 2 - 175, 578, 350, 58)
-        hover = start_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, (239, 89, 76) if hover else HOME_RED, start_rect, border_radius=10)
-        pygame.draw.rect(self.screen, GOLD, start_rect, 3, border_radius=10)
-        self.text("この対戦で試合開始", 20, CREAM, start_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((start_rect, "start"))
-
-        self.text("HOME: Q / E　AWAY: A / D　会場: V　Enter / Space: 開始", 13, CREAM, (WIDTH // 2, 648), center=True)
-        editor_rect = pygame.Rect(20, 674, 218, 30)
-        editor_hover = editor_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if editor_hover else (230, 226, 211), editor_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), editor_rect, 2, border_radius=7)
-        self.text("チームエディタ", 11, INK, editor_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((editor_rect, "editor"))
-        league_rect = pygame.Rect(250, 674, 218, 30)
-        league_hover = league_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if league_hover else (230, 226, 211), league_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), league_rect, 2, border_radius=7)
-        self.text("リーグ戦", 11, INK, league_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((league_rect, "league"))
-        menu_rect = pygame.Rect(480, 674, 218, 30)
-        menu_hover = menu_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if menu_hover else (230, 226, 211), menu_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), menu_rect, 2, border_radius=7)
-        self.text("メインメニューへ", 11, INK, menu_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((menu_rect, "main_menu"))
-        self.draw_settings_button(pygame.Rect(WIDTH - 238, 674, 218, 30))
-        empty_count = sum(1 for path in TEAMS_DIR.glob("*.json") if path.stat().st_size == 0) if TEAMS_DIR.exists() else 0
-        info = f"選択可能 {len(self.team_choices)}チーム"
-        if empty_count:
-            info += f"　空のJSON {empty_count}件は除外"
-        self.text(info, 11, (192, 200, 199), (WIDTH // 2, 664), center=True)
+        self.team_select_view.draw(self)
 
     def draw_title(self) -> None:
-        self.screen.fill((10, 17, 25))
-        # A restrained stadium/pitch motif gives the hub depth without making
-        # the navigation cards compete with an animated match.
-        for y in range(0, HEIGHT, 48):
-            tone = 23 + min(18, y // 48)
-            pygame.draw.rect(self.screen, (tone, tone + 9, tone + 15), (0, y, WIDTH, 48))
-        pygame.draw.polygon(self.screen, (24, 83, 57), [(0, 305), (WIDTH, 236), (WIDTH, HEIGHT), (0, HEIGHT)])
-        for index in range(9):
-            x = index * 190 - 120
-            pygame.draw.polygon(self.screen, (29, 101, 67) if index % 2 else (27, 94, 63), [(x, 274), (x + 150, 266), (x + 360, HEIGHT), (x + 145, HEIGHT)])
-        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        veil.fill((7, 12, 18, 118))
-        self.screen.blit(veil, (0, 0))
-
-        self.main_menu_buttons.clear()
-        self.text("KADOCALCIO", 13, (77, 198, 178), (64, 38), bold=True)
-        self.text("カドカルチョ", 44, CREAM, (64, 58), bold=True)
-        self.text("FOOTBALL CLUB SIMULATOR", 12, (154, 171, 181), (67, 112), bold=True)
-        self.text("クラブ作成、リーグ構築、シーズン進行、単体試合テストをここから開始します。", 14, (204, 214, 218), (66, 150))
-
-        cards = (
-            ("TEAM", "チームエディタ", "選手・能力・色・フォーメーションを編集", "team_editor", (77, 198, 178)),
-            ("LEAGUE", "リーグ戦エディタ", "リーグ・大会・参加チーム・日程を編集", "league_editor", (100, 151, 235)),
-            ("SEASON", "リーグ戦を開始", "新規セーブを作成、または途中データを再開", "league_start", (232, 174, 72)),
-            ("MATCH", "試合テスト", "任意の2チームと会場で単体試合を実行", "match_test", (224, 94, 88)),
-        )
-        mouse = self.logical_mouse_pos()
-        for index, (eyebrow, title, detail, action, accent) in enumerate(cards):
-            column, row = index % 2, index // 2
-            rect = pygame.Rect(64 + column * 588, 205 + row * 190, 552, 158)
-            hover = rect.collidepoint(mouse)
-            shadow = pygame.Surface((rect.width + 14, rect.height + 14), pygame.SRCALPHA)
-            pygame.draw.rect(shadow, (0, 0, 0, 90), shadow.get_rect(), border_radius=17)
-            self.screen.blit(shadow, (rect.left - 3, rect.top + 6))
-            pygame.draw.rect(self.screen, (29, 40, 52) if not hover else (38, 52, 66), rect, border_radius=14)
-            pygame.draw.rect(self.screen, accent, (rect.left, rect.top, 5, rect.height), border_radius=3)
-            pygame.draw.rect(self.screen, (66, 82, 96) if not hover else accent, rect, 1, border_radius=14)
-            icon = pygame.Rect(rect.left + 24, rect.top + 28, 74, 74)
-            pygame.draw.rect(self.screen, (*accent, 255), icon, border_radius=13)
-            self.text(str(index + 1), 30, (12, 23, 31), icon.center, bold=True, center=True)
-            self.text(eyebrow, 9, accent, (rect.left + 122, rect.top + 25), bold=True)
-            self.text(title, 22, (245, 248, 249), (rect.left + 122, rect.top + 45), bold=True)
-            self.text(detail, 11, (157, 173, 183), (rect.left + 122, rect.top + 82))
-            self.text("開く  ›", 11, accent, (rect.right - 24, rect.bottom - 28), right=True, bold=True)
-            self.main_menu_buttons.append((rect, action))
-        self.text("1–4 キーでも選択できます", 11, (142, 158, 168), (64, HEIGHT - 31))
-        self.draw_settings_button(pygame.Rect(WIDTH - 238, HEIGHT - 46, 218, 30))
+        self.main_menu_view.draw(self)
 
     def draw(self) -> None:
         if self.league_screen_open:
