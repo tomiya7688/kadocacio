@@ -22,6 +22,194 @@ ver num.num.num
 
 ---
 
+ver 0.7.22
+
+対戦設定画面を開始メニューと統一し、長い名前のはみ出しと描画中のファイル走査を解消
+
+追加したファイル
+
+- scripts/app/team_select_view.py
+
+  対戦カード・フォーメーション・会場・開始操作を描画専用クラスへ分離。
+
+- scripts/app/ui_theme.py
+
+  入口画面の共通配色と、文字サイズを保って長い名前を省略する関数。
+
+- tests/test_team_select_view.py
+
+  長文、同チーム、監督なし、全会場、各操作、描画中の走査禁止を検証。
+
+変更したファイル
+
+- scripts/app/rendering.py / scripts/app/game_app.py
+
+  対戦設定を専用ビューへ委譲し、JSONの毎フレーム走査を廃止。既存操作と試合計算は維持。
+
+- scripts/app/main_menu_view.py
+
+  共通テーマから配色を取得して対戦設定と統一。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画クラスと共通テーマの地図・役割・変更履歴を更新。能力値とセーブ形式は変更なし。
+
+---
+
+ver 0.7.21
+
+開始メニューの情報階層と可読性を整理し、描画分離とキーボード操作を追加
+
+追加したファイル
+
+- scripts/app/main_menu_view.py
+
+  リーグ進行を主役に、試合テストと編集ツールを分類する描画専用クラス。
+
+- tests/test_main_menu_view.py
+
+  カードの非重複、文字の領域内配置、フォーカス表示の安定性を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  クリックとキーの遷移を共通化し、Tab・矢印・Enter操作を追加。旧TITLEの誤開始を修正し、設定中の入力遮断をハンドラーでも保証。
+
+- scripts/app/rendering.py
+
+  開始メニューの描画を専用ビューへ委譲。毎フレームの影・ベール用Surface生成を廃止。
+
+- tests/test_main_menu.py
+
+  旧TITLE、既存数字ショートカット、フォーカス移動、設定中の入力遮断を回帰検証。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  生成地図、クラスの役割、変更履歴を更新。試合演算・能力値・セーブ形式の変更なし。
+
+---
+
+ver 0.7.20
+
+試合ログの全履歴を比較して序盤の差分も検出し、調査用JSONへ保存
+
+追加したファイル
+
+- scripts/match/match_log_event.py
+
+  ログ一件の発生順・試合時計・演算経過・文面を不変値として保持。
+
+- tests/test_match_event_history.py
+
+  8件を超える履歴、順序・時計・初期化・不変性と試合状態への非干渉を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/tools/match_repro_check.py
+
+  既定オフの全ログ記録、全履歴比較、最初の不一致表示と詳細JSON出力を追加。
+
+- tests/test_match_repro_check.py / tests/test_match_repro_input.py
+
+  序盤の差分・末尾の欠落と、詳細レポートの保存・既存ファイル保護を検証。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md
+
+  ログ観測用クラスの役割と参照先を登録。
+
+- doc/試合再現性.md / doc/試合エンジン境界.md / doc/versions.md
+
+  観測契約、レポート形式、記録対象と残作業を明文化。
+
+---
+
+ver 0.7.19
+
+チーム編集後も同じ入力で比較できる試合条件JSONの保存・再実行を追加
+
+追加したファイル
+
+- scripts/tools/match_repro_input.py
+
+  チーム能力を丸めず複製し、seed・計算条件とともにバージョン付き入力として検証・復元。
+
+- tests/test_match_repro_input.py
+
+  保存後の能力変更、チーム探索なしの再実行、不正入力・条件上書きの拒否を検証。
+
+変更したファイル
+
+- scripts/tools/match_repro_check.py / scripts/app/game_app.py
+
+  入力JSONの保存・読込と会場・AI判断頻度指定を追加し、描画側へ保存済みチームを注入。
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md / doc/versions.md
+
+  入力形式、使用方法、再現範囲と未対応の外部操作を記録。
+
+---
+
+ver 0.7.18
+
+ヘッドレス試合とPygame描画試合の再現性を比較する開発者ツールを追加
+
+追加したファイル
+
+- scripts/tools/match_repro_check.py
+
+  同じseedの両試合を固定ステップで進め、状態差をJSONで報告。
+
+- tests/test_match_repro_check.py
+
+  実際のPygame描画による状態一致に加え、端数フレーム・不一致報告・CLIの正常系と異常系を検証。
+
+変更したファイル
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md
+
+  開発者ツールの入口、実行方法、比較対象と残作業を記録。
+
+- doc/versions.md
+
+  Issue #36の描画あり・なし比較を記録。
+
+---
+
+ver 0.7.17
+
+試合開始前からseedを注入してリーグ観戦・裏試合の再現性を揃える
+
+追加したファイル
+
+- scripts/core/match_seed.py
+
+  リーグ試合の既存seed算出規則を共通化。
+
+- tests/test_match_seed_contract.py / doc/試合再現性.md
+
+  初期状態と固定ステップの再現性を検証し、契約と残作業を明文化。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/game_app.py / scripts/league/league_simulation_workers.py
+
+  乱数を試合生成時に注入し、観戦・裏試合に共通のfixture seedを使用。
+
+- scripts/tools/ai_evaluator.py / scripts/team/team_tuner.py
+
+  評価・チューニング時の試合生成にもseedを注入。
+
+- tests/test_league_simulation_session.py / tests/test_team_tuner_optimizer.py
+
+  テスト用試合を新しい生成契約へ合わせる。
+
+- scripts/core/CONTEXT.md / doc/versions.md
+
+  新しいseedモジュールとIssue #36の段階的な変更を記録。
+
+---
+
 ver 0.7.16
 
 試合中スコアボードの状態を不変Snapshotから表示

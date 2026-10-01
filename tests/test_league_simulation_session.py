@@ -27,8 +27,8 @@ class _Event:
 
 
 class _FakeMatch:
-    def __init__(self, _home, _away, _venue, *, ai_rethink_multiplier=1.0) -> None:
-        self.rng = random.Random()
+    def __init__(self, _home, _away, _venue, *, ai_rethink_multiplier=1.0, seed=None) -> None:
+        self.rng = random.Random(seed)
         self.state = "PLAYING"
         self.simulation_elapsed = 0.0
         self.game_time = 0.0

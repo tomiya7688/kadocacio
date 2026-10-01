@@ -366,15 +366,14 @@ def _simulate_tuner_job(job: dict) -> dict:
     venues = tuple(job.get("venues", (True, False)))
     for opponent_choice in job["opponents"]:
         for is_home in venues:
-            if is_home:
-                match = Match(choice, opponent_choice, "HOME")
-                target = match.home
-            else:
-                match = Match(opponent_choice, choice, "HOME")
-                target = match.away
             seed = seeds[seed_index] if seed_index < len(seeds) else seed_index
             seed_index += 1
-            match.rng.seed(int(seed))
+            if is_home:
+                match = Match(choice, opponent_choice, "HOME", seed=int(seed))
+                target = match.home
+            else:
+                match = Match(opponent_choice, choice, "HOME", seed=int(seed))
+                target = match.away
             match.state = "PLAYING"
             fixtures.append({
                 "match": match, "target": target, "counts": Counter(),
@@ -590,13 +589,13 @@ class TeamTunerSession:
             )
         choice = team_choice_from_payload(candidate, "<team-tuner>")
         choice.update({"id": "memory:tuner", "kind": "MEMORY", "short": choice.get("short") or "TUNE"})
+        seed = self.fixture_seeds[fixture_index]
         if self.current_is_home:
-            match = Match(choice, self.current_opponent, "HOME")
+            match = Match(choice, self.current_opponent, "HOME", seed=seed)
             target_team = match.home
         else:
-            match = Match(self.current_opponent, choice, "HOME")
+            match = Match(self.current_opponent, choice, "HOME", seed=seed)
             target_team = match.away
-        match.rng.seed(self.fixture_seeds[fixture_index])
         match.state = "PLAYING"
         self.current_candidate = candidate
         self.current_match = match

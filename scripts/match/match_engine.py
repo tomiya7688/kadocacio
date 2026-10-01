@@ -32,6 +32,7 @@ from scripts.match.manager_system import (
     tactic_target as manager_tactic_target,
 )
 from scripts.match.match_result import MatchResult
+from scripts.match.match_log_event import MatchLogEvent
 from scripts.match.match_status_snapshot import MatchStatusSnapshot
 from scripts.match.pass_route import PassRoute
 from scripts.match.pending_kick import PendingKick
@@ -186,10 +187,13 @@ class Match:
         venue_mode: str = "HOME",
         *,
         ai_rethink_multiplier: float = 1.0,
+        seed: int | None = None,
+        record_events: bool = False,
     ) -> None:
         if home_choice is None or away_choice is None:
             raise ValueError("Match requires two preloaded team choices")
-        self.rng = random.Random()
+        self.seed = int(seed) if seed is not None else None
+        self.rng = random.Random(self.seed)
         # Only tactical replanning frequency changes between headless league
         # modes. Movement, ball physics, contacts and the game clock stay 20 Hz.
         self.ai_rethink_multiplier = clamp(float(ai_rethink_multiplier), 0.5, 3.0)
@@ -298,6 +302,7 @@ class Match:
         self.possession_anchor_owner: Player | None = None
         self.restart_counts = {"THROW_IN": 0, "FREE_KICK": 0, "PENALTY_KICK": 0, "GOAL_KICK": 0, "CORNER_KICK": 0}
         self.events: deque[tuple[int, str]] = deque(maxlen=8)
+        self._event_history: list[MatchLogEvent] | None = [] if record_events else None
         self.goal_scorers: list[tuple[int, str]] = []
         self.kickoff_team = self.home
         self.reset_positions(self.home)
@@ -343,6 +348,8 @@ class Match:
         self.simulation_elapsed = 0.0
         self.halftime_done = False
         self.events.clear()
+        if self._event_history is not None:
+            self._event_history.clear()
         self.goal_scorers.clear()
         self.foul_count = 0
         self.card_count = 0
@@ -398,6 +405,17 @@ class Match:
 
     def add_event(self, text: str) -> None:
         self.events.appendleft((int(self.game_time // 60), text))
+        if self._event_history is not None:
+            self._event_history.append(MatchLogEvent(
+                sequence=len(self._event_history) + 1,
+                game_time=float(self.game_time),
+                simulation_elapsed=float(self.simulation_elapsed),
+                text=text,
+            ))
+
+    def event_history(self) -> tuple[MatchLogEvent, ...]:
+        """Copy the optional full message history without sharing mutable state."""
+        return tuple(self._event_history or ())
 
     def status_snapshot(self) -> MatchStatusSnapshot:
         """Copy the small set of values used by the live scoreboard."""

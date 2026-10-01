@@ -4,7 +4,6 @@ import argparse
 import csv
 import json
 import os
-import random
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from datetime import datetime
@@ -61,16 +60,14 @@ def _with_parameter(choice: dict, parameter: str, value: int) -> dict:
 
 
 def _run_evaluation_job(job: dict) -> dict:
-    random.seed(int(job["seed"]))
     if job["target_is_home"]:
-        match = Match(job["target"], job["opponent"], "NEUTRAL")
+        match = Match(job["target"], job["opponent"], "NEUTRAL", seed=int(job["seed"]))
         target = match.home
         opponent = match.away
     else:
-        match = Match(job["opponent"], job["target"], "NEUTRAL")
+        match = Match(job["opponent"], job["target"], "NEUTRAL", seed=int(job["seed"]))
         target = match.away
         opponent = match.home
-    match.rng.seed(int(job["seed"]))
     match.state = "PLAYING"
     telemetry = MatchTelemetry(match)
     result = run_headless_match(
