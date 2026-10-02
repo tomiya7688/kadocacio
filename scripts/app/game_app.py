@@ -14,6 +14,7 @@ from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTI
 from scripts.app.team_select_view import TeamSelectView
 from scripts.app.fulltime_view import FulltimeView
 from scripts.app.match_hud_view import MatchHudView
+from scripts.app.player_status_view import PlayerStatusView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -192,6 +193,7 @@ class Game(RendererMixin):
         self.league_skip_auto_return = False
         self.player_list_open = False
         self.player_list_rank_mode = False
+        self.player_status_view = PlayerStatusView()
         self.player_list_button = pygame.Rect(0, 0, 0, 0)
         self.player_list_close_button = pygame.Rect(0, 0, 0, 0)
         self.player_list_rank_button = pygame.Rect(0, 0, 0, 0)
@@ -1431,6 +1433,12 @@ class Game(RendererMixin):
             elif key == pygame.K_DOWN:
                 self.scroll_other_matches(1)
             return
+        if self.player_list_open:
+            if key in (pygame.K_p, pygame.K_TAB):
+                self.player_list_open = False
+            elif key == pygame.K_g:
+                self.player_list_rank_mode = not self.player_list_rank_mode
+            return
         if match.state in ("PLAYING", "PAUSED"):
             if key == pygame.K_o and self.active_league_fixture_id:
                 self.other_matches_open = not self.other_matches_open
@@ -1443,10 +1451,6 @@ class Game(RendererMixin):
             if key in (pygame.K_EQUALS, pygame.K_KP_PLUS, pygame.K_RIGHTBRACKET):
                 self.change_camera_zoom(1)
                 return
-        if self.player_list_open:
-            if key in (pygame.K_ESCAPE, pygame.K_p, pygame.K_TAB):
-                self.player_list_open = False
-            return
         if match.state == "FULLTIME":
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_t):
                 self.handle_fulltime_action("league_results" if self.active_league_fixture_id else "team_select")

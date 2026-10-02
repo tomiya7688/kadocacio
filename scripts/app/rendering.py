@@ -18,13 +18,12 @@ from scripts.league.league_live_view import (
 )
 from scripts.match.match_engine import Match
 from scripts.match.player_commands import PlayerCommand
-from scripts.team.team_rating import compact_entity_grade_text
 from scripts.core.settings import (
     AWAY_BLUE, CENTER_CIRCLE_RADIUS, CREAM, FIELD, GOAL_AREA_DEPTH, GOAL_AREA_WIDTH,
     GOAL_DEPTH, GOAL_HALF_HEIGHT, GOAL_HEIGHT, GOLD, HEIGHT, HOME_DARK, HOME_RED, INK,
     LINE, MUTED, PANEL, PAPER, PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH,
     PENALTY_SPOT_DISTANCE, PITCH_1, PITCH_2, PLAYER_VISUAL_SCALE,
-    TACTICS, WIDTH, clamp,
+    WIDTH, clamp,
 )
 
 
@@ -712,79 +711,7 @@ class RendererMixin(LeagueRendererMixin):
         self.match_hud_view.draw_panel(self)
 
     def draw_player_list(self) -> None:
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((18, 22, 29, 205))
-        self.screen.blit(shade, (0, 0))
-        modal = pygame.Rect(58, 38, WIDTH - 116, HEIGHT - 76)
-        pygame.draw.rect(self.screen, PAPER, modal, border_radius=12)
-        pygame.draw.rect(self.screen, (202, 196, 179), modal, 3, border_radius=12)
-        self.text("選手一覧・試合中パラメーター", 23, INK, (modal.left + 28, modal.top + 19), bold=True)
-        subtitle = (
-            "キ:キック　速:スピード　ス:スタミナ　技:テクニック　跳:ジャンプ　メ:メンタル　知:知性　守/攻:裏能力"
-            if self.player_list_rank_mode else "試合を進行しながら現在値をリアルタイム表示中"
-        )
-        self.text(subtitle, 10 if self.player_list_rank_mode else 12, MUTED, (modal.left + 30, modal.top + 53))
-        self.player_list_close_button = pygame.Rect(modal.right - 142, modal.top + 18, 112, 34)
-        pygame.draw.rect(self.screen, (230, 226, 211), self.player_list_close_button, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), self.player_list_close_button, 2, border_radius=7)
-        self.text("P / TAB　閉じる", 12, INK, self.player_list_close_button.center, bold=True, center=True)
-        self.player_list_rank_button = pygame.Rect(modal.right - 320, modal.top + 18, 166, 34)
-        pygame.draw.rect(self.screen, GOLD if self.player_list_rank_mode else (230, 226, 211), self.player_list_rank_button, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), self.player_list_rank_button, 2, border_radius=7)
-        mode_label = "表示：能力ランク" if self.player_list_rank_mode else "表示：試合中状態"
-        self.text(mode_label, 11, INK, self.player_list_rank_button.center, bold=True, center=True)
-
-        column_gap = 28
-        column_width = (modal.width - 56 - column_gap) // 2
-        for team_index, team in enumerate(self.match.teams):
-            column_x = modal.left + 28 + team_index * (column_width + column_gap)
-            header_y = modal.top + 82
-            pygame.draw.rect(self.screen, team.primary, (column_x, header_y, column_width, 34), border_radius=6)
-            self.text(team.name.replace("_", " "), 15, CREAM, (column_x + 12, header_y + 7), bold=True)
-            tactic_label = TACTICS.get(team.tactic, TACTICS["BALANCE"])["label"]
-            self.text(
-                f"{tactic_label}　交代{team.substitutions_used}/3",
-                11, CREAM, (column_x + column_width - 12, header_y + 9), bold=True, right=True,
-            )
-            for index, player in enumerate(team.players):
-                row_y = header_y + 42 + index * 45
-                row = pygame.Rect(column_x, row_y, column_width, 39)
-                row_color = (237, 233, 218) if index % 2 == 0 else (244, 240, 226)
-                pygame.draw.rect(self.screen, row_color, row, border_radius=4)
-                if self.match.ball.owner is player:
-                    pygame.draw.circle(self.screen, GOLD, (row.left + 9, row.top + 11), 4)
-                self.text(f"{player.number:>2}  {player.role}", 11, MUTED, (row.left + 17, row.top + 4), bold=True)
-                if player.sent_off:
-                    player_label = f"{player.name}　退場"
-                elif player.yellow_cards:
-                    player_label = f"{player.name}　黄{player.yellow_cards}"
-                else:
-                    player_label = player.name
-                name_color = HOME_RED if player.sent_off else GOLD if player.yellow_cards else INK
-                self.text(player_label, 13, name_color, (row.left + 82, row.top + 3), bold=True)
-                self.text(player.player_type, 10, MUTED, (row.left + 250, row.top + 6))
-                stamina_text = f"{player.stamina:.0f}/{player.stamina_max:.0f}  {player.stamina_ratio * 100:.0f}%"
-                self.text(stamina_text, 11, INK, (row.right - 8, row.top + 4), bold=True, right=True)
-                most_alert = max(player.alertness.items(), key=lambda item: item[1], default=(None, 0.0))
-                alert_number = most_alert[0].number if most_alert[0] is not None else "-"
-                if self.player_list_rank_mode:
-                    dynamic_text = compact_entity_grade_text(player)
-                    self.text(dynamic_text, 8, INK, (row.left + 17, row.top + 23), bold=True)
-                else:
-                    dynamic_text = (
-                        f"忠{player.tactical_loyalty * 100:.0f}  自{player.confidence * 100:.0f}  "
-                        f"Z{player.zone_awareness * 100:.0f}  P{player.position_awareness * 100:.0f}  "
-                        f"積{player.aggressiveness * 100:.0f}  警#{alert_number}"
-                    )
-                    self.text(dynamic_text, 9, MUTED, (row.left + 17, row.top + 23))
-                bar = pygame.Rect(row.right - 146, row.top + 26, 134, 7)
-                pygame.draw.rect(self.screen, (191, 190, 180), bar, border_radius=3)
-                ratio = player.stamina_ratio
-                color = (73, 190, 103) if ratio > 0.5 else GOLD if ratio > 0.25 else HOME_RED
-                fill = bar.copy()
-                fill.width = round(bar.width * ratio)
-                if fill.width > 0:
-                    pygame.draw.rect(self.screen, color, fill, border_radius=3)
+        self.player_status_view.draw(self)
 
     def draw_other_matches(self) -> None:
         shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
