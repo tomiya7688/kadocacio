@@ -47,6 +47,7 @@ Forbidden / avoid:
 - `performance_backend.py`
 - `player_status_view.py`
 - `rendering.py`
+- `settings_view.py`
 - `stadium_system.py`
 - `team_select_view.py`
 - `ui_theme.py`
