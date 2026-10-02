@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.26
+
+他会場の速報を統一デザインへ整理し、説明の不整合と表示による元データの書換えを解消
+
+追加したファイル
+
+- scripts/app/other_matches_view.py
+
+  独立した会場時計・スコアを文字幅に応じて表示し、27件ずつ全試合をスクロール閲覧。
+
+- tests/test_other_matches_view.py
+
+  90件の全件閲覧、長文、速報データの不変性、独立時計、操作と表示中の実試合進行を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py / scripts/app/rendering.py
+
+  他会場表示を専用ビューへ委譲し、独立時計と共通Esc設定に合う説明へ変更。
+
+- scripts/league/league_live_view.py / tests/test_league_live_view.py
+
+  確定結果を元データへ書き込まず重ね合わせ、ID欠落時の誤照合も防ぐ。
+
+- README.md / SPEC.md
+
+  独立時計・速報一覧の全件閲覧・共通Esc設定の説明を、実装の動作へ揃える。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画の地図・役割・履歴を更新。試合計算・並列実行・保存形式は維持。
+
+---
+
 ver 0.7.25
 
 試合中の選手一覧を統一デザインへ整理し、長文の重なりと背面へのキー入力を解消

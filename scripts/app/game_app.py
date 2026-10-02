@@ -15,6 +15,7 @@ from scripts.app.team_select_view import TeamSelectView
 from scripts.app.fulltime_view import FulltimeView
 from scripts.app.match_hud_view import MatchHudView
 from scripts.app.player_status_view import PlayerStatusView
+from scripts.app.other_matches_view import OtherMatchesView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -154,6 +155,7 @@ class Game(RendererMixin):
         self.league_auto_result_delay = 0.0
         self.league_auto_matchdays = 0
         self.other_matches_open = False
+        self.other_matches_view = OtherMatchesView()
         self.other_matches_scroll = 0
         self.other_matches_button = pygame.Rect(0, 0, 0, 0)
         self.other_matches_close_button = pygame.Rect(0, 0, 0, 0)
