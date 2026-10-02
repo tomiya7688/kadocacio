@@ -12,6 +12,7 @@ from scripts.match.match_engine import Match
 from scripts.app.performance_backend import GpuPresenter
 from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTIONS
 from scripts.app.team_select_view import TeamSelectView
+from scripts.app.fulltime_view import FulltimeView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -183,6 +184,7 @@ class Game(RendererMixin):
         self.main_menu_view = MainMenuView()
         self.main_menu_focus = 0
         self.fulltime_buttons: list[tuple[pygame.Rect, str]] = []
+        self.fulltime_view = FulltimeView()
         self.pause_menu_buttons: list[tuple[pygame.Rect, str]] = []
         self.skip_match_in_progress = False
         self.league_skip_auto_return = False
@@ -1367,6 +1369,26 @@ class Game(RendererMixin):
         elif key in (pygame.K_UP, pygame.K_DOWN):
             self.main_menu_focus = focus ^ 2
 
+    def handle_fulltime_action(self, action: str) -> None:
+        if action.startswith(("scorers_", "results_")):
+            section, direction = action.split("_", 1)
+            self.fulltime_view.change_page(self, section, -1 if direction == "prev" else 1)
+        elif action == "players":
+            self.player_list_open = True
+        elif action == "other_matches" and self.active_league_fixture_id:
+            self.other_matches_open = True
+            self.other_matches_scroll = 0
+        elif action == "league_results" and self.active_league_fixture_id:
+            self.return_to_league_screen()
+        elif action == "team_select" and not self.active_league_fixture_id:
+            self.return_to_team_select()
+        elif action == "rematch" and not self.active_league_fixture_id:
+            self.fulltime_view.pagination.reset()
+            self.match.start_new()
+            self.visible_simulation.reset(self.match)
+            self.roll_stadium_guests()
+            self.reset_camera()
+
     def handle_key(self, key: int) -> None:
         match = self.match
         if key == pygame.K_ESCAPE:
@@ -1407,7 +1429,7 @@ class Game(RendererMixin):
             elif key == pygame.K_DOWN:
                 self.scroll_other_matches(1)
             return
-        if match.state in ("PLAYING", "PAUSED", "FULLTIME"):
+        if match.state in ("PLAYING", "PAUSED"):
             if key == pygame.K_o and self.active_league_fixture_id:
                 self.other_matches_open = not self.other_matches_open
                 if self.other_matches_open:
@@ -1422,6 +1444,16 @@ class Game(RendererMixin):
         if self.player_list_open:
             if key in (pygame.K_ESCAPE, pygame.K_p, pygame.K_TAB):
                 self.player_list_open = False
+            return
+        if match.state == "FULLTIME":
+            if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_t):
+                self.handle_fulltime_action("league_results" if self.active_league_fixture_id else "team_select")
+            elif key == pygame.K_r:
+                self.handle_fulltime_action("rematch")
+            elif key in (pygame.K_p, pygame.K_TAB):
+                self.handle_fulltime_action("players")
+            elif key == pygame.K_o:
+                self.handle_fulltime_action("other_matches")
             return
         if match.state in ("MAIN_MENU", "TITLE"):
             self.handle_main_menu_key(key)
@@ -1439,27 +1471,13 @@ class Game(RendererMixin):
                 self.venue_mode_index = (self.venue_mode_index + 1) % len(self.venue_modes)
             elif key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.start_selected_match()
-        elif key in (pygame.K_RETURN, pygame.K_SPACE) and match.state == "FULLTIME":
-            if self.active_league_fixture_id:
-                self.return_to_league_screen()
-            else:
-                self.return_to_team_select()
         elif key == pygame.K_SPACE:
             if match.state == "PLAYING":
                 match.state = "PAUSED"
             elif match.state == "PAUSED":
                 self.resume_match()
-        elif key == pygame.K_r and match.state == "FULLTIME":
-            if not self.active_league_fixture_id:
-                match.start_new()
-                self.visible_simulation.reset(match)
-                self.roll_stadium_guests()
-                self.reset_camera()
-        elif key == pygame.K_t and match.state in ("FULLTIME", "PAUSED"):
-            if self.active_league_fixture_id and match.state == "FULLTIME":
-                self.return_to_league_screen()
-            else:
-                self.return_to_team_select()
+        elif key == pygame.K_t and match.state == "PAUSED":
+            self.return_to_team_select()
         elif key == pygame.K_f and match.state in ("PLAYING", "PAUSED"):
             current = SPEED_OPTIONS.index(match.speed_multiplier)
             match.speed_multiplier = SPEED_OPTIONS[(current + 1) % len(SPEED_OPTIONS)]
@@ -1503,6 +1521,12 @@ class Game(RendererMixin):
         if self.settings_button.collidepoint(pos):
             self.open_settings()
             return
+        if self.match.state == "FULLTIME":
+            for rect, action in self.fulltime_buttons:
+                if rect.collidepoint(pos):
+                    self.handle_fulltime_action(action)
+                    return
+            return
         if self.match.state in ("MAIN_MENU", "TITLE"):
             for rect, action in self.main_menu_buttons:
                 if not rect.collidepoint(pos):
@@ -1510,7 +1534,7 @@ class Game(RendererMixin):
                 self.handle_main_menu_action(action)
                 return
             return
-        if self.match.state in ("PLAYING", "PAUSED", "FULLTIME"):
+        if self.match.state in ("PLAYING", "PAUSED"):
             if self.active_league_fixture_id and self.other_matches_button.collidepoint(pos):
                 self.other_matches_open = True
                 self.other_matches_scroll = 0
@@ -1557,20 +1581,6 @@ class Game(RendererMixin):
             return
         if self.player_list_button.collidepoint(pos):
             self.player_list_open = True
-            return
-        if self.match.state == "FULLTIME":
-            for rect, action in self.fulltime_buttons:
-                if rect.collidepoint(pos):
-                    if action == "rematch":
-                        self.match.start_new()
-                        self.visible_simulation.reset(self.match)
-                        self.roll_stadium_guests()
-                        self.reset_camera()
-                    elif action == "team_select":
-                        self.return_to_team_select()
-                    elif action == "league_results":
-                        self.return_to_league_screen()
-                    return
             return
         for rect, speed in self.speed_buttons:
             if rect.collidepoint(pos):
@@ -1639,7 +1649,9 @@ class Game(RendererMixin):
                         else:
                             total = len(self.league_manager.league_names) + len(self.league_manager.tournament_names)
                             self.league_competition_scroll = max(0, min(max(0, total - 7), self.league_competition_scroll - event.y))
-                    elif self.match.state in ("PLAYING", "PAUSED", "FULLTIME"):
+                    elif self.match.state == "FULLTIME":
+                        self.fulltime_view.handle_wheel(self, -event.y, self.logical_mouse_pos())
+                    elif self.match.state in ("PLAYING", "PAUSED"):
                         self.change_camera_zoom(1 if event.y > 0 else -1)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.handle_click(self.logical_mouse_pos(event.pos))
