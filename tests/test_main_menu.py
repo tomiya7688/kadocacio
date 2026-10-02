@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pygame
 
 from scripts.app.game_app import Game
+from scripts.app.settings_view import SettingsView
 
 
 class MainMenuTests(unittest.TestCase):
@@ -89,6 +90,8 @@ class MainMenuTests(unittest.TestCase):
     def test_settings_modal_blocks_menu_keys_at_handler_boundary(self) -> None:
         game = self._game("team_editor")
         game.settings_open = True
+        game.settings_view = SettingsView()
+        game.handle_settings_action = lambda action: setattr(game, "settings_action", action)
         for key in (pygame.K_1, pygame.K_RETURN, pygame.K_RIGHT, pygame.K_TAB):
             game.handle_key(key)
         self.assertFalse(hasattr(game, "route"))
