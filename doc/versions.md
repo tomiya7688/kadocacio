@@ -46,7 +46,7 @@ Godotの起動基盤と実エンジンによる型検査・ヘッドレス検証
 
 - run_godot.bat / scripts/tools/godot_runner.py / tests/test_godot_runner.py
 
-  薄いWindows入口、実行ファイル/固定版検証、全スクリプト検査と失敗時の終了コード。
+  薄いWindows入口、実行ファイル/固定版検証、全スクリプト検査と失敗時の終了コード。描画smokeは無音ドライバーを明示し、CIの音声デバイス不在とコードエラーを分離。
 
 - .github/workflows/godot-bootstrap.yml
 

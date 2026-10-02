@@ -22,7 +22,7 @@ $env:GODOT_BIN = 'C:\tools\godot\Godot_v4.7.2-stable_win64_console.exe'
 - `run`: 動作確認画面。閉じるボタン・Enter・ウィンドウの×で終了。通常プレイではない。
 - `check`: headless import と全 `.gd` の実エンジン構文/型検査。型安全警告もエラー化。
 - `test`: 上記に加えてSceneTreeの検証、壊れた構文/型fixtureが拒否されること、headlessの起動/終了マーカーを確認。
-- `smoke`: 通常描画で起動し、同じ閉じる処理を自動呼出して終了。`--headless`で描画なし。
+- `smoke`: 通常描画で起動し、同じ閉じる処理を自動呼出して終了。音声デバイス不要の `Dummy` ドライバーを明示。`--headless`で描画なし。通常 `run` の音声設定は変更しない。
 - 検査ごとのタイムアウトは `--timeout 60`（0より大きく300秒以下）。通常 `run` は時間制限なし。
 
 Pythonを使わず直接起動することも可能: `& $env:GODOT_BIN --path godot`。配布入口の切替・exportは #143。

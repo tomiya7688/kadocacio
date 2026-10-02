@@ -104,7 +104,7 @@ def check_error_detection(engine: Path, project: Path, timeout: float) -> int:
 def run_smoke(engine: Path, project: Path, timeout: float, headless: bool) -> int:
     options = ["--headless"] if headless else ["--windowed"]
     return run_checked(engine_command(
-        engine, project, *options, "--quit-after", "120", "--", "--smoke-exit",
+        engine, project, *options, "--audio-driver", "Dummy", "--quit-after", "120", "--", "--smoke-exit",
     ), timeout, ("KADOCALCIO_BOOTSTRAP_READY", "KADOCALCIO_BOOTSTRAP_STOP"))
 
 

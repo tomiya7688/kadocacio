@@ -94,6 +94,7 @@ class GodotRunnerTests(unittest.TestCase):
                 self.assertEqual(runner.run_smoke(Path("engine"), Path("project"), 5, headless), 0)
                 command, _, markers = checked.call_args.args
                 self.assertIn("--headless" if headless else "--windowed", command)
+                self.assertEqual(command[command.index("--audio-driver") + 1], "Dummy")
                 self.assertEqual(command[-2:], ["--", "--smoke-exit"])
                 self.assertEqual(len(markers), 2)
 
