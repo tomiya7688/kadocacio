@@ -19,6 +19,7 @@ AI/Codex が最初に読む最小入口です。詳細仕様はここへ複製�
 - 詳細仕様: `SPEC.md`
 - 実装: `main.py`, `scripts/`
 - テスト: `tests/`
+- Godot起動/型検査/移行対応: `godot/README.md`, `run_godot.bat`, `godot/tests/`
 - タスク: GitHub Issues
 
 ## Read First

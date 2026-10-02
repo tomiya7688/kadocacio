@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# Godot editor/import cache (source .gd.uid files remain versioned)
+godot/.godot/
+godot/export.cfg
+godot/export_credentials.cfg
+
 # Player-facing runtime input/output data
 user_data/
 
