@@ -13,6 +13,7 @@ from scripts.app.performance_backend import GpuPresenter
 from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTIONS
 from scripts.app.team_select_view import TeamSelectView
 from scripts.app.fulltime_view import FulltimeView
+from scripts.app.match_hud_view import MatchHudView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -185,6 +186,7 @@ class Game(RendererMixin):
         self.main_menu_focus = 0
         self.fulltime_buttons: list[tuple[pygame.Rect, str]] = []
         self.fulltime_view = FulltimeView()
+        self.match_hud_view = MatchHudView()
         self.pause_menu_buttons: list[tuple[pygame.Rect, str]] = []
         self.skip_match_in_progress = False
         self.league_skip_auto_return = False

@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.24
+
+試合中のスコア・情報パネルを整理し、長文とログによる表示の重なりを解消
+
+追加したファイル
+
+- scripts/app/match_hud_view.py
+
+  共通の配色でスコア、勝敗予想、統計、最新8件のログと既存の観戦操作を表示。
+
+- tests/test_match_hud_view.py
+
+  長文の収まり、ログとボタンの分離、実際の操作経路、縮小・余白付き画面、確率と時計を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  試合情報専用ビューを保持し、既存の入力操作へ接続。
+
+- scripts/app/rendering.py
+
+  スコア・情報パネル・開始時の勝敗予想を専用ビューへ委譲。
+
+- tests/test_match_status_snapshot.py
+
+  新しい描画環境で、スコアボードが可変のチーム状態を要求しない契約を維持。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画の地図・役割・履歴を更新。試合計算・能力値・保存形式は維持。
+
+---
+
 ver 0.7.23
 
 試合終了画面のデザインを統一し、得点記録と同日結果を全件閲覧可能に

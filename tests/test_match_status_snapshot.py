@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import pygame
 
 from scripts.app.rendering import RendererMixin
+from scripts.app.match_hud_view import MatchHudView
+from scripts.core.settings import WIDTH, HEIGHT
 from scripts.match.match_engine import Match
 from scripts.match.match_status_snapshot import MatchStatusSnapshot
 from scripts.team.team_data import discover_team_choices
@@ -39,11 +41,14 @@ class MatchStatusSnapshotTests(unittest.TestCase):
         self.assertEqual(match.status_snapshot().home_score, 3)
 
     def test_scoreboard_only_requires_snapshot_not_mutable_team_objects(self):
+        pygame.font.init()
         status = MatchStatusSnapshot("HOME", "AWAY", 2, 1, 123.5, "PLAYING", "", 0.0, 3)
         labels = []
         probe = SimpleNamespace(
             match=SimpleNamespace(status_snapshot=lambda: status),
-            screen=pygame.Surface((960, 540)),
+            screen=pygame.Surface((WIDTH, HEIGHT)),
+            match_hud_view=MatchHudView(),
+            font=lambda size, bold=False: pygame.font.Font(None, size),
             text=lambda value, *_args, **_kwargs: labels.append(value),
         )
 
@@ -51,9 +56,9 @@ class MatchStatusSnapshotTests(unittest.TestCase):
 
         self.assertIn("HOME", labels)
         self.assertIn("AWAY", labels)
-        self.assertIn("2  -  1", labels)
-        self.assertIn("2:03", labels)
-        self.assertIn("SPEED ×3", labels)
+        self.assertIn("2 : 1", labels)
+        self.assertIn("02:03", labels)
+        self.assertIn("×3", labels)
 
 
 if __name__ == "__main__":
