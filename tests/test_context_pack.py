@@ -90,6 +90,67 @@ class ContextPackTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unexpected payload"):
                 context_pack.list_open_issues()
 
+    def test_godot_routes_include_target_and_migration_map(self):
+        source, tests = context_pack.infer_routes({"title": "Godot起動基盤", "body": "", "labels": []})
+        self.assertIn("godot/", source)
+        self.assertIn("doc/Godot移行.md", source)
+        self.assertIn("godot/tests/", tests)
+
+    def test_missing_task_policy_preserves_old_priority_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            policy = context_pack.load_task_policy(Path(tmp) / "missing.json")
+        self.assertEqual({"preferred_labels": [], "excluded_labels": [], "urgent_labels": []}, policy)
+        issues = [{"number": 1, "title": "[P2] old", "labels": []},
+                  {"number": 2, "title": "[P0] new", "labels": [{"name": "godot-migration"}]}]
+        self.assertEqual(2, context_pack.select_next_issue(issues, policy=policy)["number"])
+
+    def test_task_policy_loads_optional_fields_and_normalizes_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            path.write_text('{"preferred_labels": ["  Godot-Migration  "]}', encoding="utf-8-sig")
+            policy = context_pack.load_task_policy(path)
+        self.assertEqual({"preferred_labels": ["godot-migration"], "excluded_labels": [], "urgent_labels": []}, policy)
+
+    def test_task_policy_rejects_invalid_structures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            for text in ('[]', '{"preferred_labels": "label"}', '{"excluded_labels": [""]}',
+                         '{"urgent_labels": [1]}', '{"preferred_labels": [null]}'):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "task_selection.json"):
+                        context_pack.load_task_policy(path)
+
+    def test_migration_preferred_over_ordinary_backlog_but_p0_bugs_win(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],
+                  "urgent_labels": ["bug"]}
+        migration = {"number": 120, "title": "[P1] new", "labels": [{"name": "GODOT-MIGRATION"}]}
+        refactor = {"number": 107, "title": "[P0] old refactor", "labels": []}
+        bug = {"number": 121, "title": "[P0] save corruption", "labels": [{"name": "bug"}]}
+        self.assertEqual(120, context_pack.select_next_issue([refactor, migration], policy=policy)["number"])
+        self.assertEqual(121, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
+        bug["title"] = "[P1] small bug"
+        self.assertEqual(120, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
+
+    def test_excluded_issues_never_selected_even_with_p0_and_preferred_labels(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],
+                  "urgent_labels": ["bug"]}
+        excluded = [{"number": index, "title": "[P0] urgent",
+                     "labels": [{"name": label}, {"name": "bug"}, {"name": "godot-migration"}]}
+                    for index, label in enumerate(("TRACKING", "blocked", "in-review"), 1)]
+        ready = {"number": 120, "title": "[P1] ready", "labels": [{"name": "godot-migration"}]}
+        self.assertEqual(120, context_pack.select_next_issue([*excluded, ready], policy=policy)["number"])
+        with self.assertRaisesRegex(RuntimeError, "No runnable Issues"):
+            context_pack.select_next_issue(excluded, policy=policy)
+
+    def test_preferred_issues_still_sort_by_priority_then_number_without_mutation(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": [], "urgent_labels": []}
+        issues = [{"number": number, "title": priority, "labels": [{"name": "godot-migration"}]}
+                  for number, priority in ((10, "[P2] old"), (30, "[P1] new"), (20, "[P1] first"))]
+        original = repr(issues)
+        self.assertEqual(20, context_pack.select_next_issue(issues, policy=policy)["number"])
+        self.assertEqual(original, repr(issues))
+
     def test_resolve_issue_number_keeps_explicit_choice(self):
         with patch.object(context_pack, "list_open_issues") as issue_list:
             self.assertEqual(56, context_pack.resolve_issue_number(56))

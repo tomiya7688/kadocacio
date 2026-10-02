@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 ROUTES = [
+    (("godot", "gdscript"), ["godot/", "doc/Godot移行.md"], ["godot/tests/"]),
     (("match", "試合", "pass", "shoot", "goal", "ai"), ["scripts/match/"], ["tests/"]),
     (("league", "リーグ", "tournament"), ["scripts/league/"], ["tests/test_league_manager.py"]),
     (("team", "チーム", "uniform", "ユニフォーム"), ["scripts/team/", "teams/"], ["tests/test_uniforms.py", "tests/test_team_file_organization.py"]),
@@ -60,13 +61,45 @@ def issue_priority(issue: dict) -> int:
     return len(PRIORITY_ORDER)
 
 
-def select_next_issue(issues: list[dict]) -> dict:
+def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
+    """Read the editable task policy; an absent file retains priority-only selection."""
+    path = path or ROOT / "task_selection.json"
+    fields = ("preferred_labels", "excluded_labels", "urgent_labels")
+    if not path.exists():
+        return {field: [] for field in fields}
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
+        raise ValueError("task_selection.json must contain an object")
+    policy = {}
+    for field in fields:
+        values = payload.get(field, [])
+        if not isinstance(values, list) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError(f"task_selection.json {field} must contain nonempty label strings")
+        policy[field] = [value.strip().casefold() for value in values]
+    return policy
+
+
+def issue_labels(issue: dict) -> set[str]:
+    return {str(label.get("name", "")).casefold() for label in issue.get("labels", [])}
+
+
+def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, int]:
+    """P0 bugs first, preferred work next, then the existing priority/number order."""
+    labels = issue_labels(issue)
+    priority = issue_priority(issue)
+    group = (0 if priority == 0 and labels.intersection(policy["urgent_labels"])
+             else 1 if labels.intersection(policy["preferred_labels"]) else 2)
+    return group, priority, int(issue.get("number", 1_000_000_000))
+
+
+def select_next_issue(issues: list[dict], *, policy: dict[str, list[str]] | None = None) -> dict:
     if not issues:
         raise RuntimeError("No open Issues were found.")
-    return min(
-        issues,
-        key=lambda issue: (issue_priority(issue), int(issue.get("number", 1_000_000_000))),
-    )
+    policy = load_task_policy() if policy is None else policy
+    candidates = [issue for issue in issues if not issue_labels(issue).intersection(policy["excluded_labels"])]
+    if not candidates:
+        raise RuntimeError("No runnable Issues: remaining work is tracking, blocked or in review.")
+    return min(candidates, key=lambda issue: selection_key(issue, policy))
 
 
 def section(body: str, names: tuple[str, ...]) -> str:

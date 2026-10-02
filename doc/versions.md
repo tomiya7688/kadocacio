@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.28
+
+Godot移行を24実装Issueへ分割し、依存待ちを除外する優先作業選択を整備
+
+追加したファイル
+
+- doc/Godot移行.md
+
+  管理Issue #119、実装Issue #120～#143の依存、互換契約と一回分の作業手順を記録。
+
+- task_selection.json
+
+  優先ラベル・除外ラベル・重大バグラベルを編集可能な設定として保持。
+
+変更したファイル
+
+- scripts/tools/context_pack.py / tests/test_context_pack.py
+
+  重大P0バグ、Godot移行、通常Issueの順で選択し、親/依存待ち/レビュー待ちを除外。旧設定なし・明示指定の互換を検証。
+
+- AGENTS.md / AI_CONTEXT.md
+
+  Godot優先、依存確認とPR検証後のラベル更新、Python参照実装の維持を作業入口へ反映。
+
+---
+
 ver 0.7.27
 
 共通設定を読みやすい統一UIへ整理し、説明の見切れとキーボード操作の不足を解消
