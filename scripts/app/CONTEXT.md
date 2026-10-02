@@ -44,6 +44,7 @@ Forbidden / avoid:
 - `main_menu_view.py`
 - `match_hud_view.py`
 - `performance_backend.py`
+- `player_status_view.py`
 - `rendering.py`
 - `stadium_system.py`
 - `team_select_view.py`
