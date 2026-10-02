@@ -37,3 +37,19 @@ def visible_other_matches(
     capacity = OTHER_MATCH_COLUMNS * OTHER_MATCH_VISIBLE_ROWS
     end = min(len(statuses), start + capacity)
     return list(statuses[start:end]), start, end
+
+
+def merged_live_results(statuses: Sequence[dict], results: Sequence[dict]) -> list[dict]:
+    """Return detached display records with confirmed final scores overlaid."""
+    result_by_id = {str(item["fixture_id"]): item for item in results
+                    if item.get("fixture_id") not in (None, "")}
+    merged = []
+    for item in statuses:
+        status = dict(item)
+        fixture_id = status.get("fixture_id")
+        result = result_by_id.get(str(fixture_id)) if fixture_id not in (None, "") else None
+        if result is not None:
+            status.update(home_score=result.get("home_score", 0), away_score=result.get("away_score", 0),
+                          game_time=5400.0, minute=90, state="FULLTIME")
+        merged.append(status)
+    return merged

@@ -9,13 +9,6 @@ from scripts.app.uniform_rendering import draw_uniform_limb, draw_uniform_polygo
 from scripts.core.performance_settings import LEAGUE_SIMULATION_MODES
 from scripts.match.player import Player
 from scripts.league.league_rendering import LeagueRendererMixin
-from scripts.league.league_live_view import (
-    OTHER_MATCH_COLUMNS,
-    OTHER_MATCH_VISIBLE_ROWS,
-    clamp_other_match_scroll,
-    other_match_max_scroll,
-    visible_other_matches,
-)
 from scripts.match.match_engine import Match
 from scripts.match.player_commands import PlayerCommand
 from scripts.core.settings import (
@@ -714,91 +707,7 @@ class RendererMixin(LeagueRendererMixin):
         self.player_status_view.draw(self)
 
     def draw_other_matches(self) -> None:
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((18, 22, 29, 205))
-        self.screen.blit(shade, (0, 0))
-        modal = pygame.Rect(32, 42, WIDTH - 64, HEIGHT - 84)
-        pygame.draw.rect(self.screen, PAPER, modal, border_radius=14)
-        pygame.draw.rect(self.screen, GOLD, modal, 3, border_radius=14)
-        self.text("他の試合　リアルタイム速報", 23, INK, (modal.left + 28, modal.top + 22), bold=True)
-        session = self.league_simulation_session
-        worker_text = f" / 自動割当 {session.worker_count}コア" if session is not None else ""
-        self.text("観戦試合と同じ試合時計で、別CPUコアのAI試合を進行中" + worker_text, 11, MUTED, (modal.left + 30, modal.top + 58))
-        self.other_matches_close_button = pygame.Rect(modal.right - 142, modal.top + 20, 112, 34)
-        pygame.draw.rect(self.screen, (230, 226, 211), self.other_matches_close_button, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), self.other_matches_close_button, 2, border_radius=7)
-        self.text("O / ESC 閉じる", 11, INK, self.other_matches_close_button.center, bold=True, center=True)
-
-        statuses = [dict(item) for item in session.live_status.values()] if session is not None else list(self.league_live_last_status)
-        result_by_id = {str(item.get("fixture_id")): item for item in self.league_manager.last_results}
-        for status in statuses:
-            result = result_by_id.get(str(status.get("fixture_id")))
-            if result:
-                status.update({"home_score": result.get("home_score", 0), "away_score": result.get("away_score", 0), "minute": 90, "state": "FULLTIME"})
-        if not statuses:
-            self.text("同時開催の他の試合はありません", 16, MUTED, modal.center, center=True)
-            self.other_matches_scroll = 0
-            self.other_matches_scroll_track = pygame.Rect(0, 0, 0, 0)
-            self.other_matches_scroll_thumb = pygame.Rect(0, 0, 0, 0)
-            return
-
-        self.other_matches_scroll = clamp_other_match_scroll(self.other_matches_scroll, len(statuses))
-        visible, first_index, last_index = visible_other_matches(statuses, self.other_matches_scroll)
-        self.text(
-            f"全{len(statuses)}試合　表示 {first_index + 1}～{last_index}",
-            11, INK, (modal.right - 176, modal.top + 64), right=True, bold=True,
-        )
-        self.text(
-            "マウスホイール / ↑↓ / PageUp・PageDown / Home・End",
-            10, MUTED, (modal.left + 30, modal.top + 81),
-        )
-
-        grid = pygame.Rect(modal.left + 24, modal.top + 108, modal.width - 76, 480)
-        column_gap = 8
-        row_gap = 6
-        row_height = 48
-        column_width = (grid.width - column_gap * (OTHER_MATCH_COLUMNS - 1)) // OTHER_MATCH_COLUMNS
-        for visible_index, status in enumerate(visible):
-            column = visible_index % OTHER_MATCH_COLUMNS
-            grid_row = visible_index // OTHER_MATCH_COLUMNS
-            row = pygame.Rect(
-                grid.left + column * (column_width + column_gap),
-                grid.top + grid_row * (row_height + row_gap),
-                column_width,
-                row_height,
-            )
-            source_index = first_index + visible_index
-            pygame.draw.rect(self.screen, (236, 233, 220) if source_index % 2 == 0 else (228, 226, 214), row, border_radius=6)
-            pygame.draw.rect(self.screen, (205, 201, 188), row, 1, border_radius=6)
-            game_time = float(status.get("game_time", float(status.get("minute", 0)) * 60.0))
-            minute = "終了" if status.get("state") == "FULLTIME" else f"{int(game_time // 60):02d}:{int(game_time % 60):02d}"
-            league_label = str(status.get("league", ""))
-            self.text(league_label[:18], 9, MUTED, (row.left + 8, row.top + 5), bold=True)
-            self.text(minute, 10, INK, (row.right - 8, row.top + 5), right=True, bold=True)
-            home_name = str(status.get("home_name", ""))
-            away_name = str(status.get("away_name", ""))
-            if len(home_name) > 14:
-                home_name = home_name[:13] + "…"
-            if len(away_name) > 14:
-                away_name = away_name[:13] + "…"
-            self.text(home_name, 10, INK, (row.centerx - 34, row.top + 27), right=True, bold=True)
-            self.text(f"{status.get('home_score', 0)}-{status.get('away_score', 0)}", 14, HOME_RED, (row.centerx, row.top + 27), center=True, bold=True)
-            self.text(away_name, 10, INK, (row.centerx + 34, row.top + 27), bold=True)
-
-        maximum = other_match_max_scroll(len(statuses))
-        track = pygame.Rect(modal.right - 24, grid.top, 9, grid.height)
-        self.other_matches_scroll_track = track
-        pygame.draw.rect(self.screen, (211, 208, 196), track, border_radius=4)
-        if maximum > 0:
-            total_rows = maximum + OTHER_MATCH_VISIBLE_ROWS
-            thumb_height = max(34, round(track.height * OTHER_MATCH_VISIBLE_ROWS / total_rows))
-            thumb_y = track.top + round((track.height - thumb_height) * self.other_matches_scroll / maximum)
-            thumb = pygame.Rect(track.left, thumb_y, track.width, thumb_height)
-            pygame.draw.rect(self.screen, HOME_RED, thumb, border_radius=4)
-        else:
-            thumb = track.copy()
-            pygame.draw.rect(self.screen, (166, 163, 153), thumb, border_radius=4)
-        self.other_matches_scroll_thumb = thumb
+        self.other_matches_view.draw(self)
 
     def draw_overlay(self) -> None:
         match = self.match
