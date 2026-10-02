@@ -1023,83 +1023,7 @@ class RendererMixin(LeagueRendererMixin):
             self.text(league_note, 14, CREAM, (center_x, 478), center=True)
             self.text("Esc / Space：試合に戻る", 14, GOLD, (center_x, 514), center=True)
         elif match.state == "FULLTIME":
-            # FIELD is expressed in world coordinates and is much larger than the
-            # logical screen.  Full-time controls must use screen coordinates so
-            # they remain visible and clickable at every camera zoom.
-            match_view = pygame.Rect(0, 0, PANEL.left, HEIGHT)
-            shade = pygame.Surface(match_view.size, pygame.SRCALPHA)
-            shade.fill((20, 24, 32, 205))
-            self.screen.blit(shade, match_view.topleft)
-            center_x = match_view.centerx
-            self.text("FULL TIME", 25, GOLD, (center_x, 82), bold=True, center=True)
-            result = f"{match.home.short_name}  {match.home.score}  -  {match.away.score}  {match.away.short_name}"
-            self.text(result, 42, CREAM, (center_x, 137), bold=True, center=True)
-            league_match = bool(self.active_league_fixture_id)
-            if match.home.score > match.away.score:
-                message = "ホームチーム勝利"
-            elif match.home.score < match.away.score:
-                message = "アウェーチーム勝利" if league_match else "惜しくも敗戦"
-            else:
-                message = "DRAW"
-            self.text(message, 21, CREAM, (center_x, 188), bold=True, center=True)
-            scorer_box = pygame.Rect(center_x - 280, 226, 560, 190)
-            scorer_title = "得点者一覧" if match.goal_scorers else "得点者一覧（まだなし）"
-            pygame.draw.rect(self.screen, (30, 35, 44), scorer_box, border_radius=10)
-            pygame.draw.rect(self.screen, GOLD, scorer_box, 2, border_radius=10)
-            self.text(scorer_title, 15, GOLD, (scorer_box.centerx, scorer_box.top + 12), bold=True, center=True)
-            if match.goal_scorers:
-                visible_scorers = match.goal_scorers[:7]
-                for index, (minute, scorer_name) in enumerate(visible_scorers):
-                    y = scorer_box.top + 40 + index * 18
-                    self.text(f"{minute}'  {scorer_name}", 14, CREAM, (scorer_box.left + 24, y))
-                if len(match.goal_scorers) > len(visible_scorers):
-                    self.text(
-                        f"ほか {len(match.goal_scorers) - len(visible_scorers)}得点",
-                        12, MUTED, (scorer_box.right - 24, scorer_box.bottom - 24), right=True,
-                    )
-            self.fulltime_buttons.clear()
-            if league_match:
-                if self.league_simulation_session is not None:
-                    session = self.league_simulation_session
-                    heading = (
-                        f"同日試合の残りを高速完走中　{session.display_completed}/{session.total}"
-                        f"　平均{session.display_average_minute}分"
-                    )
-                else:
-                    heading = "同日開催の試合結果"
-                self.text(heading, 15, GOLD, (center_x, 438), bold=True, center=True)
-                for index, other_result in enumerate(self.league_manager.last_results[:5]):
-                    y = 465 + index * 24
-                    result_text = (
-                        f"{other_result['league']}　{other_result['home_name']}  "
-                        f"{other_result['home_score']}-{other_result['away_score']}  {other_result['away_name']}"
-                    )
-                    if other_result.get("home_penalties") is not None:
-                        result_text += f"　PK {other_result['home_penalties']}-{other_result['away_penalties']}"
-                    self.text(result_text, 11, CREAM, (center_x, y), bold=bool(other_result.get("watched")), center=True)
-                league_rect = pygame.Rect(center_x - 145, 600, 290, 48)
-                hover = league_rect.collidepoint(self.logical_mouse_pos())
-                results_ready = self.league_simulation_session is None
-                button_color = GOLD if results_ready and hover else (242, 184, 72) if results_ready else (115, 112, 104)
-                pygame.draw.rect(self.screen, button_color, league_rect, border_radius=8)
-                pygame.draw.rect(self.screen, CREAM, league_rect, 2, border_radius=8)
-                button_label = "リーグ結果・成績へ" if results_ready else "他会場の試合を計算中"
-                self.text(button_label, 16, INK, league_rect.center, bold=True, center=True)
-                if results_ready:
-                    self.fulltime_buttons.append((league_rect, "league_results"))
-                    self.text("T / Enter / Space：リーグ画面へ", 14, GOLD, (center_x, 670), center=True)
-                else:
-                    self.text("全試合の完了後に移動できます", 14, GOLD, (center_x, 670), center=True)
-            else:
-                rematch_rect = pygame.Rect(center_x - 206, 455, 176, 50)
-                select_rect = pygame.Rect(center_x + 30, 455, 236, 50)
-                for rect, label, action in ((rematch_rect, "再戦", "rematch"), (select_rect, "チーム選択へ戻る", "team_select")):
-                    hover = rect.collidepoint(self.logical_mouse_pos())
-                    pygame.draw.rect(self.screen, GOLD if hover else (242, 184, 72), rect, border_radius=8)
-                    pygame.draw.rect(self.screen, CREAM, rect, 2, border_radius=8)
-                    self.text(label, 16, INK, rect.center, bold=True, center=True)
-                    self.fulltime_buttons.append((rect, action))
-                self.text("R：再戦　　T / Enter / Space：チーム選択へ戻る", 16, GOLD, (center_x, 535), center=True)
+            self.fulltime_view.draw(self)
 
     def draw_choice_formation(self, choice: dict, rect: pygame.Rect) -> None:
         self.team_select_view.draw_formation(self, choice, rect)
@@ -1135,6 +1059,16 @@ class RendererMixin(LeagueRendererMixin):
             return
         if self.match.state == "TITLE":
             self.draw_title()
+            if getattr(self, "settings_open", False):
+                self.draw_settings_modal()
+            self.present()
+            return
+        if self.match.state == "FULLTIME":
+            self.fulltime_view.draw(self)
+            if self.player_list_open:
+                self.draw_player_list()
+            if self.other_matches_open:
+                self.draw_other_matches()
             if getattr(self, "settings_open", False):
                 self.draw_settings_modal()
             self.present()

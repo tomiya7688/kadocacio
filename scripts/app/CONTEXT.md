@@ -38,6 +38,8 @@ Forbidden / avoid:
 - developer evaluation tools
 
 ## Current modules
+- `fulltime_pagination.py`
+- `fulltime_view.py`
 - `game_app.py`
 - `main_menu_view.py`
 - `performance_backend.py`
