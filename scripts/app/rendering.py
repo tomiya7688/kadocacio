@@ -23,7 +23,7 @@ from scripts.core.settings import (
     AWAY_BLUE, CENTER_CIRCLE_RADIUS, CREAM, FIELD, GOAL_AREA_DEPTH, GOAL_AREA_WIDTH,
     GOAL_DEPTH, GOAL_HALF_HEIGHT, GOAL_HEIGHT, GOLD, HEIGHT, HOME_DARK, HOME_RED, INK,
     LINE, MUTED, PANEL, PAPER, PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH,
-    PENALTY_SPOT_DISTANCE, PITCH_1, PITCH_2, PLAYER_VISUAL_SCALE, SPEED_OPTIONS,
+    PENALTY_SPOT_DISTANCE, PITCH_1, PITCH_2, PLAYER_VISUAL_SCALE,
     TACTICS, WIDTH, clamp,
 )
 
@@ -706,99 +706,10 @@ class RendererMixin(LeagueRendererMixin):
             pygame.draw.rect(self.screen, INK, card, 1, border_radius=1)
 
     def draw_scoreboard(self) -> None:
-        status = self.match.status_snapshot()
-        pitch_screen_center = PANEL.left // 2
-        board = pygame.Rect(pitch_screen_center - 190, 17, 380, 46)
-        pygame.draw.rect(self.screen, INK, board, border_radius=8)
-        self.text(status.home_short_name, 17, CREAM, (board.left + 18, board.top + 12), bold=True, center=False)
-        self.text(status.away_short_name, 17, CREAM, (board.right - 18, board.top + 12), bold=True, right=True)
-        score = f"{status.home_score}  -  {status.away_score}"
-        self.text(score, 25, GOLD, (board.centerx, board.centery), bold=True, center=True)
-        minute = min(90, int(status.game_time // 60))
-        second = 0 if minute >= 90 else int(status.game_time % 60)
-        time_label = "HT" if status.banner == "HALF TIME" and status.banner_timer > 0 else f"{minute}:{second:02d}"
-        self.text(time_label, 16, INK, (20, 28), bold=True)
-        self.text(f"SPEED ×{status.speed_multiplier}", 13, MUTED, (PANEL.left - 20, 31), bold=True, right=True)
+        self.match_hud_view.draw_scoreboard(self)
 
     def draw_panel(self) -> None:
-        pygame.draw.rect(self.screen, PAPER, PANEL, border_radius=12)
-        pygame.draw.rect(self.screen, (217, 211, 192), PANEL, 2, border_radius=12)
-        x = PANEL.left + 18
-        team_title = self.match.home.name.replace("_", " ")
-        self.text(team_title, 18, INK, (x, PANEL.top + 18), bold=True)
-        manager_label = f"{self.match.home.short_name}　監督 {self.match.home.manager}" if self.match.home.manager else self.match.home.short_name
-        self.text(manager_label, 12, MUTED, (x, PANEL.top + 48))
-        self.text(self.match.venue_name, 10, MUTED, (PANEL.right - 18, PANEL.top + 50), right=True)
-        speed_label_y = PANEL.top + 82
-        speed_button_y = PANEL.top + 108
-        divider_y = PANEL.top + 174
-        self.text("試合速度", 16, INK, (x, speed_label_y), bold=True)
-        self.text("Fで順送り", 11, MUTED, (PANEL.right - 18, speed_label_y + 5), right=True)
-        self.speed_buttons.clear()
-        for index, speed in enumerate(SPEED_OPTIONS):
-            rect = pygame.Rect(x + index * 45, speed_button_y, 41, 38)
-            self.speed_buttons.append((rect, speed))
-            active = self.match.speed_multiplier == speed
-            hover = rect.collidepoint(self.logical_mouse_pos())
-            color = GOLD if active else (239, 234, 214) if hover else (230, 226, 211)
-            pygame.draw.rect(self.screen, color, rect, border_radius=6)
-            pygame.draw.rect(self.screen, INK if active else (190, 188, 176), rect, 2, border_radius=6)
-            self.text(f"×{speed}", 12, INK, rect.center, bold=True, center=True)
-
-        pygame.draw.line(self.screen, (211, 207, 192), (x, divider_y), (PANEL.right - 18, divider_y), 2)
-        self.text("MATCH DATA", 15, INK, (x, divider_y + 17), bold=True)
-        self.text("シュート", 13, MUTED, (x, divider_y + 48))
-        self.text(str(self.match.home.shots), 18, self.match.home.primary, (x + 104, divider_y + 43), bold=True, center=True)
-        self.text(str(self.match.away.shots), 18, self.match.away.primary, (x + 205, divider_y + 43), bold=True, center=True)
-        self.text(self.match.home.short_name, 11, MUTED, (x + 104, divider_y + 68), center=True)
-        self.text(self.match.away.short_name, 11, MUTED, (x + 205, divider_y + 68), center=True)
-
-        possession_total = self.match.home.possession + self.match.away.possession
-        home_share = self.match.home.possession / possession_total if possession_total else 0.5
-        bar = pygame.Rect(x, divider_y + 92, PANEL.width - 36, 15)
-        pygame.draw.rect(self.screen, self.match.away.primary, bar, border_radius=6)
-        if home_share > 0:
-            home_bar = pygame.Rect(bar.x, bar.y, round(bar.width * home_share), bar.height)
-            pygame.draw.rect(self.screen, self.match.home.primary, home_bar, border_radius=6)
-        self.text(f"支配率  {round(home_share * 100)}%", 12, INK, (x, divider_y + 115), bold=True)
-        self.text(f"{round((1-home_share) * 100)}%", 12, INK, (PANEL.right - 18, divider_y + 115), bold=True, right=True)
-
-        log_y = divider_y + 148
-        self.text("MATCH LOG", 15, INK, (x, log_y), bold=True)
-        for index, (minute, event) in enumerate(self.match.events):
-            y = log_y + 27 + index * 25
-            if y > PANEL.bottom - 144:
-                break
-            pygame.draw.circle(self.screen, GOLD if index == 0 else (200, 196, 182), (x + 4, y + 8), 3)
-            self.text(f"{minute:02d}'", 12, MUTED, (x + 14, y + 1), bold=True)
-            self.text(event, 12, INK, (x + 50, y + 1))
-
-        zoom_y = PANEL.bottom - 120
-        if self.active_league_fixture_id:
-            self.other_matches_button = pygame.Rect(x, zoom_y - 39, PANEL.width - 36, 31)
-            hover = self.other_matches_button.collidepoint(self.logical_mouse_pos())
-            pygame.draw.rect(self.screen, GOLD if hover else (230, 226, 211), self.other_matches_button, border_radius=6)
-            pygame.draw.rect(self.screen, (183, 180, 168), self.other_matches_button, 2, border_radius=6)
-            self.text("O　他の試合（リアルタイム）", 11, INK, self.other_matches_button.center, bold=True, center=True)
-        self.text(f"カメラズーム　{round(self.camera_zoom * 100)}%", 12, INK, (x, zoom_y + 7), bold=True)
-        self.zoom_buttons.clear()
-        for rect, step, label in (
-            (pygame.Rect(PANEL.right - 104, zoom_y, 38, 30), -1, "−"),
-            (pygame.Rect(PANEL.right - 60, zoom_y, 38, 30), 1, "＋"),
-        ):
-            self.zoom_buttons.append((rect, step))
-            hover = rect.collidepoint(self.logical_mouse_pos())
-            pygame.draw.rect(self.screen, GOLD if hover else (230, 226, 211), rect, border_radius=6)
-            pygame.draw.rect(self.screen, (183, 180, 168), rect, 2, border_radius=6)
-            self.text(label, 18, INK, rect.center, bold=True, center=True)
-
-        self.draw_settings_button(pygame.Rect(x, PANEL.bottom - 84, PANEL.width - 36, 30))
-        self.player_list_button = pygame.Rect(x, PANEL.bottom - 48, PANEL.width - 36, 34)
-        hover = self.player_list_button.collidepoint(self.logical_mouse_pos())
-        button_color = GOLD if hover else (230, 226, 211)
-        pygame.draw.rect(self.screen, button_color, self.player_list_button, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), self.player_list_button, 2, border_radius=7)
-        self.text("P / TAB　選手一覧・状態", 13, INK, self.player_list_button.center, bold=True, center=True)
+        self.match_hud_view.draw_panel(self)
 
     def draw_player_list(self) -> None:
         shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -978,10 +889,7 @@ class RendererMixin(LeagueRendererMixin):
             and match.game_time <= 0.0001
         )
         if kickoff_prediction:
-            prediction_box = pygame.Rect(64, 78, PANEL.left - 128, 42)
-            pygame.draw.rect(self.screen, (28, 33, 43), prediction_box, border_radius=8)
-            pygame.draw.rect(self.screen, GOLD, prediction_box, 2, border_radius=8)
-            self.text(match.predicted_result_text(), 16, GOLD, prediction_box.center, bold=True, center=True)
+            self.match_hud_view.draw_prediction(self)
 
         if self.skip_match_in_progress:
             match_view = pygame.Rect(0, 0, PANEL.left, HEIGHT)
