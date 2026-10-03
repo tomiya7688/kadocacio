@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.31
+
+Issue優先度を緊急専用P0から将来予定P4まで整理
+
+追加したファイル
+
+- doc/Issue優先度方針.md
+
+  P0〜P4の基準、未指定P2、ラベル正本、依存状態と作業順を明記。
+
+- scripts/tools/issue_priority.py
+
+  優先度ラベル・旧タイトル・既定値の解釈だけを専用モジュールへ分離。
+
+変更したファイル
+
+- scripts/tools/context_pack.py / tests/test_context_pack.py / task_selection.json
+
+  P4とラベル優先を追加し、P0は分類を問わず最優先、カテゴリ優先は同一優先度内だけに適用。
+
+- AGENTS.md / AI_CONTEXT.md / doc/Godot移行.md / doc/開発予定.md / scripts/tools/CONTEXT.md
+
+  AI入口と開発文書を新方針へ揃え、旧数値優先度との混同を防止。
+
+---
+
 ver 0.7.30
 
 GodotへチームJSONの読込互換とPython参照による差分検査を追加

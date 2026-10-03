@@ -70,7 +70,15 @@ class ContextPackTests(unittest.TestCase):
     def test_priority_accepts_title_prefix_and_label(self):
         self.assertEqual(0, context_pack.issue_priority({"title": "[P0] urgent", "labels": []}))
         self.assertEqual(1, context_pack.issue_priority({"title": "normal", "labels": [{"name": "P1"}]}))
-        self.assertEqual(4, context_pack.issue_priority({"title": "normal", "labels": []}))
+        self.assertEqual(2, context_pack.issue_priority({"title": "normal", "labels": []}))
+        self.assertEqual(4, context_pack.issue_priority({"title": "[p4] future", "labels": []}))
+
+    def test_priority_label_overrides_stale_title_and_ignores_token_fragments(self):
+        self.assertEqual(2, context_pack.issue_priority({"title": "[P0] stale", "labels": [{"name": "p2"}]}))
+        self.assertEqual(1, context_pack.issue_priority({"title": "[P3] stale", "labels": [{"name": "P4"}, {"name": "P1"}]}))
+        for title in ("P40 proposal", "AP0 embedded", "P1X embedded", "unclassified"):
+            with self.subTest(title=title):
+                self.assertEqual(2, context_pack.issue_priority({"title": title, "labels": []}))
 
     def test_select_next_issue_prefers_priority_then_issue_number(self):
         issues = [
@@ -121,16 +129,28 @@ class ContextPackTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "task_selection.json"):
                         context_pack.load_task_policy(path)
 
-    def test_migration_preferred_over_ordinary_backlog_but_p0_bugs_win(self):
+    def test_p0_is_urgent_regardless_of_bug_label_and_migration_breaks_p1_ties(self):
         policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],
                   "urgent_labels": ["bug"]}
         migration = {"number": 120, "title": "[P1] new", "labels": [{"name": "GODOT-MIGRATION"}]}
-        refactor = {"number": 107, "title": "[P0] old refactor", "labels": []}
+        refactor = {"number": 107, "title": "[P1] refactor", "labels": []}
         bug = {"number": 121, "title": "[P0] save corruption", "labels": [{"name": "bug"}]}
         self.assertEqual(120, context_pack.select_next_issue([refactor, migration], policy=policy)["number"])
         self.assertEqual(121, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
         bug["title"] = "[P1] small bug"
         self.assertEqual(120, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
+        emergency = {"number": 200, "title": "[P0] urgent recovery", "labels": []}
+        self.assertEqual(200, context_pack.select_next_issue([refactor, migration, bug, emergency], policy=policy)["number"])
+
+    def test_low_priority_migration_cannot_leapfrog_higher_priority_work(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": []}
+        migration = {"number": 1, "title": "[P4] future migration", "labels": [{"name": "godot-migration"}]}
+        ordinary = {"number": 2, "title": "[P1] priority", "labels": []}
+        self.assertEqual(2, context_pack.select_next_issue([migration, ordinary], policy=policy)["number"])
+        ordinary["title"] = "unclassified"
+        self.assertEqual(2, context_pack.select_next_issue([migration, ordinary], policy=policy)["number"])
+        ordinary["title"] = "[P3] deferred"
+        self.assertEqual(2, context_pack.select_next_issue([migration, ordinary], policy=policy)["number"])
 
     def test_excluded_issues_never_selected_even_with_p0_and_preferred_labels(self):
         policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],

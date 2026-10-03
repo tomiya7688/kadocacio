@@ -6,6 +6,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from scripts.tools.issue_priority import PRIORITY_ORDER as PRIORITY_ORDER, issue_priority as issue_priority
+
 ROOT = Path(__file__).resolve().parents[2]
 
 ROUTES = [
@@ -16,9 +18,6 @@ ROUTES = [
     (("render", "描画", "ui", "画面"), ["scripts/app/"], ["tests/test_rendering_smoke.py"]),
     (("static", "解析", "context", "コンテキスト", "codex"), ["scripts/tools/static_analysis/", "scripts/tools/"], ["tests/"]),
 ]
-
-PRIORITY_ORDER = ("P0", "P1", "P2", "P3")
-
 
 def run_command(command: list[str]) -> object:
     completed = subprocess.run(
@@ -51,16 +50,6 @@ def list_open_issues() -> list[dict]:
     return payload
 
 
-def issue_priority(issue: dict) -> int:
-    title = str(issue.get("title", ""))
-    labels = [str(label.get("name", "")) for label in issue.get("labels", [])]
-    searchable = " ".join([title, *labels]).upper()
-    for rank, priority in enumerate(PRIORITY_ORDER):
-        if re.search(rf"(?:^|[^A-Z0-9]){priority}(?:[^A-Z0-9]|$)", searchable):
-            return rank
-    return len(PRIORITY_ORDER)
-
-
 def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
     """Read the editable task policy; an absent file retains priority-only selection."""
     path = path or ROOT / "task_selection.json"
@@ -84,12 +73,11 @@ def issue_labels(issue: dict) -> set[str]:
 
 
 def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, int]:
-    """P0 bugs first, preferred work next, then the existing priority/number order."""
+    """Priority first; preferred category breaks ties, then the Issue number."""
     labels = issue_labels(issue)
     priority = issue_priority(issue)
-    group = (0 if priority == 0 and labels.intersection(policy["urgent_labels"])
-             else 1 if labels.intersection(policy["preferred_labels"]) else 2)
-    return group, priority, int(issue.get("number", 1_000_000_000))
+    preferred = 0 if labels.intersection(policy["preferred_labels"]) else 1
+    return priority, preferred, int(issue.get("number", 1_000_000_000))
 
 
 def select_next_issue(issues: list[dict], *, policy: dict[str, list[str]] | None = None) -> dict:

@@ -31,7 +31,8 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 ## 優先作業: Godot移行
 
 - 管理Issueは #119、実装単位と依存は [`doc/Godot移行.md`](doc/Godot移行.md)。最初は #120。通常の新機能・Pygameの見た目追加より移行を優先する。
-- 自動選択はP0かつbug → 着手可能なgodot-migration → 従来の優先度順。同じグループでは優先度・Issue番号順。tracking/blocked/in-reviewは除外する。
+- 優先度はP0=緊急対応専用、P1=優先、P2=通常（未指定時もP2）、P3=後回し可、P4=将来予定。重要なリファクタや移行でも緊急でなければP0を使わない。正本は [`doc/Issue優先度方針.md`](doc/Issue優先度方針.md)。
+- 自動選択はP0→P1→P2→P3→P4。同じ優先度内で着手可能なgodot-migration、次にIssue番号順。優先度ラベルを正とし旧タイトル表記も読める。tracking/blocked/in-reviewは除外する。P0はbugラベルの有無で制限しない。
 - 作業前とPR検証後に前提Issue/PRを確認し、検証済みの依存を持つ後続だけblockedを解除する。未マージPRへ積む場合はそのブランチを基準にし、既存のPR順を壊さない。
 - 検証済み実装PRを作ったIssueはin-reviewへ移す。明示番号指定は自動選択を迂回するので、依存待ちを無視しない。
 - Python版は比較用に残し、JSON/セーブ互換・同じ試合核・能力値の作用を維持する。移行先の検証前に削除・通常入口切替をしない。
@@ -82,7 +83,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - `performance_settings.json`: CPU演算枠の上限とGPU描画の有効設定。
 - `user_data/saves/`: 実行時リーグセーブ。開始時の参加チーム能力スナップショットを持つ。Git管理しない。
 - ルートの `league_state.json`: 新規環境へseedする既定データ。実行中の状態ファイルではない。
-- `task_selection.json`: 開発タスクの優先ラベル・除外ラベル・重大バグラベル。ゲームの実行設定ではない。
+- `task_selection.json`: 同一優先度内で優先するカテゴリラベルと除外ラベル。ゲームの実行設定ではない。
 - `assets/`: スタジアム、観客等。
 - `user_data/logs/ai_evaluation/`, `user_data/logs/performance/`: AI評価・性能実測の実行時出力。Git管理しない。
 - `user_data/logs/development_evaluation/`: 放置リーグ評価のJSONL、CSV、チェックポイント。通常のリーグセーブとは独立。
