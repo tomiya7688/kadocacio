@@ -108,6 +108,19 @@ def run_smoke(engine: Path, project: Path, timeout: float, headless: bool) -> in
     ), timeout, ("KADOCALCIO_BOOTSTRAP_READY", "KADOCALCIO_BOOTSTRAP_STOP"))
 
 
+def run_team_checks(engine: Path, project: Path, timeout: float) -> int:
+    from scripts.tools.godot_team_oracle import assert_sources_unchanged, write_oracle
+
+    oracle, fingerprints = write_oracle()
+    try:
+        return run_checked(engine_command(
+            engine, project, "--headless", "--script", "res://tests/team_data_tests.gd",
+            "--", "--oracle", str(oracle),
+        ), timeout, ("KADOCALCIO_TEAM_TESTS:",))
+    finally:
+        assert_sources_unchanged(fingerprints)
+
+
 def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bool) -> int:
     if mode == "run":
         options = ["--headless"] if headless else []
@@ -120,6 +133,9 @@ def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bo
     status = run_checked(engine_command(
         engine, project, "--headless", "--script", "res://tests/run_tests.gd",
     ), timeout, ("KADOCALCIO_TESTS:",))
+    if status:
+        return status
+    status = run_team_checks(engine, project, timeout)
     if status:
         return status
     status = check_error_detection(engine, project, timeout)

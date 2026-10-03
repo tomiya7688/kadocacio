@@ -22,6 +22,48 @@ ver num.num.num
 
 ---
 
+ver 0.7.30
+
+GodotへチームJSONの読込互換とPython参照による差分検査を追加
+
+追加したファイル
+
+- godot/scripts/core/team_contract.gd / json_value.gd / stat_scale.gd
+
+  Python導出の契約、互換スカラー変換、能力換算をNode無しで分離。
+
+- godot/scripts/data/team_definition.gd / player_definition.gd / manager_definition.gd
+
+  元JSONを残したチーム・選手・監督の独立モデル。
+
+- godot/scripts/data/team_data_diagnostic.gd / team_load_result.gd / team_catalog.gd
+
+  診断と読込結果、再帰フォルダの有効チーム一覧。
+
+- godot/scripts/data/team_json_repository.gd / strict_json_reader.gd / team_payload_validator.gd / team_payload_decoder.gd / uniform_decoder.gd
+
+  読み取り専用I/O・厳密JSON解析・検証・変換・ユニフォーム正規化を責務別に分離。
+
+- godot/data/team_contract.json / scripts/tools/godot_team_contract.py
+
+  能力スケール・別名・タイプ・スキル等をPython正本から明示再生成し、差異を検出。
+
+- scripts/tools/godot_team_oracle.py / tests/test_godot_team_data.py / godot/tests/team_data_tests.gd / godot/**/*.gd.uid
+
+  公開チームと境界fixtureのPython/Godot照合、元チーム不変チェックと負の検査。
+
+変更したファイル
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py / .github/workflows/godot-bootstrap.yml
+
+  開発test入口とWindows/Linux CIへ互換照合を接続し、失敗時も元JSONのハッシュを検査。
+
+- godot/README.md / godot/scripts/core/README.md / godot/scripts/data/README.md / doc/Godot移行.md / doc/クラス一覧.md / scripts/tools/CONTEXT.md
+
+  読込API、移行対応、検証境界、クラスの役割と開発地図を更新。
+
+---
+
 ver 0.7.29
 
 Godotの起動基盤と実エンジンによる型検査・ヘッドレス検証を追加
