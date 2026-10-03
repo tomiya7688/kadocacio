@@ -63,5 +63,5 @@ README / SPEC / docs / 全Issueを最初から全読しない。
 
 ## Task Capsule
 
-番号なしの選択は `task_selection.json` に従う。P0の重大バグを除き、依存確認済みのGodot移行Issueを優先し、親・依存待ち・レビュー待ちは除外する。移行作業の最初は #120。
+番号なしの選択は `doc/Issue優先度方針.md` と `task_selection.json` に従う。P0（緊急専用）→P1（優先）→P2（通常・既定）→P3（後回し）→P4（将来）の順。同じ優先度内で依存確認済みGodot移行を優先し、親・依存待ち・レビュー待ちは除外する。
 `start_task.bat [issue-number]` で `context/<issue-number>/` に短い作業入口を生成する。`request.md` は「対象・目的・制約・読むべきファイル・完了条件」の5項目だけで渡せる作業指示、`task.md` は詳細、`files.txt` は推定された候補。Task CapsuleはSource of Truthではなく索引であり、必要なら原Issue・コード・テストへ戻る。

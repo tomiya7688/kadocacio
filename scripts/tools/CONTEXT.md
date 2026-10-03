@@ -48,6 +48,7 @@ Forbidden / avoid:
 - `godot_runner.py`
 - `godot_team_contract.py`
 - `godot_team_oracle.py`
+- `issue_priority.py`
 - `league_evaluation_report.py`
 - `league_evaluation_runner.py`
 - `league_stress_test.py`

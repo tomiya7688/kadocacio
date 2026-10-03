@@ -1,5 +1,4 @@
 {
   "preferred_labels": ["godot-migration"],
-  "excluded_labels": ["tracking", "blocked", "in-review"],
-  "urgent_labels": ["bug"]
+  "excluded_labels": ["tracking", "blocked", "in-review"]
 }

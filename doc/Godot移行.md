@@ -11,7 +11,7 @@
 5. 変更履歴・クラス一覧・作業地図を更新し、コミット・push・PRを作る。検証成功した実装Issueは in-review とし、PRをIssueに関連付ける。完了条件を満たすまではIssueを閉じない。
 6. 次の依存が満たされたか確認し、着手可能な後続だけ blocked を解除して引き継ぐ。親Issue自体を実装タスクとして選ばない。
 
-`task_selection.json` は編集可能な自動選択方針。P0かつbugラベルの重大バグ → godot-migration の着手可能Issue → 通常の P0/P1/P2/P3/優先度なし。同じグループは優先度、Issue番号順。tracking/blocked/in-review は自動対象外。既存のPygame見た目追加や移植を妨げない全体リファクタは後回しにする。
+優先度の正本は [`Issue優先度方針.md`](Issue優先度方針.md)。P0は緊急専用、通常の優先作業はP1、未指定はP2。P0→P1→P2→P3→P4を守り、`task_selection.json` のgodot-migration優先は同じ優先度内だけに適用する。tracking/blocked/in-review は自動対象外。Godot移行の依存待ちはblockedで扱い、待ち時間だけを理由にP4へ落とさない。既存のPygame見た目追加や移植を妨げない全体リファクタは後回しにする。
 
 ## 実装単位
 
