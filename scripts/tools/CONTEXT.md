@@ -46,6 +46,8 @@ Forbidden / avoid:
 - `generate_original_league_teams.py`
 - `git_workflow.py`
 - `godot_runner.py`
+- `godot_team_contract.py`
+- `godot_team_oracle.py`
 - `league_evaluation_report.py`
 - `league_evaluation_runner.py`
 - `league_stress_test.py`
