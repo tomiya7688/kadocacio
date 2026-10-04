@@ -113,7 +113,7 @@ class GodotRunnerTests(unittest.TestCase):
             self.assertEqual(runner.execute("smoke", Path("engine"), Path("project"), 5, False), 8)
             smoke.assert_called_once()
         for test_status, negative_status in ((1, 0), (0, 1), (0, 0)):
-            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "run_match_checks", return_value=0), patch.object(runner, "run_kernel_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
+            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "run_match_checks", return_value=0), patch.object(runner, "run_kernel_checks", return_value=0), patch.object(runner, "run_ball_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
                 self.assertEqual(runner.execute("test", Path("engine"), Path("project"), 5, False), test_status or negative_status)
                 self.assertEqual(negative.called, not test_status)
                 self.assertEqual(smoke.called, not (test_status or negative_status))

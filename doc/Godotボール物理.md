@@ -1,0 +1,68 @@
+# Godotボール物理（#125）
+
+対象は [#125](https://github.com/tomiya7688/kadocacio/issues/125)。現在のPython `Match` の自由ボール弾道・境界検出と接触候補を、[#124の試合核](Godot試合核.md)へ接続する。通常入口はPythonのまま。**選手AI・接触の成否・得点の確定・再開進行を移したものではない**。
+
+## 参照対応と責務
+
+| Python参照 | Node無しのGodot | 責務 |
+|---|---|---|
+| `Ball` | `BallState` | x/y/z位置・速度、保持者/最終接触/受取先、曲がり・回転・ミス・回収情報 |
+| `Match.update_loose_ball` の運動部分 | `BallFlightSystem` | 自由ボールの固定ステップ積分・減速・重力・バウンド |
+| 同関数のポスト/ゴール/場外部分 | `BallBoundarySystem` | 検出順を維持した判定とポスト反射 |
+| `handle_goal` / 再開入口へ渡す情報 | `BallBoundaryEvent` | 検出種別・チーム・再開地点。得点/再開の確定処理は持たない |
+| `keeper_can_use_hands` / 接触の距離・高さ・順序 | `BallContactQuery` | 手の使用可否と接触候補の列挙。成否を推定しない |
+| 接触候補一件 | `BallContactCandidate` | 選手・種別・距離・到達半径・手の可否・安定順 |
+| `reset_positions` / `change_owner` のボール状態変更、`release_ball_from_knockback` | `BallPossessionSystem` | 所有/飛行状態の初期化・取得・タックルこぼれ球。行動判断/スタミナは別責務 |
+| `update_loose_ball` の段階接続 | `BallSimulationSystem` | 弾道→GKセーブ候補→境界→通常接触の順で処理 |
+| ボールの詳細観測 | `BallObservation` | 状態参照を持たないJSON値の明示取得 |
+
+各クラスはRefCounted、座標は倍精度 `SimulationCoordinate`。Node・描画・Pygame・ファイル入出力は演算に含めない。毎tickのJSON出力は行わない。寸法・重力・接触範囲は `godot_match_contract --write` でPython定数から導出し、別の設定値を作らない。
+
+## 維持した物理・境界ルール
+
+- 保持中は自由ボールを更新しない。非保持時の拾い直し/回収タイマー、横方向の曲がり・曲線ベクトルの減衰、ナックルの横揺れを参照と同じ順で更新する。新しい乱数は消費しない。
+- 位置を速度で積分した後、垂直速度へ重力を適用する。着地時はzを0へ戻し、垂直速度が-48未満なら0.38倍で反発し平面速度を0.90倍、それ以外は垂直速度0。
+- 平面速度の減衰は `drag ** dt`。地上は速度120超で0.72、それ以外0.80、空中は90超で0.958、それ以外0.972。パスブレーキは0..1へクランプし、地上0.14/空中0.014をdragから引く。地上で速度7未満は停止。
+- ポスト→ゴール→タッチライン→ゴールライン外の順。ゴールラインを**厳密に越えた**とき、幅/高さは等号を含めてゴール検出する。角を同時に越えた場合もこの順を維持する。
+- 現行の`POST`判定はシュート結果フラグを使う離散判定。高い/横に外れた球でもフラグとライン越えで反射する既存挙動を維持し、新しい円柱ポストや連続衝突判定へ置き換えない。左右、バー/幅の等号と直外側を回帰検査する。
+- タッチラインは最後に接触していない側のスロー。ゴールライン外は守備側の最終接触なら攻撃側コーナー、それ以外は守備側ゴールキック。最終接触なしの既定側/地点もPythonに合わせる。
+- タックルこぼれ球は保持を解放し、最終接触・拾い直しロック・回収側と1.25秒の優先時間を更新する。保持者の保留キックだけを取り消す。方向は呼出側が正規化済みの平面方向、選手速度は実際の移動速度を渡す。
+
+`claim` はボール側の取得効果だけ。Pythonの `change_owner` に含まれる戦術状態・判断タイマー・スキル・スタミナ等は後続へ分ける。キック生成は#127、移動/疲労/ジャンプ/衝突は#126の担当。
+
+## 接触と未移行処理の境界
+
+通常接触は退場者除外、最終接触者の拾い直しロック、回収チーム優先、距離、同距離時のHOME→AWAY/ロスター順を維持する。空中の接触半径は有効ジャンプ精度を使う。`PlayerState.contact_jump_accuracy` は初期値のみ正規化能力で設定し、**#126で各更新時の疲労補正済み値へ更新する**。今回の参照fixtureはPythonの実 `effective_stat` を候補入力へ渡し、疲労式を二重実装しない。
+
+GKは自陣ペナルティエリア内だけ手を使え、味方の明示受取先/パス・スロー等のバックパスでは足だけ。範囲の等号、手/足の高さ、空中到達高を検査する。高速シュートの通常接触はセーブ判定済みとして二重処理しない。
+
+`save_candidate` は守護系スキルの最大候補範囲（50×表示倍率・高さ88×表示倍率）まで含める**保守的な接続点**。この範囲に入れば実際にセーブできるという意味ではない。実際の半径・読み・キャッチ/弾き・スキル・成功確率は#128/#134のresolverが決める。選手ヘディング/トラップの成否も#128に残す。
+
+```gdscript
+var system: BallSimulationSystem = BallSimulationSystem.new()
+# save/touchはRefCountedのメソッド。
+# (state: MatchState, candidate: BallContactCandidate, rng: ObservedMatchRandom) -> bool
+# trueなら接触処理済み、falseなら次の判定を続行。
+system.connect_contacts(contact_rules.save, contact_rules.touch)
+kernel.register_system("ball", system.update)
+```
+
+Callableの受信者は強参照で保持する。接触resolverが未接続なら `MatchState.ball_contact`、得点/場外なら `ball_boundary` に検出情報を保持する。**未解決のまま次のSTEPは状態・時計を変更せず拒否**する。#129で正しい確定/再開処理を行ってから解除する。ポスト反射はこの単位で完結するので待ち情報を残さない。検出だけでスコアを加算したり、試合結果を生成したりしない。
+
+詳細観測は `kernel.observe_ball()` の `{ball, boundary, contact}`。既存v1のHUD用 `observe()` を置換しない。ボール位置/速度xyz、所有/受取/最終接触の選手ID、飛行/シュート連番、曲がり/回転、ミス/ブレーキ、回収側等を独立コピーで取得する。連番は数値許容差を認めず比較する。
+
+## 実参照検証と限界
+
+```powershell
+.venv\Scripts\python.exe -m scripts.tools.godot_match_contract
+.venv\Scripts\python.exe -m scripts.tools.godot_ball_fixture
+.\run_godot.bat test
+```
+
+公開2チームから作った64ケースで、**Pythonの実 `Match.update_loose_ball`** を最大0.05秒ずつ実行する。低速/高速/浮き球/曲球/ナックル、着地/停止、所有/こぼれ球、左右のゴール/ポスト/場外、接触順/回収/ロック、GK手/足/バックパス/高さを含む。各tickの位置/速度・連番・検出tick/チーム/地点をGodotと比較するので、着地/到達時刻と着地点も同じtick列で検査する。数値差は既存v1の位置/速度1e-3・その他1e-8等、検出tick・種別・IDは厳密一致。
+
+oracleの差し替え箇所は明示的に限定する: GKセーブはfalse、接触成否用乱数は0、スキルを無効化、直接パス候補なし、監督変更なし、最初の接触を所有変更直前で捕捉、得点/再開進行を検出時に捕捉。したがって**接触成功率・技能・AI・再開の互換試験ではない**。原本チームのSHA-256を成功/失敗時とも検査し、私有チーム/実セーブは使用しない。
+
+実Godotでは同じcase入力から新しい状態を作り、同じ弾道処理を直接tick供給および30/60/120Hz×全6倍速で照合する。テスト専用の選手/判断noopは未移行の接続検査用で本番へ使わない。未接続セーブ/接触/ゴールによる進行拒否、取得/こぼれ球、観測取得時のRNG不消費も検査する。Windows/Linux CIの実エンジン入口へ接続する。
+
+ログは `user_data/logs/godot/ball_physics/{fixture,diff}.json`。ネイティブtraceは新しい一時ファイルで照合し、後片付けする。レポートは実行の `execution: simulation` と **`kernel_parity: not_evaluated`** を併記し、隔離したボールルールの一致を全90分試合/AI/技能/旧セーブ/90会場性能の互換認定にしない。次は#126、その後に#127/#128を接続する。

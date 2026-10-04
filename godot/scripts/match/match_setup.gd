@@ -34,6 +34,8 @@ static func reset_positions(state: MatchState, kickoff_team: TeamState, rng: Obs
 	state.restart.clear()
 	state.throw_in.clear()
 	state.pending_kick.clear()
+	state.ball_boundary = null
+	state.ball_contact = null
 	for team: TeamState in [state.home, state.away]:
 		for player: PlayerState in team.players:
 			player.reset_position(rng)
@@ -61,6 +63,8 @@ static func reset_positions(state: MatchState, kickoff_team: TeamState, rng: Obs
 	owner.command = "KEEP_BALL"
 	state.ball.position.set_values(center_x, center_y, 4.0)
 	state.ball.velocity.set_values(0, 0)
+	BallPossessionSystem.reset_flight(state.ball, center_x, center_y)
 	state.ball.owner = owner
 	state.ball.last_touch = owner
 	state.ball.control_offset = kickoff_team.direction * 10.0
+	state.ball.control_offset_y = 0.0

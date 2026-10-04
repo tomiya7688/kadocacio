@@ -35,7 +35,7 @@ var driver: FixedStepDriver = FixedStepDriver.new(kernel)
 
 選手・判断・ボールの3段階を `register_system("players"|"decisions"|"ball", callable)` で接続する。シグネチャは `(state: MatchState, dt: float, rng: ObservedMatchRandom) -> void`。受信側はRefCountedでNode不可、カーネルが強参照を保持する。更新順序は3段階の順に固定。後続の演算クラスをここへ接続し、別の簡易試合エンジンを作らない。
 
-現在はキックオフの表示待ちだけ実行可能。通常プレイまたは再開準備のSTEPには3段階すべてを要求し、欠ければ**状態・時計を変更せず拒否**する。テスト専用 `KernelStepProbe` は規定の座標/判断を更新して呼出回数を検査するもので、本番の物理/AI代用品ではない。得点・反則・結果集計が未移行なので、基盤テストがFULLTIMEに到達しても `result` はnull。偽の0-0完走を返さない。
+通常入口ではキックオフの表示待ちだけ実行可能。通常プレイまたは再開準備のSTEPには3段階すべてを要求し、欠ければ**状態・時計を変更せず拒否**する。#125の実ボール処理は登録できるが、選手/判断の本体は未移行。未解決のボール接触/境界があるSTEPも更新前に拒否する。テスト専用 `KernelStepProbe` は規定の座標/判断を更新して呼出回数を検査するもので、本番の物理/AI代用品ではない。得点確定・反則・結果集計が未移行なので、基盤テストがFULLTIMEに到達しても `result` はnull。偽の0-0完走を返さない。
 
 ## 固定更新と時計
 
@@ -71,4 +71,4 @@ Python側は `MatchSession(..., rng_factory=MatchRandomAudit)` で開発用監�
 
 保存出力は `user_data/logs/godot/match_kernel/{fixture,diff}.json`。ネイティブtraceは毎回新しい一時出力を使い、照合後に片付ける。`execution: simulation` は基盤を実行した意味、`scope: simulation_observations` はこの短い観測の一致。**`kernel_parity: not_evaluated` は維持**し、50tickの一致を全試合・AI・セーブ・90会場性能の互換認定にしない。Windows/Linux CIは同じ実エンジン入口を使用する。
 
-次は #125 の弾道/境界/ゴールと #126 の移動/スタミナ/ジャンプ/フィジカルを、この状態/固定更新/乱数へ接続する。
+#125の弾道/境界/接触候補の接続は [`Godotボール物理.md`](Godotボール物理.md)。次は #126 の移動/スタミナ/ジャンプ/フィジカルを、この状態/固定更新/乱数へ接続する。接触の成否は#128、得点確定と再開は#129へ残す。

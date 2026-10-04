@@ -22,6 +22,52 @@ ver num.num.num
 
 ---
 
+ver 0.7.35
+
+Godotへ自由ボールの物理・境界・接触候補を分離移植し実Python弾道と照合
+
+追加したファイル
+
+- godot/scripts/match/{ball_flight_system,ball_boundary_event,ball_boundary_system,ball_contact_candidate,ball_contact_query,ball_possession_system,ball_observation,ball_simulation_system}.gd と各 .gd.uid
+
+  減速/重力/バウンド/曲球、ポスト/ゴール/場外、接触候補/所有解除/詳細観測と更新順を一責務ずつ実装。
+
+- godot/tests/ball_physics_tests.gd / godot/tests/fixtures/ball_rule_probe.gd と各 .gd.uid
+
+  実参照64ケース・30/60/120Hz×全倍速・未移行処理での進行拒否を実エンジンで検査。
+
+- scripts/tools/godot_ball_fixture.py / tests/test_godot_ball_physics.py
+
+  公開チームの実Matchから弾道/境界/接触候補を捕捉し、隔離箇所・原本保持・失敗分岐を検査。
+
+- doc/Godotボール物理.md
+
+  参照対応・resolver接続・現行離散判定と未移行の接触成否/技能/再開の境界を記録。
+
+変更したファイル
+
+- godot/scripts/match/{ball_state,player_state,match_state,match_setup,match_kernel}.gd
+
+  飛行/所有/回収情報と有効接触精度・保留情報を保持し、未解決の接触/境界による時計単独進行を拒否。
+
+- scripts/core/match_protocol.py / scripts/tools/godot_match_contract.py / godot/data/match_contract.json
+
+  飛行/シュート連番の厳密比較とPython由来のボール/ゴール/接触定数を導出。
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py / .github/workflows/godot-bootstrap.yml
+
+  実Godotのボール演算照合を既存検証入口とWindows/Linux CIへ接続。
+
+- AGENTS.md / godot/README.md / doc/{Godot移行,Godot試合核,クラス一覧}.md
+
+  クラス責務・検証範囲・後続依存を更新。Python通常入口/判定とチーム/セーブは変更せず、全試合互換は未評価。
+
+- scripts/tools/CONTEXT.md
+
+  実ボールルールfixture生成の開発地図を再生成。
+
+---
+
 ver 0.7.34
 
 Godotへ描画非依存の試合状態・固定更新・整数seed互換乱数の基盤を追加

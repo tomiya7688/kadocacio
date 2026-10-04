@@ -39,7 +39,9 @@
     "rng_index",
     "word_before",
     "word_after",
-    "bit_value"
+    "bit_value",
+    "flight_serial",
+    "shot_serial"
   ],
   "tolerances": {
     "position": 0.001,
@@ -149,5 +151,15 @@
     "match_seconds": 5400,
     "stamina_base": 70.0,
     "stamina_span": 130.0
+  },
+  "ball_rules": {
+    "gravity": 320.0,
+    "goal_height": 82,
+    "goal_half_width": 76,
+    "visual_scale": 0.72,
+    "outfield_reach": 10.08,
+    "keeper_reach": 12.959999999999999,
+    "penalty_depth": 400,
+    "penalty_width": 760
   }
 }

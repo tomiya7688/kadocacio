@@ -173,6 +173,14 @@ def run_native_trace_check(engine: Path, project: Path, timeout: float, fixture:
         assert_sources_unchanged(fingerprints)
 
 
+def run_ball_checks(engine: Path, project: Path, timeout: float) -> int:
+    from scripts.tools.godot_ball_fixture import write_ball_fixture
+
+    fixture, fingerprints = write_ball_fixture()
+    return run_native_trace_check(engine, project, timeout, fixture, fingerprints,
+                                  "ball_physics_tests.gd", "KADOCALCIO_BALL_TESTS:")
+
+
 def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bool) -> int:
     if mode == "run":
         options = ["--headless"] if headless else []
@@ -194,6 +202,9 @@ def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bo
     if status:
         return status
     status = run_kernel_checks(engine, project, timeout)
+    if status:
+        return status
+    status = run_ball_checks(engine, project, timeout)
     if status:
         return status
     status = check_error_detection(engine, project, timeout)

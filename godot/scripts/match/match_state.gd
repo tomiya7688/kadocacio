@@ -16,6 +16,8 @@ var ai_rethink_multiplier: float
 var restart: Dictionary = {}
 var throw_in: Dictionary = {}
 var pending_kick: Dictionary = {}
+var ball_boundary: BallBoundaryEvent = null
+var ball_contact: BallContactCandidate = null
 var foul_count: int = 0
 var card_count: int = 0
 var restart_counts: Dictionary = {"THROW_IN": 0, "FREE_KICK": 0, "PENALTY_KICK": 0, "GOAL_KICK": 0, "CORNER_KICK": 0}
