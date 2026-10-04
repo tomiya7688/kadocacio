@@ -7,12 +7,17 @@ from pathlib import Path
 from scripts.core.match_protocol import protocol_definition
 from scripts.core.paths import PROJECT_ROOT
 from scripts.match.player_command import PlayerCommand
+from scripts.core.settings import FIELD, GAME_CLOCK_RATE, MATCH_SECONDS
+from scripts.match.stamina_system import stamina_capacity
 
 CONTRACT_PATH = PROJECT_ROOT / "godot/data/match_contract.json"
 
 
 def contract_text() -> str:
-    return json.dumps({**protocol_definition(), "player_commands": {command.name: command.value for command in PlayerCommand}}, ensure_ascii=False, indent=2) + "\n"
+    return json.dumps({**protocol_definition(), "player_commands": {command.name: command.value for command in PlayerCommand},
+                       "kernel": {"field": [FIELD.left, FIELD.top, FIELD.width, FIELD.height],
+                                  "clock_rate": GAME_CLOCK_RATE, "match_seconds": MATCH_SECONDS,
+                                  "stamina_base": stamina_capacity(0.0), "stamina_span": stamina_capacity(1.0) - stamina_capacity(0.0)}}, ensure_ascii=False, indent=2) + "\n"
 
 
 def check_contract(path: Path = CONTRACT_PATH) -> bool:

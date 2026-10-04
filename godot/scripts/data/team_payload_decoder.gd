@@ -78,6 +78,15 @@ static func _manager_stat(info: Dictionary, key: String, fallback: float, bounds
 	return clampf(unit, 0.0, 1.0)
 
 
+static func decode_record(record: Dictionary, team_loyalty: float) -> PlayerDefinition:
+	# Choice records already use current-scale canonical raw parameters.
+	var player: PlayerDefinition = _player(record["raw"] as Dictionary, StatScale.current_bounds(), team_loyalty, record["number"] as int)
+	player.name = record["name"] as String
+	player.number = record["number"] as int
+	player.slot = (record["slot"] as Array).duplicate()
+	return player
+
+
 static func _player(source: Dictionary, bounds: Array[float], team_loyalty: float, default_number: int) -> PlayerDefinition:
 	var player: PlayerDefinition = PlayerDefinition.new()
 	player.raw = canonical_keys(source)

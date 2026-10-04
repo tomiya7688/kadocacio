@@ -189,11 +189,14 @@ class Match:
         ai_rethink_multiplier: float = 1.0,
         seed: int | None = None,
         record_events: bool = False,
+        rng_factory=None,
     ) -> None:
         if home_choice is None or away_choice is None:
             raise ValueError("Match requires two preloaded team choices")
         self.seed = int(seed) if seed is not None else None
-        self.rng = random.Random(self.seed)
+        # Optional dependency injection is for migration audits only; ordinary
+        # matches keep the same Random construction and consumption order.
+        self.rng = random.Random(self.seed) if rng_factory is None else rng_factory(self.seed)
         # Only tactical replanning frequency changes between headless league
         # modes. Movement, ball physics, contacts and the game clock stay 20 Hz.
         self.ai_rethink_multiplier = clamp(float(ai_rethink_multiplier), 0.5, 3.0)

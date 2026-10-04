@@ -13,6 +13,7 @@ OPERATION_KINDS = ("START", "STEP", "SET_SPEED", "PAUSE", "RESUME")
 EXACT_NUMBERS = ("step", "operation_index", "sequence", "number", "direction",
                  "score", "shots", "home_score", "away_score", "home_shots", "away_shots",
                  "speed_multiplier", "foul_count", "card_count")
+EXACT_NUMBERS += ("rng_word_count", "rng_words", "rng_index", "word_before", "word_after", "bit_value")
 TOLERANCES = {"position": 1e-3, "velocity": 1e-3, "target": 1e-3, "spot": 1e-3,
               "target_point": 1e-3, "stamina": 1e-6, "default": 1e-8, "relative": 1e-9}
 

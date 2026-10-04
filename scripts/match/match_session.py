@@ -9,11 +9,11 @@ from scripts.match.match_observation import MatchObservation
 
 
 class MatchSession:
-    def __init__(self, home: dict, away: dict, *, seed: int, venue_mode: str, ai_rethink_multiplier: float, max_steps: int):
+    def __init__(self, home: dict, away: dict, *, seed: int, venue_mode: str, ai_rethink_multiplier: float, max_steps: int, rng_factory=None):
         if type(seed) is not int or type(max_steps) is not int or max_steps < 1:
             raise ValueError("explicit integer seed and positive step budget are required")
         self._match = Match(deepcopy(home), deepcopy(away), venue_mode, seed=seed,
-                            ai_rethink_multiplier=ai_rethink_multiplier, record_events=True)
+                            ai_rethink_multiplier=ai_rethink_multiplier, record_events=True, rng_factory=rng_factory)
         self._started = False
         self._paused = False
         self._steps = 0
