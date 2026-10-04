@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/app/migration_notice_view.gd" id="1"]
+
+[node name="LeagueStart" type="Control"]
+script = ExtResource("1")
+heading = "リーグ戦を開始"
+explanation = "リーグ開始・保存のGodot版は #136 で移行予定です。現在のリーグセーブは読み書きしません。"

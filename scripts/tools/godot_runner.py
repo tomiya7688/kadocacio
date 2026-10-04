@@ -121,6 +121,19 @@ def run_team_checks(engine: Path, project: Path, timeout: float) -> int:
         assert_sources_unchanged(fingerprints)
 
 
+def run_ui_checks(engine: Path, project: Path, timeout: float, headless: bool) -> int:
+    from scripts.tools.godot_ui_contract import check_contract
+
+    if not check_contract():
+        print("FAIL: stale Godot UI contract; regenerate explicitly with --write")
+        return 1
+    options = ["--headless"] if headless else ["--windowed", "--audio-driver", "Dummy"]
+    arguments = [] if headless else ["--", "--ui-window-test"]
+    return run_checked(engine_command(
+        engine, project, *options, "--script", "res://tests/run_tests.gd", *arguments,
+    ), timeout, ("KADOCALCIO_TESTS:",))
+
+
 def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bool) -> int:
     if mode == "run":
         options = ["--headless"] if headless else []
@@ -128,11 +141,11 @@ def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bo
     status = check_scripts(engine, project, timeout)
     if status or mode == "check":
         return status
+    if mode == "ui-test":
+        return run_ui_checks(engine, project, timeout, headless)
     if mode == "smoke":
         return run_smoke(engine, project, timeout, headless)
-    status = run_checked(engine_command(
-        engine, project, "--headless", "--script", "res://tests/run_tests.gd",
-    ), timeout, ("KADOCALCIO_TESTS:",))
+    status = run_ui_checks(engine, project, timeout, True)
     if status:
         return status
     status = run_team_checks(engine, project, timeout)
@@ -151,9 +164,9 @@ def positive_timeout(value: str) -> float:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", nargs="?", default="run", choices=("run", "check", "test", "smoke"))
+    parser.add_argument("mode", nargs="?", default="run", choices=("run", "check", "test", "smoke", "ui-test"))
     parser.add_argument("--engine", help="Pinned Godot executable (or set GODOT_BIN)")
-    parser.add_argument("--headless", action="store_true", help="Run/smoke without a window; tests always headless")
+    parser.add_argument("--headless", action="store_true", help="Run/smoke/ui-test without a window; test is always headless")
     parser.add_argument("--timeout", type=positive_timeout, default=60.0, help="Per-check timeout, not normal gameplay")
     args = parser.parse_args(argv)
     try:

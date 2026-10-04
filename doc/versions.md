@@ -22,6 +22,72 @@ ver num.num.num
 
 ---
 
+ver 0.7.32
+
+Godotへメインメニュー・設定・チーム/会場選択を移行
+
+追加したファイル
+
+- godot/scenes/app/{main_menu,league_start,league_editor,team_editor,match_test}.tscn
+
+  入口を個別Controlシーンへ分割し、未実装の機能は移行待ちと明示。
+
+- godot/scripts/app/{main_menu_view,match_test_view,migration_notice_view,team_picker,settings_overlay}.gd と各 .gd.uid
+
+  ルート・両チーム/会場・検索/長文閲覧・設定入力を責務別に実装。
+
+- godot/scripts/app/{menu_theme,ui_layout,window_preferences_controller}.gd と各 .gd.uid
+
+  共通外観と部品、16:9の画面サイズ/全画面操作を分離。
+
+- godot/scripts/core/{ui_contract,ui_preferences}.gd と各 .gd.uid
+
+  Python由来のUI契約と設定希望値モデルを追加。
+
+- godot/scripts/data/{migration_paths,ui_preferences_repository}.gd と各 .gd.uid
+
+  データ位置とGodot専用設定JSONの読み書きを分離し、既存ゲームデータを保護。
+
+- godot/data/ui_contract.json
+
+  CPU枠・裏試合モード・画面サイズのPython正本由来の導出契約。
+
+- scripts/tools/godot_ui_contract.py
+
+  UI契約の明示生成と鮮度検査。
+
+- tests/test_godot_ui_contract.py
+
+  正本との一致・未作成/古い契約・明示生成を検査。
+
+変更したファイル
+
+- godot/scripts/app/bootstrap.gd / godot/scenes/app/bootstrap.tscn
+
+  メニュー遷移・設定の背面入力遮断・IME中のキー保護を仲介。
+
+- godot/project.godot
+
+  正式タイトルと最小960×540の画面を設定。
+
+- godot/tests/run_tests.gd
+
+  隔離fixtureでUI操作・設定保存・入力・長文と表示寸法を実エンジン検査。
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  ui-test入口と契約鮮度の失敗検出を追加。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linux仮想表示のネイティブUI操作検査を追加。
+
+- godot/README.md / doc/Godot移行.md / doc/クラス一覧.md / AGENTS.md / scripts/tools/CONTEXT.md
+
+  移行対応・実適用/保存のみの境界・確認手順と作業地図を更新。
+
+---
+
 ver 0.7.31
 
 Issue優先度を緊急専用P0から将来予定P4まで整理
