@@ -8,6 +8,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - 正式プロジェクト: 現在のGitルート。この環境では `E:\projects\kadocacio`（古いCドライブの同名コピーへ作業しない）。
 - Python: `.venv\Scripts\python.exe`
 - Godot開発入口: `godot/README.md`、`run_godot.bat [run|check|test|smoke|ui-test]`。`GODOT_BIN`または`--engine`で `godot/engine_version.txt` の固定版を指定。入口・設定・チーム/会場選択はGodot、試合核/エディタ本体は未移行。通常プレイ入口はまだPython。
+- Godot試合境界: `doc/試合境界契約.md`、`scripts/core/match_protocol.py` が正本。`godot_match_contract --write` で定義を導出、`godot_runner test` で公開fixtureの読込/差分を検証。観測再出力は演算互換の証明ではない。
 - 起動: `run_game.bat` または `.venv\Scripts\python.exe main.py`
 - 作業開始: リモートをfetchしてPRの依存順を確認し、`start_task.bat [ISSUE_NUMBER]`。番号指定時はそのIssue、未指定時は `task_selection.json` の方針で着手可能なopen Issueを1件だけ選び、`context/<issue>/`へTask Capsuleを生成する。
 - Issue一覧本文を広く読まず、`start_task.bat` が選んだ1件と生成されたTask Capsuleから開始する。

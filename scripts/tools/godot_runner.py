@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -134,6 +135,29 @@ def run_ui_checks(engine: Path, project: Path, timeout: float, headless: bool) -
     ), timeout, ("KADOCALCIO_TESTS:",))
 
 
+def run_match_checks(engine: Path, project: Path, timeout: float) -> int:
+    from scripts.core.match_trace_comparison import compare_traces
+    from scripts.tools.godot_match_fixture import write_fixture
+    from scripts.tools.godot_team_oracle import assert_sources_unchanged
+
+    fixture, fingerprints = write_fixture()
+    try:
+        with tempfile.TemporaryDirectory(prefix="native-", dir=fixture.parent) as temporary:
+            native = Path(temporary) / "trace.json"
+            status = run_checked(engine_command(
+                engine, project, "--headless", "--script", "res://tests/match_contract_tests.gd",
+                "--", "--fixture", str(fixture), "--output", str(native),
+            ), timeout, ("KADOCALCIO_MATCH_CONTRACT_TESTS:",))
+            if status:
+                return status
+            report = compare_traces(json.loads(fixture.read_text(encoding="utf-8"))["reference"], json.loads(native.read_text(encoding="utf-8")))
+            (fixture.parent / "diff.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
+            print("MATCH CONTRACT ROUNDTRIP: PASS" if report["same_observations"] else "MATCH CONTRACT ROUNDTRIP: DIFFER")
+            return 0 if report["same_observations"] else 1
+    finally:
+        assert_sources_unchanged(fingerprints)
+
+
 def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bool) -> int:
     if mode == "run":
         options = ["--headless"] if headless else []
@@ -149,6 +173,9 @@ def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bo
     if status:
         return status
     status = run_team_checks(engine, project, timeout)
+    if status:
+        return status
+    status = run_match_checks(engine, project, timeout)
     if status:
         return status
     status = check_error_detection(engine, project, timeout)

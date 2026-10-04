@@ -1,6 +1,6 @@
 # Godot移行基盤
 
-#120 の起動/検証入口、#121 のチームJSON読込、#122 のメニュー・設定・チーム/会場選択。**まだ試合をプレイできません**。通常入口 `run_game.bat` と Python/Pygame は変更していません。
+#120 の起動/検証入口、#121 のチームJSON読込、#122 のメニュー・設定・チーム/会場選択、#123 の操作/観測/差分境界。**まだ試合をプレイできません**。通常入口 `run_game.bat` と Python/Pygame は変更していません。
 
 ## エンジンと起動
 
@@ -42,6 +42,7 @@ Pythonを使わず直接起動することも可能: `& $env:GODOT_BIN --path go
 | `scripts/team/uniform_data.py` | `scripts/data/uniform_decoder.gd` | 画素パーツの正規化。元の未知項目は原本コピーで保持 |
 | `scripts/match/player.py` / `player_style_system.py` / `skill_system.py` | `scripts/data/player_definition.gd` / `manager_definition.gd` | 能力・監督・タイプ・スキルの入力のみ。行動AIとスキル効果は未移行 |
 | `scripts/match/` | `scripts/match/` | Node無しの同一演算核。まだ演算・3D試合表示なし |
+| `match_session.py` / `match_observation.py` / `match_trace_comparison.py` | `match_input_record.gd` / `match_trace_record.gd` / `match_trace_comparison.gd` | 共通入力・独立観測・最初の差分。Godotは観測の読込/再出力まで |
 | `tests/` / `scripts/tools/godot_team_oracle.py` | `tests/run_tests.gd` / `tests/team_data_tests.gd` | 実Godotで検査。Python側テストは参照fixture生成とラッパーの失敗分岐を検査 |
 
 `godot/.godot/` は生成キャッシュで非公開。`.gd.uid`はGodotの参照IDとして管理する。異常fixtureは `.gd.txt` で格納し、通常importへ混入させない。負の試験時だけ `user_data/logs/godot/` の一時 `.gd` にコピーして実行し、終了時に片付ける。
@@ -88,3 +89,17 @@ CPU演算枠はOS全体への使用率制限ではありません。試合核は
 ```
 
 入力は独自の文字蓄積ではなくGodotのLineEdit/SpinBoxを使用します。IME合成中のEsc/F11を奪わないよう、[LineEditのhas_ime_text](https://docs.godotengine.org/en/stable/classes/class_lineedit.html#class-lineedit-method-has-ime-text)で判別します。確定日本語の挿入・カーソル・キーリピート削除、Tab/Enter/Escとクリック、設定保存は自動操作で検証します。OSの実IME変換候補ウィンドウ・未確定文字の操作は手動確認が必要で、これらの自動試験だけでIME全体の動作確認とはしません。
+
+## 試合境界と差分検証（#123）
+
+契約/API/精度/乱数の正本は [`doc/試合境界契約.md`](../doc/試合境界契約.md)。`MatchInputRecord` / `MatchTraceRecord` は検証済みの独立コピーを返し、`MatchTraceComparison` は最初の操作順・実更新step・状態/イベント/結果の差分を計算します。UIへ可変なMatch内部を渡すための仕組みではありません。
+
+```powershell
+.venv\Scripts\python.exe -m scripts.tools.godot_match_contract --write
+.venv\Scripts\python.exe -m scripts.tools.godot_match_contract
+.\run_godot.bat test
+```
+
+公開2チームの短いPython実試合を `user_data/logs/godot/match_contract/fixture.json` に生成し、実Godotの読み取り/再出力と差分期待値を照合します。旧repro入力・結果・イベントAPIを変更せず、teams原本を成功/失敗時にも照合します。不正入力/不正観測・時計/得点/所有者/再開/選手コマンド/位置許容差/イベントの差分を検査します。
+
+Godot出力は `execution: contract_roundtrip`、差分レポートは `kernel_parity: not_evaluated`。Godotの試合演算は未実装で、同じseedだけで別RNGの互換を仮定しません。固定ステップ核・乱数交換点は #124 以降です。今回の検査を試合結果・旧セーブ・90試合性能の互換試験として報告しないでください。
