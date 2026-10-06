@@ -20,6 +20,10 @@ from scripts.core.settings import (
 )
 
 
+# {
+#   責務: [RendererMixin: ホストの状態をPython版の試合・画面表示へ投影する]
+#   フィールド: [screen: ホスト提供の描画先; 各view: 専用画面の表示責務; 各button領域: 描画と入力で共有する論理座標]
+# }
 class RendererMixin(LeagueRendererMixin):
     """Pygame projection and drawing methods used by Game."""
 
@@ -75,6 +79,12 @@ class RendererMixin(LeagueRendererMixin):
             pygame.draw.rect(self.screen, (183, 180, 168), button, 2, border_radius=7)
             self.text(label, 10, INK, button.center, bold=True, center=True)
 
+    # {
+    #   責務: [draw_settings_button: 共通設定の入口をhover状態付きで描画する]
+    #   処理: [1: クリック領域を記録; 2: マウス状態に合う色と案内を描画]
+    #   引数: [rect: 論理画面内の設定入口領域]
+    #   戻り値: [None: 描画と設定ボタン領域を更新]
+    # }
     def draw_settings_button(self, rect: pygame.Rect) -> None:
         self.settings_button = rect
         hover = rect.collidepoint(self.logical_mouse_pos())
@@ -83,6 +93,12 @@ class RendererMixin(LeagueRendererMixin):
         pygame.draw.rect(self.screen, ACCENT if hover else BORDER, rect, 1, border_radius=8)
         self.text("ESC　設定", 14, TEXT, rect.center, bold=True, center=True)
 
+    # {
+    #   責務: [draw_settings_modal: 共通設定の専用ビューへ描画を委譲する]
+    #   処理: [1: ホストをSettingsViewへ渡す]
+    #   引数: []
+    #   戻り値: [None: 設定表示を更新。保存責務はホスト側]
+    # }
     def draw_settings_modal(self) -> None:
         self.settings_view.draw(self)
 
@@ -582,6 +598,12 @@ class RendererMixin(LeagueRendererMixin):
     def draw_player_list(self) -> None:
         self.player_status_view.draw(self)
 
+    # {
+    #   責務: [draw_other_matches: 他会場速報の専用ビューへ描画を委譲する]
+    #   処理: [1: ホストをOtherMatchesViewへ渡す]
+    #   引数: []
+    #   戻り値: [None: 速報を表示。各会場の演算と時計は変更しない]
+    # }
     def draw_other_matches(self) -> None:
         self.other_matches_view.draw(self)
 

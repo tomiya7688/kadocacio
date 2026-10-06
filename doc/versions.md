@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.37
+
+差し戻されたPR #112（設定UI #118を含む）の全変更宣言に指定形式の説明を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/app/{game_app,rendering,other_matches_view,settings_view}.py / scripts/league/league_live_view.py
+
+  画面ホスト・速報・設定・結果合成の責務、主要状態、処理順と入出力を宣言直前に記録。
+
+- tests/{test_other_matches_view,test_settings_view,test_league_live_view,test_main_menu}.py
+
+  変更した試験と入れ子関数に、隔離する状態・観測内容・失敗条件を記録。
+
+---
+
 ver 0.7.27
 
 共通設定を読みやすい統一UIへ整理し、説明の見切れとキーボード操作の不足を解消

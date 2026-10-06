@@ -19,9 +19,19 @@ QUALITY_PANEL = pygame.Rect(224, 264, 832, 170)
 DISPLAY_PANEL = pygame.Rect(224, 446, 832, 138)
 
 
+# {
+#   責務: [SettingsView: 共通設定の描画とキーボード焦点を同じ操作配置で提供する]
+#   フィールド: []
+# }
 class SettingsView:
     """Display bounded settings controls with a single mouse/keyboard layout."""
 
+    # {
+    #   責務: [buttons: 状況に応じて表示と入力で共用する設定操作領域を生成する]
+    #   処理: [1: CPU・演算品質・画面の操作を配置; 2: 試合とオート状況に合う終了操作を追加]
+    #   引数: [game: 設定と試合状況を提供するホスト]
+    #   戻り値: [list: 画面領域とアクションIDの順序付き一覧]
+    # }
     @staticmethod
     def buttons(game: Game) -> list[tuple[pygame.Rect, str]]:
         buttons = [(pygame.Rect(CARD.right - 60, 44, 36, 36), "close")]
@@ -43,6 +53,12 @@ class SettingsView:
             buttons.append((pygame.Rect(x, 640, 200, 40), action))
         return buttons
 
+    # {
+    #   責務: [handle_key: 設定内だけの焦点移動と確定操作を処理する]
+    #   処理: [1: 焦点を有効範囲へ正規化; 2: Tabで移動または確定・画面ショートカットを既存操作へ委譲]
+    #   引数: [game: 入力ホスト; key: pygameキー; shift: 逆方向のTab指定]
+    #   戻り値: [None: 焦点または既存設定操作を更新。背景の試合操作へ伝播しない]
+    # }
     def handle_key(self, game: Game, key: int, *, shift: bool = False) -> None:
         buttons = self.buttons(game)
         focus = getattr(game, "settings_focus", len(buttons) - 1) % len(buttons)
@@ -55,6 +71,12 @@ class SettingsView:
         elif key == pygame.K_F11:
             game.handle_settings_action("fullscreen")
 
+    # {
+    #   責務: [draw: 設定説明と共通操作配置を一つのモーダルへ描画する]
+    #   処理: [1: カードと区分を描画; 2: 説明とボタン一覧を取得; 3: 選択・焦点・危険操作の表示を分ける]
+    #   引数: [game: 描画とUI状態のホスト]
+    #   戻り値: [None: 設定ボタン領域を更新。保存と試合変更は行わない]
+    # }
     def draw(self, game: Game) -> None:
         shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         shade.fill((5, 10, 17, 208))
@@ -77,6 +99,12 @@ class SettingsView:
             self._button(game, rect, label, subtitle, selected, index == focus,
                          rect.collidepoint(mouse), action in ("abort", "auto_stop"))
 
+    # {
+    #   責務: [_explanations: CPU上限とAI頻度・描画の作用範囲を明示する]
+    #   処理: [1: CPU演算枠の説明; 2: 裏試合判断頻度の説明; 3: 実バックエンドと操作案内を幅内に表示]
+    #   引数: [game: 現在の設定とバックエンドを持つ描画ホスト]
+    #   戻り値: [None: 設定値を変更せず説明を描画]
+    # }
     @staticmethod
     def _explanations(game: Game) -> None:
         game.text("CPU演算枠の上限", 18, TEXT, (240, 143), bold=True)
@@ -94,6 +122,12 @@ class SettingsView:
         game.text(fit_label(game.font(13), backend, 832), 13, MUTED, (224, 595))
         game.text("Tab / Shift+Tabで選択   Enter / Spaceで実行   Escで戻る", 12, MUTED, (224, 618))
 
+    # {
+    #   責務: [_label: 設定操作IDを現在値に合う見出し・補足・選択状態へ変換する]
+    #   処理: [1: CPU・判断頻度・画面操作を区別; 2: 現在値と操作説明を返す]
+    #   引数: [game: 現在設定のホスト; action: buttonsで生成した操作ID]
+    #   戻り値: [tuple: 見出し・補足説明・選択済みかの真偽値]
+    # }
     @staticmethod
     def _label(game: Game, action: str) -> tuple[str, str, bool]:
         if action.startswith("cpu:"):
@@ -115,6 +149,12 @@ class SettingsView:
         labels = {"close": "閉じる", "abort": "試合を中断", "skip": "残りをスキップ", "auto_stop": "オート停止"}
         return labels[action], "", False
 
+    # {
+    #   責務: [_button: 状態が識別できる設定ボタンと幅内の文字を描画する]
+    #   処理: [1: 危険・選択・hoverに合う色を決定; 2: 焦点の枠を描画; 3: 主文字と補足を省略・配置]
+    #   引数: [game: 描画ホスト; rect: ボタン領域; label: 主文字; subtitle: 補足; selected: 選択済み; focused: キー焦点; hovered: マウス焦点; danger: 危険操作]
+    #   戻り値: [None: 描画のみ。アクションは実行しない]
+    # }
     @staticmethod
     def _button(game: Game, rect: pygame.Rect, label: str, subtitle: str, selected: bool,
                 focused: bool, hovered: bool, danger: bool) -> None:
