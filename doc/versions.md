@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.39
+
+差し戻されたPR #144の作業選択と回帰試験へ指定形式の宣言説明を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/context_pack.py
+
+  設定読込・ラベル正規化・選択キー・候補選択の目的、処理順と失敗条件を説明。
+
+- tests/test_context_pack.py
+
+  変更クラスと7試験の検査対象、一時データの範囲、失敗条件を宣言直前に記録。
+
+---
+
 ver 0.7.37
 
 差し戻されたPR #112（設定UI #118を含む）の全変更宣言に指定形式の説明を追加
@@ -39,6 +59,32 @@ ver 0.7.37
 - tests/{test_other_matches_view,test_settings_view,test_league_live_view,test_main_menu}.py
 
   変更した試験と入れ子関数に、隔離する状態・観測内容・失敗条件を記録。
+
+---
+
+ver 0.7.28
+
+Godot移行を24実装Issueへ分割し、依存待ちを除外する優先作業選択を整備
+
+追加したファイル
+
+- doc/Godot移行.md
+
+  管理Issue #119、実装Issue #120～#143の依存、互換契約と一回分の作業手順を記録。
+
+- task_selection.json
+
+  優先ラベル・除外ラベル・重大バグラベルを編集可能な設定として保持。
+
+変更したファイル
+
+- scripts/tools/context_pack.py / tests/test_context_pack.py
+
+  重大P0バグ、Godot移行、通常Issueの順で選択し、親/依存待ち/レビュー待ちを除外。旧設定なし・明示指定の互換を検証。
+
+- AGENTS.md / AI_CONTEXT.md
+
+  Godot優先、依存確認とPR検証後のラベル更新、Python参照実装の維持を作業入口へ反映。
 
 ---
 

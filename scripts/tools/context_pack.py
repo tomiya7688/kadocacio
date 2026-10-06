@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 ROUTES = [
+    (("godot", "gdscript"), ["godot/", "doc/Godot移行.md"], ["godot/tests/"]),
     (("match", "試合", "pass", "shoot", "goal", "ai"), ["scripts/match/"], ["tests/"]),
     (("league", "リーグ", "tournament"), ["scripts/league/"], ["tests/test_league_manager.py"]),
     (("team", "チーム", "uniform", "ユニフォーム"), ["scripts/team/", "teams/"], ["tests/test_uniforms.py", "tests/test_team_file_organization.py"]),
@@ -60,13 +61,69 @@ def issue_priority(issue: dict) -> int:
     return len(PRIORITY_ORDER)
 
 
-def select_next_issue(issues: list[dict]) -> dict:
+# {
+#   責務: [load_task_policy: 作業選択の編集可能なラベル設定を検証して読み込む]
+#   処理: [1: 対象パスと設定項目を決める; 2: ファイル不在なら空設定を返す; 3: オブジェクトと非空文字列配列を検証; 4: ラベルを前後空白除去・大小文字正規化する]
+#   引数: [path: 設定JSONの任意パス。省略時はプロジェクトのtask_selection.json]
+#   戻り値: [dict: 項目ごとの正規化ラベル配列。不正なJSONや設定構造はValueError、読込失敗はI/O例外を伝播する]
+# }
+def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
+    """Read the editable task policy; an absent file retains priority-only selection."""
+    path = path or ROOT / "task_selection.json"
+    fields = ("preferred_labels", "excluded_labels", "urgent_labels")
+    if not path.exists():
+        return {field: [] for field in fields}
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
+        raise ValueError("task_selection.json must contain an object")
+    policy = {}
+    for field in fields:
+        values = payload.get(field, [])
+        if not isinstance(values, list) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError(f"task_selection.json {field} must contain nonempty label strings")
+        policy[field] = [value.strip().casefold() for value in values]
+    return policy
+
+
+# {
+#   責務: [issue_labels: 作業選択でラベルの大小文字による判定差をなくす]
+#   処理: [1: Issueのラベル名を文字列化; 2: 大小文字を正規化して集合へまとめる]
+#   引数: [issue: GitHubから取得したラベル情報を持つIssue]
+#   戻り値: [set: 重複しない正規化ラベル名。ラベル項目が無ければ空集合]
+# }
+def issue_labels(issue: dict) -> set[str]:
+    return {str(label.get("name", "")).casefold() for label in issue.get("labels", [])}
+
+
+# {
+#   責務: [selection_key: この計画段階の緊急ラベル・優先カテゴリ・通常作業の比較順を作る]
+#   処理: [1: ラベルと優先度を取得; 2: P0かつ緊急ラベル一致・優先ラベル一致・その他の順でグループ化; 3: 優先度とIssue番号を同グループ内の順序に使う]
+#   引数: [issue: 比較するIssue; policy: 読込済みの優先・除外・緊急ラベル設定]
+#   戻り値: [tuple: グループ・優先度・番号の比較キー。対象Issueや設定を書き換えない]
+# }
+def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, int]:
+    """P0 bugs first, preferred work next, then the existing priority/number order."""
+    labels = issue_labels(issue)
+    priority = issue_priority(issue)
+    group = (0 if priority == 0 and labels.intersection(policy["urgent_labels"])
+             else 1 if labels.intersection(policy["preferred_labels"]) else 2)
+    return group, priority, int(issue.get("number", 1_000_000_000))
+
+
+# {
+#   責務: [select_next_issue: 除外ラベルに該当しない候補から次の作業一件を選ぶ]
+#   処理: [1: 入力の空リストを拒否; 2: 明示設定またはJSON設定を取得; 3: tracking等の除外候補を取り除く; 4: 比較キー最小の候補を返す]
+#   引数: [issues: 取得済みのopen Issue一覧; policy: 任意の読込済み設定。Noneなら設定ファイルを読む]
+#   戻り値: [dict: 選択した既存Issue。候補なしはRuntimeError、設定読込のエラーは伝播する。元の一覧は変更しない]
+# }
+def select_next_issue(issues: list[dict], *, policy: dict[str, list[str]] | None = None) -> dict:
     if not issues:
         raise RuntimeError("No open Issues were found.")
-    return min(
-        issues,
-        key=lambda issue: (issue_priority(issue), int(issue.get("number", 1_000_000_000))),
-    )
+    policy = load_task_policy() if policy is None else policy
+    candidates = [issue for issue in issues if not issue_labels(issue).intersection(policy["excluded_labels"])]
+    if not candidates:
+        raise RuntimeError("No runnable Issues: remaining work is tracking, blocked or in review.")
+    return min(candidates, key=lambda issue: selection_key(issue, policy))
 
 
 def section(body: str, names: tuple[str, ...]) -> str:

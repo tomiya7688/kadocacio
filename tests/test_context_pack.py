@@ -8,6 +8,10 @@ from unittest.mock import patch
 from scripts.tools import context_pack
 
 
+# {
+#   責務: [ContextPackTests: Issueの作業選択・対象ファイル推定・小さな作業資料の生成契約を検査する]
+#   フィールド: []
+# }
 class ContextPackTests(unittest.TestCase):
     def test_section_extracts_matching_heading(self):
         body = "# A\ntext\n## 目的\nGoal text\n## 完了条件\nDone"
@@ -89,6 +93,109 @@ class ContextPackTests(unittest.TestCase):
         with patch.object(context_pack, "run_command", return_value={"unexpected": True}):
             with self.assertRaisesRegex(ValueError, "unexpected payload"):
                 context_pack.list_open_issues()
+
+    # {
+    #   責務: [test_godot_routes_include_target_and_migration_map: Godot作業が移行先と移行計画・検証入口へ案内されることを確認する]
+    #   処理: [1: Godot起動基盤を示すIssueを作る; 2: 対象推定を実行; 3: ソースと検証入口の三つの必須経路を照合]
+    #   引数: []
+    #   戻り値: [None: 案内経路の欠落はassertion失敗。GitHubや実ファイルへ書き込まない]
+    # }
+    def test_godot_routes_include_target_and_migration_map(self):
+        source, tests = context_pack.infer_routes({"title": "Godot起動基盤", "body": "", "labels": []})
+        self.assertIn("godot/", source)
+        self.assertIn("doc/Godot移行.md", source)
+        self.assertIn("godot/tests/", tests)
+
+    # {
+    #   責務: [test_missing_task_policy_preserves_old_priority_order: 設定なしの環境でも従来の優先度順で作業を選べることを確認する]
+    #   処理: [1: 一時フォルダ内の不存在パスを指定; 2: 全設定が空配列に戻ることを確認; 3: カテゴリより既存の優先度が選択を決めることを照合]
+    #   引数: []
+    #   戻り値: [None: 不在設定の互換動作が変わるとassertion失敗。一時フォルダは終了時に片付ける]
+    # }
+    def test_missing_task_policy_preserves_old_priority_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            policy = context_pack.load_task_policy(Path(tmp) / "missing.json")
+        self.assertEqual({"preferred_labels": [], "excluded_labels": [], "urgent_labels": []}, policy)
+        issues = [{"number": 1, "title": "[P2] old", "labels": []},
+                  {"number": 2, "title": "[P0] new", "labels": [{"name": "godot-migration"}]}]
+        self.assertEqual(2, context_pack.select_next_issue(issues, policy=policy)["number"])
+
+    # {
+    #   責務: [test_task_policy_loads_optional_fields_and_normalizes_labels: 任意項目の省略・BOM付きJSON・ラベルの表記ゆれを同時に検査する]
+    #   処理: [1: 一時JSONへ空白・大小文字を含む優先ラベルだけを保存; 2: 読込結果を取得; 3: 正規化済み値と未指定項目の空配列を照合]
+    #   引数: []
+    #   戻り値: [None: 正規化または省略項目の既定値が異なるとassertion失敗。実際の設定ファイルは使わない]
+    # }
+    def test_task_policy_loads_optional_fields_and_normalizes_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            path.write_text('{"preferred_labels": ["  Godot-Migration  "]}', encoding="utf-8-sig")
+            policy = context_pack.load_task_policy(path)
+        self.assertEqual({"preferred_labels": ["godot-migration"], "excluded_labels": [], "urgent_labels": []}, policy)
+
+    # {
+    #   責務: [test_task_policy_rejects_invalid_structures: 不正な設定を作業選択へ黙って受け入れないことを確認する]
+    #   処理: [1: 一時JSONへ非オブジェクト・非配列・空ラベル・数値・nullの各例を保存; 2: 各例の読込で設定名を含むValueErrorを要求]
+    #   引数: []
+    #   戻り値: [None: 不正設定の受入または説明不足はassertion失敗。一時データだけを更新する]
+    # }
+    def test_task_policy_rejects_invalid_structures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            for text in ('[]', '{"preferred_labels": "label"}', '{"excluded_labels": [""]}',
+                         '{"urgent_labels": [1]}', '{"preferred_labels": [null]}'):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "task_selection.json"):
+                        context_pack.load_task_policy(path)
+
+    # {
+    #   責務: [test_migration_preferred_over_ordinary_backlog_but_p0_bugs_win: この計画段階の優先カテゴリと緊急ラベルのグループ順を固定する]
+    #   処理: [1: 移行・通常作業・P0 bugの候補を作る; 2: 移行が通常作業より先、P0 bugが移行より先と照合; 3: bugをP1に変更して移行が再び先になることを確認]
+    #   引数: []
+    #   戻り値: [None: 計画段階のグループ順が変わるとassertion失敗。候補の変更は試験内だけ]
+    # }
+    def test_migration_preferred_over_ordinary_backlog_but_p0_bugs_win(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],
+                  "urgent_labels": ["bug"]}
+        migration = {"number": 120, "title": "[P1] new", "labels": [{"name": "GODOT-MIGRATION"}]}
+        refactor = {"number": 107, "title": "[P0] old refactor", "labels": []}
+        bug = {"number": 121, "title": "[P0] save corruption", "labels": [{"name": "bug"}]}
+        self.assertEqual(120, context_pack.select_next_issue([refactor, migration], policy=policy)["number"])
+        self.assertEqual(121, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
+        bug["title"] = "[P1] small bug"
+        self.assertEqual(120, context_pack.select_next_issue([refactor, migration, bug], policy=policy)["number"])
+
+    # {
+    #   責務: [test_excluded_issues_never_selected_even_with_p0_and_preferred_labels: 緊急・優先ラベルが除外状態を無視しないことを確認する]
+    #   処理: [1: tracking・blocked・in-reviewの各候補にP0と優先ラベルを重ねる; 2: 着手可能な候補だけが選ばれることを照合; 3: 全候補が除外ならRuntimeErrorを要求]
+    #   引数: []
+    #   戻り値: [None: 除外候補の選択または無候補の見逃しはassertion失敗。外部Issueのラベルは変更しない]
+    # }
+    def test_excluded_issues_never_selected_even_with_p0_and_preferred_labels(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": ["tracking", "blocked", "in-review"],
+                  "urgent_labels": ["bug"]}
+        excluded = [{"number": index, "title": "[P0] urgent",
+                     "labels": [{"name": label}, {"name": "bug"}, {"name": "godot-migration"}]}
+                    for index, label in enumerate(("TRACKING", "blocked", "in-review"), 1)]
+        ready = {"number": 120, "title": "[P1] ready", "labels": [{"name": "godot-migration"}]}
+        self.assertEqual(120, context_pack.select_next_issue([*excluded, ready], policy=policy)["number"])
+        with self.assertRaisesRegex(RuntimeError, "No runnable Issues"):
+            context_pack.select_next_issue(excluded, policy=policy)
+
+    # {
+    #   責務: [test_preferred_issues_still_sort_by_priority_then_number_without_mutation: 同じ優先カテゴリ内の優先度・番号順と入力不変性を検査する]
+    #   処理: [1: 異なる優先度と番号を持つ移行候補を作って入力表現を保存; 2: P1の最小番号が選ばれることを照合; 3: 一覧や候補の内容が変わらないことを確認]
+    #   引数: []
+    #   戻り値: [None: 選択順の逆転または入力の書換はassertion失敗]
+    # }
+    def test_preferred_issues_still_sort_by_priority_then_number_without_mutation(self):
+        policy = {"preferred_labels": ["godot-migration"], "excluded_labels": [], "urgent_labels": []}
+        issues = [{"number": number, "title": priority, "labels": [{"name": "godot-migration"}]}
+                  for number, priority in ((10, "[P2] old"), (30, "[P1] new"), (20, "[P1] first"))]
+        original = repr(issues)
+        self.assertEqual(20, context_pack.select_next_issue(issues, policy=policy)["number"])
+        self.assertEqual(original, repr(issues))
 
     def test_resolve_issue_number_keeps_explicit_choice(self):
         with patch.object(context_pack, "list_open_issues") as issue_list:

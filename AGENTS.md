@@ -5,10 +5,10 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 
 ## 30秒セットアップ
 
-- 正式プロジェクト: `C:\Users\tomiy\games\kadoka_calciobit`
+- 正式プロジェクト: 現在のGitルート。この環境では `E:\projects\kadocacio`（古いCドライブの同名コピーへ作業しない）。
 - Python: `.venv\Scripts\python.exe`
 - 起動: `run_game.bat` または `.venv\Scripts\python.exe main.py`
-- 作業開始: `start_task.bat [ISSUE_NUMBER]`。番号指定時はそのIssue、未指定時は `P0 -> P1 -> P2 -> P3 -> priorityなし` の順でopen Issueを1件だけ選び、`context/<issue>/`へTask Capsuleを生成する。
+- 作業開始: リモートをfetchしてPRの依存順を確認し、`start_task.bat [ISSUE_NUMBER]`。番号指定時はそのIssue、未指定時は `task_selection.json` の方針で着手可能なopen Issueを1件だけ選び、`context/<issue>/`へTask Capsuleを生成する。
 - Issue一覧本文を広く読まず、`start_task.bat` が選んだ1件と生成されたTask Capsuleから開始する。
 - 対象が `scripts/app|core|match|league|team|tools` 配下なら、そのフォルダの `CONTEXT.md` を先に読む。`CONTEXT.md` は自動生成物なので手編集せず、`python -m scripts.tools.context_docs` で更新する。
 - ルートのPythonは`main.py`だけに保ち、実装は必ず`scripts/`の役割別パッケージへ置く。
@@ -18,7 +18,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 
 ## 変更してはいけない基本契約
 
-- Pygame製。試合表示は遠近投影の3D表現で、2Dトップビューへ戻さない。
+- 現行の参照実装はPython/Pygame、移行先はGodot/型付きGDScript。試合表示は3Dを維持し、2Dトップビューへ戻さない。
 - ジャンプはAIの自動判断。Jキー等の手動ジャンプを追加しない。
 - 試合時計は実時間1秒で試合内10秒、90分で終了。
 - 倍速順は`1, 2, 3, 5, 10, 100`。
@@ -26,6 +26,15 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - 描画あり、ヘッドレス、リーグ、チューナーは同じ`Match`判定を使う。簡易結果式へ置換しない。
 - セットプレー準備中はその試合の試合時計だけ止める。他会場までは止めない。
 - 試合演算へ新しい直接`pygame`依存を増やさない。座標型は`scripts/core/simulation_geometry.py`を交換点として使う。
+
+## 優先作業: Godot移行
+
+- 管理Issueは #119、実装単位と依存は [`doc/Godot移行.md`](doc/Godot移行.md)。最初は #120。通常の新機能・Pygameの見た目追加より移行を優先する。
+- 自動選択はP0かつbug → 着手可能なgodot-migration → 従来の優先度順。同じグループでは優先度・Issue番号順。tracking/blocked/in-reviewは除外する。
+- 作業前とPR検証後に前提Issue/PRを確認し、検証済みの依存を持つ後続だけblockedを解除する。未マージPRへ積む場合はそのブランチを基準にし、既存のPR順を壊さない。
+- 検証済み実装PRを作ったIssueはin-reviewへ移す。明示番号指定は自動選択を迂回するので、依存待ちを無視しない。
+- Python版は比較用に残し、JSON/セーブ互換・同じ試合核・能力値の作用を維持する。移行先の検証前に削除・通常入口切替をしない。
+- Godotも1クラス1ファイル/1責務。UI/表示とNode無しの演算/データを分け、Pythonの巨大クラスを丸写ししない。重い処理のネイティブ化は90試合の実測後に判断する。
 
 ## 能力値とJSON
 
@@ -72,6 +81,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - `performance_settings.json`: CPU演算枠の上限とGPU描画の有効設定。
 - `user_data/saves/`: 実行時リーグセーブ。開始時の参加チーム能力スナップショットを持つ。Git管理しない。
 - ルートの `league_state.json`: 新規環境へseedする既定データ。実行中の状態ファイルではない。
+- `task_selection.json`: 開発タスクの優先ラベル・除外ラベル・重大バグラベル。ゲームの実行設定ではない。
 - `assets/`: スタジアム、観客等。
 - `user_data/logs/ai_evaluation/`, `user_data/logs/performance/`: AI評価・性能実測の実行時出力。Git管理しない。
 - `user_data/logs/development_evaluation/`: 放置リーグ評価のJSONL、CSV、チェックポイント。通常のリーグセーブとは独立。
