@@ -15,6 +15,12 @@ from scripts.tools.match_contract_cases import comparison_cases, input_cases, tr
 DEFAULT_OUTPUT = USER_LOG_DIR / "godot/match_contract"
 
 
+# {
+#   責務: [write_fixture: 公開チームだけから短い実試合の境界照合データを保存する]
+#   処理: [1: 更新上限と定義を検査; 2: 公開2チームで観測・不正値・差分例を生成; 3: 全終了経路で原本ハッシュを確認]
+#   引数: [output: ログ出力先; steps: 捕捉する固定更新数1..500]
+#   戻り値: [tuple: 保存ファイルと原本ハッシュ。条件不成立はValueError]
+# }
 def write_fixture(output: Path = DEFAULT_OUTPUT, steps: int = 96) -> tuple[Path, dict[str, str]]:
     if type(steps) is not int or not 1 <= steps <= 500:
         raise ValueError("fixture steps must be in 1..500")
@@ -43,6 +49,12 @@ def write_fixture(output: Path = DEFAULT_OUTPUT, steps: int = 96) -> tuple[Path,
         assert_sources_unchanged(before)
 
 
+# {
+#   責務: [main: 参照fixture生成または外部観測との比較を実行する]
+#   処理: [1: CLI設定を解析; 2: 生成または差分を保存; 3: 不正入力と入出力エラーを診断へ変換]
+#   引数: [argv: CLI引数。Noneなら実行プロセスの引数]
+#   戻り値: [int: 一致・生成成功0、不一致1、入力・保存失敗2]
+# }
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

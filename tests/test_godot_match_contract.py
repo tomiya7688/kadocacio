@@ -24,7 +24,17 @@ from scripts.tools.match_contract_input import create_contract_input, restore_co
 from scripts.tools.match_contract_trace import capture_trace
 
 
+# {
+#   責務: [GodotMatchContractTests: 実Match境界の再現性・検証・独立観測・CLI安全性を検査する]
+#   フィールド: [choices: 公開2チームの選択値; operations: 参照操作列; input: 共通試合入力; trace: 実参照観測列]
+# }
 class GodotMatchContractTests(unittest.TestCase):
+    # {
+    #   責務: [setUpClass: 実参照エンジンで共通の試験入力と観測を準備する]
+    #   処理: [1: 公開チームを復元; 2: 停止と倍率を含む操作列を作成; 3: 固定seedの観測を捕捉]
+    #   引数: []
+    #   戻り値: [None: クラスの共有fixtureを設定する]
+    # }
     @classmethod
     def setUpClass(cls):
         cls.choices = [reference_case(json.loads(path.read_text(encoding="utf-8-sig")), path.relative_to(fixture.PROJECT_ROOT / "teams").as_posix())["choice"] for path in public_team_paths()[:2]]
@@ -32,10 +42,22 @@ class GodotMatchContractTests(unittest.TestCase):
         cls.input = create_contract_input(*cls.choices, cls.operations, seed=2**63 + 12345, max_steps=20, venue_mode="NEUTRAL", ai_rethink_multiplier=1.0)
         cls.trace = capture_trace(cls.input)
 
+    # {
+    #   責務: [session: 共通入力から試験ごとに独立した未開始セッションを作る]
+    #   処理: [1: 契約入力を復元; 2: 同じ再現設定でセッションを生成]
+    #   引数: []
+    #   戻り値: [MatchSession: 別試験の状態変更に影響されないセッション]
+    # }
     def session(self):
         home, away, settings, _ = restore_contract_input(self.input)
         return MatchSession(home, away, **settings)
 
+    # {
+    #   責務: [test_operation_and_input_detach_validation_and_whole_json_numbers: 操作制約と整数JSON表現・コピー独立性を検査する]
+    #   処理: [1: 操作の正常・不正値を確認; 2: 不正seedと入力を確認; 3: 整数float正規化と元入力保持を確認]
+    #   引数: []
+    #   戻り値: [None: 期待との差はunittest失敗]
+    # }
     def test_operation_and_input_detach_validation_and_whole_json_numbers(self):
         for value, valid in ((0, True), (1.0, True), (1.5, False), (True, False), (None, False), (float("nan"), False), (10**500, False)):
             self.assertEqual(is_json_integer(value), valid)
@@ -73,6 +95,12 @@ class GodotMatchContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 restore_contract_input(actual)
 
+    # {
+    #   責務: [test_real_adapter_replay_fixed_step_pause_and_immutable_observation: 再現操作が時計・停止・イベントカーソルを守るか検査する]
+    #   処理: [1: 再実行と更新数を比較; 2: 開始順・カーソル・予算の拒否を確認; 3: 不変観測と深いコピーを確認]
+    #   引数: []
+    #   戻り値: [None: 境界違反を試験失敗にする]
+    # }
     def test_real_adapter_replay_fixed_step_pause_and_immutable_observation(self):
         self.assertEqual(self.trace, capture_trace(self.input))
         entries = self.trace["entries"]
@@ -103,6 +131,12 @@ class GodotMatchContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             session.apply({"kind": "STEP", "dt": 0.05})
 
+    # {
+    #   責務: [test_restart_pending_kick_owner_and_fulltime_use_existing_rules: 再開とキック待ち・終了結果が既存Match由来であることを検査する]
+    #   処理: [1: 再開中の時計と担当者を観測; 2: 実Matchを終了させて結果を照合; 3: 終了後の停止と結果差分を確認]
+    #   引数: []
+    #   戻り値: [None: 偽の結果や進行は試験失敗]
+    # }
     def test_restart_pending_kick_owner_and_fulltime_use_existing_rules(self):
         session = self.session()
         session.apply({"kind": "START"})
@@ -139,6 +173,12 @@ class GodotMatchContractTests(unittest.TestCase):
         actual["entries"][0]["result"]["home_score"] += 1
         self.assertIsNotNone(compare_traces(trace, actual)["first_result_difference"])
 
+    # {
+    #   責務: [test_reports_first_state_event_result_and_exact_vs_tolerant_values: 差分報告の順序・カテゴリと数値許容差を検査する]
+    #   処理: [1: 共通期待報告を照合; 2: seed・長さ・型の差を確認; 3: 位置の許容差と得点の厳密性を確認]
+    #   引数: []
+    #   戻り値: [None: 報告が誤ると試験失敗]
+    # }
     def test_reports_first_state_event_result_and_exact_vs_tolerant_values(self):
         for row in comparison_cases(self.trace):
             self.assertEqual(row["report"], compare_traces(row["expected"], row["actual"]))
@@ -163,6 +203,12 @@ class GodotMatchContractTests(unittest.TestCase):
         self.assertIsNone(first_difference({"position": [2000.0]}, {"position": [2000.0002]}))
         self.assertIsNone(first_difference(None, None))
 
+    # {
+    #   責務: [test_malformed_traces_do_not_pass_as_equal: 不正観測を自己比較の一致で見逃さないことを検査する]
+    #   処理: [1: 共通破損ケースを自己比較; 2: 必須項目とイベント・JSON型の破損を列挙; 3: 全件の拒否を確認]
+    #   引数: []
+    #   戻り値: [None: 不正値の受理は試験失敗]
+    # }
     def test_malformed_traces_do_not_pass_as_equal(self):
         for row in trace_cases(self.trace):
             self.assertFalse(row["valid"], row["name"])
@@ -194,6 +240,49 @@ class GodotMatchContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_trace(actual)
 
+    # {
+    #   責務: [test_portable_numbers_and_result_phase: 巨大数による比較の例外漏れと終了結果の位相不整合を防ぐ]
+    #   処理: [1: 整数範囲の境界・小数・巨大値を入力と観測で検査; 2: 途中結果と終了結果欠落を拒否; 3: 実終了結果の受理を確認]
+    #   引数: []
+    #   戻り値: [None: 全不正値がValueErrorになることを確認]
+    # }
+    def test_portable_numbers_and_result_phase(self):
+        for value in (9_000_000_000_000_000, 9e15, -9_000_000_000_000_000, 10**500, True, 1.5):
+            invalid_input = deepcopy(self.input)
+            invalid_input["repro_input"]["settings"]["max_steps"] = value
+            with self.subTest(budget=value), self.assertRaises(ValueError):
+                restore_contract_input(invalid_input)
+        for value in (9_000_000_000_000_000, 9e15, -9_000_000_000_000_000, 10**500, -10**500):
+            invalid = deepcopy(self.trace)
+            invalid["extra"] = {"nested": [value]}
+            with self.subTest(observation=value), self.assertRaises(ValueError):
+                compare_traces(invalid, invalid)
+        session = self.session()
+        session.apply({"kind": "START"})
+        session._match.state = "FULLTIME"
+        final = {**deepcopy(self.trace), "entries": [{"operation_index": 0, **session.observe().to_payload()}]}
+        validate_trace(final)
+        missing = deepcopy(final)
+        missing["entries"][0]["result"] = None
+        with self.assertRaisesRegex(ValueError, "exactly at FULLTIME"):
+            validate_trace(missing)
+        premature = deepcopy(final)
+        premature["entries"][0]["snapshot"]["status"]["state"] = "PLAYING"
+        with self.assertRaisesRegex(ValueError, "exactly at FULLTIME"):
+            validate_trace(premature)
+        maximum = deepcopy(self.input)
+        maximum["repro_input"]["settings"]["max_steps"] = 8_999_999_999_999_999
+        self.assertEqual(restore_contract_input(maximum)[2]["max_steps"], 8_999_999_999_999_999)
+        portable = deepcopy(self.trace)
+        portable["extra"] = {"nested": [8_999_999_999_999_999, -8_999_999_999_999_999, 0.5, False]}
+        self.assertTrue(compare_traces(portable, portable)["same_observations"])
+
+    # {
+    #   責務: [test_contract_export_and_safe_public_fixture_cli: 定義の導出・公開fixture保存・比較CLIの失敗経路を検査する]
+    #   処理: [1: 古い定義と不正予算を検査; 2: 一時出力へのfixture保存を確認; 3: 外部観測の一致・不一致・引数失敗を確認]
+    #   引数: []
+    #   戻り値: [None: 元データを変更せず期待終了コードを確認]
+    # }
     def test_contract_export_and_safe_public_fixture_cli(self):
         with self.assertRaises(ValueError):
             MatchSession(*self.choices, seed=None, venue_mode="NEUTRAL", ai_rethink_multiplier=1.0, max_steps=1)

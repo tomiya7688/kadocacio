@@ -22,6 +22,44 @@ ver num.num.num
 
 ---
 
+ver 0.7.36
+
+指定の宣言コメント規約を導入し、PR #150のコメント不足と境界検証の指摘を修正
+
+追加したファイル
+
+- doc/コメント規約.md / doc/PRコメント確認.md
+
+  日本語正本、Python/GDScriptへの適用、閉じられたPRも含む監査と差し戻し基準を記録。
+
+- scripts/tools/static_analysis/json_like_comments.py / tests/test_json_like_comments.py
+
+  PRの実base/headから変更宣言の必須項目を検査し、本文品質の確認とは区別。
+
+変更したファイル
+
+- scripts/core/{match_operation,match_protocol,match_trace_comparison}.py / scripts/match/{match_observation,match_session}.py
+
+  宣言説明を整備し、追加観測の巨大数と試合状態に矛盾する結果を比較前に拒否。
+
+- scripts/tools/{match_contract_input,match_contract_cases,match_contract_trace,godot_match_contract,godot_match_fixture,godot_runner}.py
+
+  宣言説明と入力整数範囲を整備し、両実装で共通に拒否するfixtureを追加。
+
+- godot/scripts/core/{match_operation,match_protocol,match_trace_comparison}.gd / godot/scripts/match/{match_input_record,match_trace_record}.gd
+
+  状態・戻り値の説明とPython共通の観測値・結果位相検証を実装。
+
+- tests/test_godot_match_contract.py / tests/test_godot_runner.py / godot/tests/match_contract_tests.gd
+
+  変更宣言を説明し、数値の境界・巨大整数・結果欠落と途中結果を検証。
+
+- AGENTS.md / scripts/tools/static_analysis/CONTEXT.md / doc/試合境界契約.md
+
+  コメント規約の入口と新しい交換可能性検査を開発地図へ反映。
+
+---
+
 ver 0.7.33
 
 Python/Godot共通の試合操作・観測・最初の差分境界を追加

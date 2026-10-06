@@ -4,6 +4,12 @@ from dataclasses import asdict, dataclass
 import json
 
 
+# {
+#   責務: [_team_state: チームと選手の生オブジェクトを観測可能な値へ変換する]
+#   処理: [1: チーム成績を抽出; 2: 安定ID・位置・目標・スタミナ・コマンドを選手ごとに抽出]
+#   引数: [team: 参照試合のチーム; identities: オブジェクトIDから観測IDへの対応]
+#   戻り値: [dict: JSON化可能なチーム観測]
+# }
 def _team_state(team, identities: dict[int, str]) -> dict:
     return {"score": team.score, "shots": team.shots, "possession": team.possession,
             "tactic": team.tactic, "direction": team.direction,
@@ -15,10 +21,20 @@ def _team_state(team, identities: dict[int, str]) -> dict:
                          "sent_off": player.sent_off} for player in team.players]}
 
 
+# {
+#   責務: [MatchObservation: 試合内部から独立した不変の状態・イベント・結果を保持する]
+#   フィールド: [_json: 有限JSON値に変換済みの観測文字列]
+# }
 @dataclass(frozen=True, slots=True)
 class MatchObservation:
     _json: str
 
+    # {
+    #   責務: [capture: 時計を進めずに参照試合の一時点を取得する]
+    #   処理: [1: チーム・選手IDを構成; 2: 状態とカーソル以降のイベントを抽出; 3: 終了時だけ結果を添えJSON化]
+    #   引数: [match: 参照試合; step: 実更新数; paused: ホスト停止状態; after_sequence: 既読イベント番号]
+    #   戻り値: [MatchObservation: 試合への可変参照を持たない観測]
+    # }
     @classmethod
     def capture(cls, match, step: int, paused: bool, after_sequence: int = 0) -> "MatchObservation":
         identities = {id(player): f"{side}:{index}" for side, team in (("HOME", match.home), ("AWAY", match.away)) for index, player in enumerate(team.players)}
@@ -42,5 +58,11 @@ class MatchObservation:
                    "result": match.final_result().to_payload() if match.state == "FULLTIME" else None}
         return cls(json.dumps(payload, ensure_ascii=False, allow_nan=False))
 
+    # {
+    #   責務: [to_payload: 消費側が変更できる独立した観測値を返す]
+    #   処理: [1: 保存JSONを新しい辞書へ復元する]
+    #   引数: []
+    #   戻り値: [dict: 呼出しごとに独立した観測]
+    # }
     def to_payload(self) -> dict:
         return json.loads(self._json)
