@@ -113,15 +113,30 @@ class GodotRunnerTests(unittest.TestCase):
             self.assertEqual(runner.execute("smoke", Path("engine"), Path("project"), 5, False), 8)
             smoke.assert_called_once()
         for test_status, negative_status in ((1, 0), (0, 1), (0, 0)):
-            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_checked", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
+            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
                 self.assertEqual(runner.execute("test", Path("engine"), Path("project"), 5, False), test_status or negative_status)
                 self.assertEqual(negative.called, not test_status)
                 self.assertEqual(smoke.called, not (test_status or negative_status))
 
     def test_execute_stops_after_failed_team_parity(self):
-        with patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_checked", return_value=0), patch.object(runner, "run_team_checks", return_value=1), patch.object(runner, "check_error_detection") as negative:
+        with patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=0), patch.object(runner, "run_team_checks", return_value=1), patch.object(runner, "check_error_detection") as negative:
             self.assertEqual(runner.execute("test", Path("engine"), Path("project"), 5, True), 1)
             negative.assert_not_called()
+
+    def test_ui_checks_choose_native_or_headless_and_fail_on_stale_contract(self):
+        for headless in (False, True):
+            with self.subTest(headless=headless), patch("scripts.tools.godot_ui_contract.check_contract", return_value=True), patch.object(runner, "run_checked", return_value=0) as checked:
+                self.assertEqual(runner.run_ui_checks(Path("engine"), Path("project"), 5, headless), 0)
+                command, _, markers = checked.call_args.args
+                self.assertIn("--headless" if headless else "--windowed", command)
+                self.assertEqual("--ui-window-test" in command, not headless)
+                self.assertEqual(markers, ("KADOCALCIO_TESTS:",))
+        with patch("scripts.tools.godot_ui_contract.check_contract", return_value=False), patch.object(runner, "run_checked") as checked:
+            self.assertEqual(runner.run_ui_checks(Path("engine"), Path("project"), 5, True), 1)
+            checked.assert_not_called()
+        with patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=7) as checked:
+            self.assertEqual(runner.execute("ui-test", Path("engine"), Path("project"), 5, False), 7)
+            checked.assert_called_once_with(Path("engine"), Path("project"), 5, False)
 
     def test_team_checks_always_verify_source_fingerprints(self):
         for status in (0, 1):
