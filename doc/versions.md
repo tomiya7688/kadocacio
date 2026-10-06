@@ -22,6 +22,40 @@ ver num.num.num
 
 ---
 
+ver 0.7.27
+
+共通設定を読みやすい統一UIへ整理し、説明の見切れとキーボード操作の不足を解消
+
+追加したファイル
+
+- scripts/app/settings_view.py
+
+  設定専用ビューへ分離し、CPU・裏試合精度・描画を共通の配置とフォーカスで表示。
+
+- tests/test_settings_view.py
+
+  画面境界、重なり、設定保存、全項目のキー操作、拡大表示と実ループの試合再開を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py / scripts/app/rendering.py
+
+  設定描画を委譲し、Tab・Shift+Tab・Enter・F10・F11を共通入力経路へ接続。
+
+- tests/test_main_menu.py
+
+  設定のキー操作が背面メニューへ流れない既存テストを専用ビューへ接続。
+
+- README.md / SPEC.md
+
+  設定操作、CPU演算枠とGPU描画の反映タイミング・実行環境の区別を記録。
+
+- doc/クラス一覧.md / scripts/app/CONTEXT.md
+
+  設定ビューの役割と自動生成の作業地図を更新。
+
+---
+
 ver 0.7.26
 
 他会場の速報を統一デザインへ整理し、説明の不整合と表示による元データの書換えを解消

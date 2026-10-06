@@ -16,6 +16,7 @@ from scripts.app.fulltime_view import FulltimeView
 from scripts.app.match_hud_view import MatchHudView
 from scripts.app.player_status_view import PlayerStatusView
 from scripts.app.other_matches_view import OtherMatchesView
+from scripts.app.settings_view import SettingsView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -72,6 +73,8 @@ class Game(RendererMixin):
         self.settings_open = False
         self.settings_previous_match_state = ""
         self.settings_buttons: list[tuple[pygame.Rect, str]] = []
+        self.settings_view = SettingsView()
+        self.settings_focus = 0
         self.settings_button = pygame.Rect(0, 0, 0, 0)
         self.gpu_presenter: GpuPresenter | None = None
         self.display_surface: pygame.Surface | None = None
@@ -298,6 +301,7 @@ class Game(RendererMixin):
             return
         self.settings_open = True
         self.settings_previous_match_state = str(getattr(self.match, "state", ""))
+        self.settings_focus = len(SettingsView.buttons(self)) - 1
         if self.match.state == "PLAYING":
             self.match.state = "PAUSED"
 
@@ -335,8 +339,10 @@ class Game(RendererMixin):
             self.close_settings()
 
     def handle_settings_click(self, pos: tuple[int, int]) -> None:
-        for rect, action in reversed(getattr(self, "settings_buttons", ())):
+        for index in reversed(range(len(getattr(self, "settings_buttons", ())))):
+            rect, action = self.settings_buttons[index]
             if rect.collidepoint(pos):
+                self.settings_focus = index
                 self.handle_settings_action(action)
                 return
 
@@ -1395,7 +1401,7 @@ class Game(RendererMixin):
             self.roll_stadium_guests()
             self.reset_camera()
 
-    def handle_key(self, key: int) -> None:
+    def handle_key(self, key: int, *, shift: bool = False) -> None:
         match = self.match
         if key == pygame.K_ESCAPE:
             if getattr(self, "settings_open", False):
@@ -1404,6 +1410,7 @@ class Game(RendererMixin):
                 self.open_settings()
             return
         if getattr(self, "settings_open", False):
+            self.settings_view.handle_key(self, key, shift=shift)
             return
         if key == pygame.K_F10:
             self.cycle_window_size()
@@ -1601,8 +1608,8 @@ class Game(RendererMixin):
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif getattr(self, "settings_open", False):
-                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.close_settings()
+                    if event.type == pygame.KEYDOWN:
+                        self.handle_key(event.key, shift=bool(getattr(event, "mod", 0) & pygame.KMOD_SHIFT))
                     elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         self.handle_settings_click(self.logical_mouse_pos(event.pos))
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
