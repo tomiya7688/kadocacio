@@ -61,6 +61,12 @@ def issue_priority(issue: dict) -> int:
     return len(PRIORITY_ORDER)
 
 
+# {
+#   責務: [load_task_policy: 作業選択の編集可能なラベル設定を検証して読み込む]
+#   処理: [1: 対象パスと設定項目を決める; 2: ファイル不在なら空設定を返す; 3: オブジェクトと非空文字列配列を検証; 4: ラベルを前後空白除去・大小文字正規化する]
+#   引数: [path: 設定JSONの任意パス。省略時はプロジェクトのtask_selection.json]
+#   戻り値: [dict: 項目ごとの正規化ラベル配列。不正なJSONや設定構造はValueError、読込失敗はI/O例外を伝播する]
+# }
 def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
     """Read the editable task policy; an absent file retains priority-only selection."""
     path = path or ROOT / "task_selection.json"
@@ -79,10 +85,22 @@ def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
     return policy
 
 
+# {
+#   責務: [issue_labels: 作業選択でラベルの大小文字による判定差をなくす]
+#   処理: [1: Issueのラベル名を文字列化; 2: 大小文字を正規化して集合へまとめる]
+#   引数: [issue: GitHubから取得したラベル情報を持つIssue]
+#   戻り値: [set: 重複しない正規化ラベル名。ラベル項目が無ければ空集合]
+# }
 def issue_labels(issue: dict) -> set[str]:
     return {str(label.get("name", "")).casefold() for label in issue.get("labels", [])}
 
 
+# {
+#   責務: [selection_key: この計画段階の緊急ラベル・優先カテゴリ・通常作業の比較順を作る]
+#   処理: [1: ラベルと優先度を取得; 2: P0かつ緊急ラベル一致・優先ラベル一致・その他の順でグループ化; 3: 優先度とIssue番号を同グループ内の順序に使う]
+#   引数: [issue: 比較するIssue; policy: 読込済みの優先・除外・緊急ラベル設定]
+#   戻り値: [tuple: グループ・優先度・番号の比較キー。対象Issueや設定を書き換えない]
+# }
 def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, int]:
     """P0 bugs first, preferred work next, then the existing priority/number order."""
     labels = issue_labels(issue)
@@ -92,6 +110,12 @@ def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, 
     return group, priority, int(issue.get("number", 1_000_000_000))
 
 
+# {
+#   責務: [select_next_issue: 除外ラベルに該当しない候補から次の作業一件を選ぶ]
+#   処理: [1: 入力の空リストを拒否; 2: 明示設定またはJSON設定を取得; 3: tracking等の除外候補を取り除く; 4: 比較キー最小の候補を返す]
+#   引数: [issues: 取得済みのopen Issue一覧; policy: 任意の読込済み設定。Noneなら設定ファイルを読む]
+#   戻り値: [dict: 選択した既存Issue。候補なしはRuntimeError、設定読込のエラーは伝播する。元の一覧は変更しない]
+# }
 def select_next_issue(issues: list[dict], *, policy: dict[str, list[str]] | None = None) -> dict:
     if not issues:
         raise RuntimeError("No open Issues were found.")
