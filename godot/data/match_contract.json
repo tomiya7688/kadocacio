@@ -33,7 +33,13 @@
     "away_shots",
     "speed_multiplier",
     "foul_count",
-    "card_count"
+    "card_count",
+    "rng_word_count",
+    "rng_words",
+    "rng_index",
+    "word_before",
+    "word_after",
+    "bit_value"
   ],
   "tolerances": {
     "position": 0.001,
@@ -131,5 +137,17 @@
     "SKILL_RELENTLESS_PRESS": "スキル：猛追プレス",
     "SKILL_FUTURE_READ": "スキル：フューチャーリード",
     "SKILL_SWEEPER_KEEPER": "スキル：スイーパーキーパー"
+  },
+  "kernel": {
+    "field": [
+      34,
+      72,
+      2200,
+      1420
+    ],
+    "clock_rate": 10.0,
+    "match_seconds": 5400,
+    "stamina_base": 70.0,
+    "stamina_span": 130.0
   }
 }

@@ -36,7 +36,7 @@ static func read(payload: Variant) -> MatchOperation:
 		if not (value is int or value is float) or not is_finite(value as float) or (value as float) <= 0 or (value as float) > (MatchProtocol.values()["max_dt"] as float):
 			result.error = "invalid STEP dt"
 			return result
-	if result.kind == "SET_SPEED" and (not MatchProtocol.is_integer(data["value"]) or not (MatchProtocol.values()["speeds"] as Array).has(data["value"])):
+	if result.kind == "SET_SPEED" and (not MatchProtocol.is_integer(data["value"]) or not (MatchProtocol.values()["speeds"] as Array).has(data["value"] as float)):
 		result.error = "unsupported speed"
 		return result
 	result._payload = data.duplicate(true)

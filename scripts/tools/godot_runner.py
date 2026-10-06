@@ -142,23 +142,38 @@ def run_ui_checks(engine: Path, project: Path, timeout: float, headless: bool) -
 #   戻り値: [int: 正常一致0、不一致1、エンジン失敗はその終了コード]
 # }
 def run_match_checks(engine: Path, project: Path, timeout: float) -> int:
-    from scripts.core.match_trace_comparison import compare_traces
     from scripts.tools.godot_match_fixture import write_fixture
-    from scripts.tools.godot_team_oracle import assert_sources_unchanged
 
     fixture, fingerprints = write_fixture()
+    return run_native_trace_check(engine, project, timeout, fixture, fingerprints,
+                                  "match_contract_tests.gd", "KADOCALCIO_MATCH_CONTRACT_TESTS:")
+
+
+def run_kernel_checks(engine: Path, project: Path, timeout: float) -> int:
+    from scripts.tools.godot_kernel_fixture import write_kernel_fixture
+
+    fixture, fingerprints = write_kernel_fixture()
+    return run_native_trace_check(engine, project, timeout, fixture, fingerprints,
+                                  "match_kernel_tests.gd", "KADOCALCIO_MATCH_KERNEL_TESTS:")
+
+
+def run_native_trace_check(engine: Path, project: Path, timeout: float, fixture: Path,
+                           fingerprints: dict[str, str], script: str, marker: str) -> int:
+    from scripts.core.match_trace_comparison import compare_traces
+    from scripts.tools.godot_team_oracle import assert_sources_unchanged
+
     try:
         with tempfile.TemporaryDirectory(prefix="native-", dir=fixture.parent) as temporary:
             native = Path(temporary) / "trace.json"
             status = run_checked(engine_command(
-                engine, project, "--headless", "--script", "res://tests/match_contract_tests.gd",
+                engine, project, "--headless", "--script", "res://tests/" + script,
                 "--", "--fixture", str(fixture), "--output", str(native),
-            ), timeout, ("KADOCALCIO_MATCH_CONTRACT_TESTS:",))
+            ), timeout, (marker,))
             if status:
                 return status
             report = compare_traces(json.loads(fixture.read_text(encoding="utf-8"))["reference"], json.loads(native.read_text(encoding="utf-8")))
             (fixture.parent / "diff.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
-            print("MATCH CONTRACT ROUNDTRIP: PASS" if report["same_observations"] else "MATCH CONTRACT ROUNDTRIP: DIFFER")
+            print("MATCH OBSERVATIONS: PASS" if report["same_observations"] else "MATCH OBSERVATIONS: DIFFER")
             return 0 if report["same_observations"] else 1
     finally:
         assert_sources_unchanged(fingerprints)
@@ -188,6 +203,9 @@ def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bo
     if status:
         return status
     status = run_match_checks(engine, project, timeout)
+    if status:
+        return status
+    status = run_kernel_checks(engine, project, timeout)
     if status:
         return status
     status = check_error_detection(engine, project, timeout)

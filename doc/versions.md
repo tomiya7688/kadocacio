@@ -100,6 +100,60 @@ ver 0.7.36
 
 ---
 
+ver 0.7.34
+
+Godotへ描画非依存の試合状態・固定更新・整数seed互換乱数の基盤を追加
+
+追加したファイル
+
+- godot/scripts/core/{python_random_stream,observed_match_random,simulation_coordinate,fixed_step_driver}.gd と各 .gd.uid
+
+  MT19937互換サブセット・監査・倍精度座標・未処理時間を保持する固定更新を分離。
+
+- godot/scripts/match/{player_state,team_state,ball_state,match_clock,match_event_log,match_state,match_setup,match_snapshot,match_kernel}.gd と各 .gd.uid
+
+  Node無しの状態・初期配置・独立時計・観測・更新接続を実装し、未移行処理の時計単独進行を拒否。
+
+- godot/tests/match_kernel_tests.gd / godot/tests/fixtures/kernel_step_probe.gd と各 .gd.uid
+
+  初期状態・時計・乱数の実参照照合と、テスト専用更新で描画頻度/倍率/停止/予算を検査。
+
+- scripts/tools/{match_random_audit,godot_kernel_fixture}.py / tests/test_godot_match_kernel.py
+
+  通常の乱数を変えず監査し、公開チームの実Matchから初期状態と乱数/時計fixtureを生成。
+
+- doc/Godot試合核.md
+
+  参照対応・接続API・再現範囲・未移行処理と検証の限界を記録。
+
+変更したファイル
+
+- scripts/match/{match_engine,match_session}.py
+
+  検証用RNGの任意注入を追加し、通常呼出しは従来のRandomと判定を維持。
+
+- scripts/core/match_protocol.py / scripts/tools/godot_match_contract.py / godot/data/match_contract.json
+
+  MT状態の厳密比較とPython由来の時計/フィールド/スタミナ初期値を導出。
+
+- godot/scripts/core/match_operation.gd / godot/scripts/data/team_payload_decoder.gd
+
+  整数倍率の互換読込を修正し、正規化選手の定義変換を再利用。
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py / .github/workflows/godot-bootstrap.yml
+
+  共通の新規ネイティブtrace照合経路と実Godot基盤検査をWindows/Linux CIへ接続。
+
+- AGENTS.md / godot/README.md / doc/{Godot移行,試合境界契約,試合エンジン境界,クラス一覧}.md
+
+  クラス責務・作業地図・互換範囲を更新。実際の物理/AI/得点/試合表示は未移行。
+
+- scripts/tools/CONTEXT.md
+
+  開発用監査/fixture生成の地図を再生成。
+
+---
+
 ver 0.7.33
 
 Python/Godot共通の試合操作・観測・最初の差分境界を追加

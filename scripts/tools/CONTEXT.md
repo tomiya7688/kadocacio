@@ -45,6 +45,7 @@ Forbidden / avoid:
 - `generate_k_league_teams.py`
 - `generate_original_league_teams.py`
 - `git_workflow.py`
+- `godot_kernel_fixture.py`
 - `godot_match_contract.py`
 - `godot_match_fixture.py`
 - `godot_runner.py`
@@ -58,6 +59,7 @@ Forbidden / avoid:
 - `match_contract_cases.py`
 - `match_contract_input.py`
 - `match_contract_trace.py`
+- `match_random_audit.py`
 - `match_repro_check.py`
 - `match_repro_input.py`
 - `migrate_stat_scale.py`

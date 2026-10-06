@@ -16,14 +16,14 @@ class MatchSession:
     # {
     #   責務: [__init__: 再現条件を明示した独立試合セッションを準備する]
     #   処理: [1: seedと更新予算を検証; 2: チームを複製してMatchと操作状態を初期化]
-    #   引数: [home: ホーム選択; away: アウェー選択; seed: 整数seed; venue_mode: 会場; ai_rethink_multiplier: 判断頻度; max_steps: 更新予算]
+    #   引数: [home: ホーム選択; away: アウェー選択; seed: 整数seed; venue_mode: 会場; ai_rethink_multiplier: 判断頻度; max_steps: 更新予算; rng_factory: 任意の監査乱数生成器。Noneなら通常の乱数]
     #   戻り値: [None: 試合開始はSTART操作まで行わない]
     # }
-    def __init__(self, home: dict, away: dict, *, seed: int, venue_mode: str, ai_rethink_multiplier: float, max_steps: int):
+    def __init__(self, home: dict, away: dict, *, seed: int, venue_mode: str, ai_rethink_multiplier: float, max_steps: int, rng_factory=None):
         if type(seed) is not int or type(max_steps) is not int or max_steps < 1:
             raise ValueError("explicit integer seed and positive step budget are required")
         self._match = Match(deepcopy(home), deepcopy(away), venue_mode, seed=seed,
-                            ai_rethink_multiplier=ai_rethink_multiplier, record_events=True)
+                            ai_rethink_multiplier=ai_rethink_multiplier, record_events=True, rng_factory=rng_factory)
         self._started = False
         self._paused = False
         self._steps = 0
