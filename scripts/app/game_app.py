@@ -60,7 +60,17 @@ from scripts.team.team_data import discover_team_choices
 from scripts.team.team_editor import TeamEditor
 
 
+# {
+#   責務: [Game: Python版の画面遷移と入力・試合ホストの更新を統括する]
+#   フィールド: [match: 観戦する試合; visible_simulation: 表試合の固定更新; league_managerとleague_simulation_session: リーグ状態と裏試合; screen: 論理描画面; settings_viewとsettings_focus: 設定表示と焦点; other_matches_viewとother_matches_scroll: 速報表示とスクロール]
+# }
 class Game(RendererMixin):
+    # {
+    #   責務: [__init__: 入出力・既存演算サービス・各画面のUI状態をホストへ結び付ける]
+    #   処理: [1: pygameと設定・論理画面を初期化; 2: チームとリーグ・試合サービスを準備; 3: 各ビュー・入力領域・カメラ・観客を準備]
+    #   引数: [team_choices: 注入するチーム選択値。Noneなら通常のデータ探索]
+    #   戻り値: [None: メインメニュー状態のアプリを準備。試合はまだ開始しない]
+    # }
     def __init__(self, *, team_choices: list[dict] | None = None) -> None:
         pygame.init()
         title = PROJECT_NAME
@@ -296,6 +306,12 @@ class Game(RendererMixin):
         settings.gpu_rendering = not settings.gpu_rendering
         save_performance_settings(settings)
 
+    # {
+    #   責務: [open_settings: 元の試合状態を記録し設定モーダルを開く]
+    #   処理: [1: 二重オープンを抑止; 2: 前状態と閉じる焦点を設定; 3: PLAYINGの場合だけ一時停止]
+    #   引数: []
+    #   戻り値: [None: 設定状態を更新。時計は設定画面から進めない]
+    # }
     def open_settings(self) -> None:
         if getattr(self, "settings_open", False):
             return
@@ -338,6 +354,12 @@ class Game(RendererMixin):
             self.stop_league_auto_progress()
             self.close_settings()
 
+    # {
+    #   責務: [handle_settings_click: 設定ボタンのクリックを対応する既存操作へ渡す]
+    #   処理: [1: 手前のボタンから当たり判定; 2: 該当ボタンへ焦点を移して一操作だけ実行]
+    #   引数: [pos: 論理画面座標のクリック位置]
+    #   戻り値: [None: 領域外なら設定を変更しない]
+    # }
     def handle_settings_click(self, pos: tuple[int, int]) -> None:
         for index in reversed(range(len(getattr(self, "settings_buttons", ())))):
             rect, action = self.settings_buttons[index]
@@ -1401,6 +1423,12 @@ class Game(RendererMixin):
             self.roll_stadium_guests()
             self.reset_camera()
 
+    # {
+    #   責務: [handle_key: 開いている画面を優先してキー操作を一つの経路へ配送する]
+    #   処理: [1: Escと設定・画面操作を処理; 2: 速報・選手一覧・終了画面の専用操作を処理; 3: 通常メニューや試合操作へ配送]
+    #   引数: [key: pygameキー; shift: 設定の逆方向焦点移動]
+    #   戻り値: [None: 上位モーダルで処理したキーは背景へ流さない]
+    # }
     def handle_key(self, key: int, *, shift: bool = False) -> None:
         match = self.match
         if key == pygame.K_ESCAPE:
@@ -1601,6 +1629,12 @@ class Game(RendererMixin):
             if rect.collidepoint(pos):
                 self.match.speed_multiplier = speed
 
+    # {
+    #   責務: [run: 入力配送・固定試合更新・描画を既存アプリの一フレームとして進める]
+    #   処理: [1: モーダルを優先してイベントを配送; 2: 裏試合・スキップ・オートを更新; 3: 許可された表試合と描画を更新; 4: 終了時にバックエンドとワーカーを閉じる]
+    #   引数: []
+    #   戻り値: [None: runningが終了するまで継続。速報と能力表示だけでは試合を停止しない]
+    # }
     def run(self) -> None:
         while self.running:
             dt = min(self.clock.tick(FPS) / 1000.0, 0.05)
