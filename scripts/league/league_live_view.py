@@ -39,6 +39,12 @@ def visible_other_matches(
     return list(statuses[start:end]), start, end
 
 
+# {
+#   責務: [merged_live_results: 速報の独立コピーへ同じfixtureの確定結果だけを反映する]
+#   処理: [1: 有効IDの確定結果を索引化; 2: 速報を複製; 3: IDが一致した会場だけ得点・終了時計を上書き]
+#   引数: [statuses: ワーカーまたはキャッシュの速報; results: 確定試合結果]
+#   戻り値: [list: 読取元の辞書を変更しない表示用速報]
+# }
 def merged_live_results(statuses: Sequence[dict], results: Sequence[dict]) -> list[dict]:
     """Return detached display records with confirmed final scores overlaid."""
     result_by_id = {str(item["fixture_id"]): item for item in results

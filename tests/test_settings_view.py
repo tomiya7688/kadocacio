@@ -11,6 +11,12 @@ from scripts.core.performance_settings import PerformanceSettings, load_performa
 from scripts.core.settings import WIDTH, HEIGHT
 
 
+# {
+#   責務: [game: 保存や実ワーカーに触れない設定UI試験用ホストを準備する]
+#   処理: [1: 論理画面と初期設定を生成; 2: 設定を開き焦点と前状態を用意]
+#   引数: []
+#   戻り値: [Game: 最小状態を注入した試験ホスト]
+# }
 @pytest.fixture
 def game():
     pygame.font.init()
@@ -35,10 +41,22 @@ def game():
     return app
 
 
+# {
+#   責務: [labels_for: 設定内の文字と描画領域を捕捉する]
+#   処理: [1: 元の描画関数を保持; 2: 捕捉関数へ置換して追記先を返す]
+#   引数: [game: 設定表示ホスト]
+#   戻り値: [list: 表示文字と領域の観測一覧]
+# }
 def labels_for(game):
     labels = []
     text = game.text
 
+    # {
+    #   責務: [capture: 実描画が設定カード内に収まることを確認して記録する]
+    #   処理: [1: 元の文字描画を実行; 2: カード内を検査して領域を追記]
+    #   引数: [value: 表示文字; args: 描画の位置等; kwargs: 描画指定]
+    #   戻り値: [Rect: 描画領域。カード外ならassert失敗]
+    # }
     def capture(value, *args, **kwargs):
         rect = text(value, *args, **kwargs)
         assert CARD.contains(rect), value
@@ -49,6 +67,12 @@ def labels_for(game):
     return labels
 
 
+# {
+#   責務: [test_settings_layout_fits_all_contexts_without_overlapping_text_or_controls: 全表示状態で文字と設定ボタンが重ならないことを確認する]
+#   処理: [1: 試合状態とオートを設定; 2: 文字・操作領域の内包と非重複を確認; 3: 状況依存操作と初期焦点を確認]
+#   引数: [game: 表示ホスト; state: 試合またはメニュー状態; auto: オート実行設定]
+#   戻り値: [None: 見切れ・重なり・誤操作の表示は試験失敗]
+# }
 @pytest.mark.parametrize("state,auto", [("MAIN_MENU", False), ("TEAM_SELECT", False),
                                       ("PLAYING", False), ("PAUSED", False), ("FULLTIME", False),
                                       ("PLAYING", True), ("MAIN_MENU", True)])
@@ -75,6 +99,12 @@ def test_settings_layout_fits_all_contexts_without_overlapping_text_or_controls(
     assert game.settings_focus == len(buttons) - 1
 
 
+# {
+#   責務: [test_display_subtitles_are_inside_buttons_and_custom_cpu_value_is_visible: 規定選択肢以外のCPU値と画面の補足表示を確認する]
+#   処理: [1: 任意CPU値・全画面・サイズを設定; 2: 現在値とボタン内の文字数を確認; 3: 誤ったCPU選択表示を拒否]
+#   引数: [game: 表示ホスト]
+#   戻り値: [None: 現在値欠落や選択状態の誤りは試験失敗]
+# }
 def test_display_subtitles_are_inside_buttons_and_custom_cpu_value_is_visible(game):
     game.cpu_limit_percent = 63
     game.window_size_index = 3
@@ -90,6 +120,12 @@ def test_display_subtitles_are_inside_buttons_and_custom_cpu_value_is_visible(ga
                if action.startswith("cpu:"))
 
 
+# {
+#   責務: [test_long_backend_and_mode_labels_stay_within_bounds: 長い演算品質と描画バックエンド名が省略されることを確認する]
+#   処理: [1: 長い名称を一時注入; 2: 描画で省略表示を確認]
+#   引数: [game: 設定ホスト]
+#   戻り値: [None: 領域超過や省略不足は試験失敗]
+# }
 def test_long_backend_and_mode_labels_stay_within_bounds(game):
     from scripts.app.settings_view import LEAGUE_SIMULATION_MODES
     profile = dict(LEAGUE_SIMULATION_MODES["PRECISE"], label="とても長い精密モードの名前" * 20)
@@ -100,6 +136,12 @@ def test_long_backend_and_mode_labels_stay_within_bounds(game):
     assert len([value for value, _ in labels if value.endswith("…")]) == 2
 
 
+# {
+#   責務: [test_drawing_never_saves_configuration_or_changes_match_state: 再描画だけで保存や試合状態変更を起こさないことを確認する]
+#   処理: [1: 試合中に設定を開く; 2: 二回の描画を比較; 3: 保存未呼出しと停止状態維持を確認]
+#   引数: [game: 設定ホスト]
+#   戻り値: [None: 描画による副作用は試験失敗]
+# }
 def test_drawing_never_saves_configuration_or_changes_match_state(game):
     game.close_settings()
     game.match.state = "PLAYING"
@@ -114,6 +156,12 @@ def test_drawing_never_saves_configuration_or_changes_match_state(game):
     assert game.match.state == "PAUSED"
 
 
+# {
+#   責務: [test_tab_and_shift_tab_visit_every_control_and_enter_dispatches_focused_action: 全設定の焦点巡回と確定キーの操作一致を確認する]
+#   処理: [1: Tabで全操作を巡回しEnter先を照合; 2: 逆巡回とSpace・テンキーEnterを照合]
+#   引数: [game: 入力ホスト]
+#   戻り値: [None: 操作の到達不能や焦点ずれは試験失敗]
+# }
 def test_tab_and_shift_tab_visit_every_control_and_enter_dispatches_focused_action(game):
     actions = [action for _, action in SettingsView.buttons(game)]
     game.handle_settings_action = Mock()
@@ -132,6 +180,12 @@ def test_tab_and_shift_tab_visit_every_control_and_enter_dispatches_focused_acti
     assert game.handle_settings_action.call_args.args == (actions[-2],)
 
 
+# {
+#   責務: [test_escape_and_default_enter_restore_previous_state_and_clear_buttons: 設定終了時に元状態と入力領域を正しく復帰することを確認する]
+#   処理: [1: 各状態からEscで設定を開く; 2: 既定Enterで閉じて前状態を確認; 3: Esc二回での復帰を確認]
+#   引数: [game: 設定ホスト; state: 開く前の状態]
+#   戻り値: [None: 意図しない再開や古い領域残留は試験失敗]
+# }
 @pytest.mark.parametrize("state", ["PLAYING", "PAUSED", "MAIN_MENU", "FULLTIME"])
 def test_escape_and_default_enter_restore_previous_state_and_clear_buttons(game, state):
     game.close_settings()
@@ -147,6 +201,12 @@ def test_escape_and_default_enter_restore_previous_state_and_clear_buttons(game,
     assert not game.settings_open and game.match.state == state
 
 
+# {
+#   責務: [test_actual_setting_actions_persist_to_isolated_json_and_update_runtime: 実クリックが設定値を保存し必要な演算枠へ反映することを確認する]
+#   処理: [1: 保存先を隔離; 2: 操作を実クリック; 3: 読戻しとホスト値・CPU時間枠を確認]
+#   引数: [game: 設定ホスト; tmp_path: 隔離保存先; action: 変更操作; value: 期待設定値]
+#   戻り値: [None: 保存と実行設定の不一致は試験失敗]
+# }
 @pytest.mark.parametrize("action,value", [("cpu:25", 25), ("league_mode:LIGHT", "LIGHT"),
                                          ("gpu_rendering", False)])
 def test_actual_setting_actions_persist_to_isolated_json_and_update_runtime(game, tmp_path, action, value):
@@ -166,6 +226,12 @@ def test_actual_setting_actions_persist_to_isolated_json_and_update_runtime(game
         assert game.visible_simulation.wall_time_budget == 0.002
 
 
+# {
+#   責務: [test_existing_match_and_auto_actions_use_same_routes: 中断・スキップ・オート停止が既存処理へ渡ることを確認する]
+#   処理: [1: 試合中の設定と焦点を準備; 2: 確定キーで対象処理を実行; 3: 閉じた設定と停止状態を確認]
+#   引数: [game: 設定ホスト; action: 終了操作; method: 呼び出す既存メソッド]
+#   戻り値: [None: 経路や復帰状態の違いは試験失敗]
+# }
 @pytest.mark.parametrize("action,method", [("skip", "start_match_skip"), ("abort", "abort_current_match"),
                                           ("auto_stop", "stop_league_auto_progress")])
 def test_existing_match_and_auto_actions_use_same_routes(game, action, method):
@@ -183,6 +249,12 @@ def test_existing_match_and_auto_actions_use_same_routes(game, action, method):
     assert game.match.state == ("PLAYING" if action == "auto_stop" else "PAUSED")
 
 
+# {
+#   責務: [test_background_shortcuts_and_outside_clicks_are_blocked: 設定中の背景操作を遮断し画面ショートカットだけを許可することを確認する]
+#   処理: [1: 背景キーと領域外クリックを入力; 2: 操作未呼出しを確認; 3: F10/F11の設定経路を確認]
+#   引数: [game: 設定ホスト]
+#   戻り値: [None: 背景への入力漏れは試験失敗]
+# }
 def test_background_shortcuts_and_outside_clicks_are_blocked(game):
     game.handle_settings_action = Mock()
     game.draw_settings_modal()
@@ -196,6 +268,12 @@ def test_background_shortcuts_and_outside_clicks_are_blocked(game):
     game.handle_settings_action.assert_called_with("fullscreen")
 
 
+# {
+#   責務: [test_close_click_uses_logical_coordinates_with_letterboxing: ウィンドウ拡縮と余白でも閉じる当たり判定が一致することを確認する]
+#   処理: [1: 実画面のクリック座標を算出; 2: 論理座標へ変換して入力; 3: 設定と入力領域の終了を確認]
+#   引数: [game: 設定ホスト; window_size: 実画面寸法]
+#   戻り値: [None: 入力の座標ずれは試験失敗]
+# }
 @pytest.mark.parametrize("window_size", [(960, 540), (1600, 1000)])
 def test_close_click_uses_logical_coordinates_with_letterboxing(game, window_size):
     game.draw_settings_modal()
@@ -208,6 +286,12 @@ def test_close_click_uses_logical_coordinates_with_letterboxing(game, window_siz
     assert not game.settings_open and not game.settings_buttons
 
 
+# {
+#   責務: [test_actual_loop_routes_shift_tab_and_enter_then_resumes_simulation: 実イベントループで逆巡回と確定後の固定試合更新を確認する]
+#   処理: [1: 実ホストで設定を開く; 2: Shift付きキーイベントを配送; 3: 焦点履歴と復帰後の時計・更新数を確認]
+#   引数: []
+#   戻り値: [None: 修飾キー欠落や試合再開失敗は試験失敗]
+# }
 def test_actual_loop_routes_shift_tab_and_enter_then_resumes_simulation():
     app = Game()
     try:
@@ -223,6 +307,12 @@ def test_actual_loop_routes_shift_tab_and_enter_then_resumes_simulation():
         observed_focus = []
         handler = app.handle_key
 
+        # {
+        #   責務: [record: 元のキー処理後の焦点移動を観測する]
+        #   処理: [1: 元ハンドラへ入力を配送; 2: 焦点番号を履歴へ追加]
+        #   引数: [key: 入力キー; kwargs: Shift等の修飾指定]
+        #   戻り値: [None: 観測履歴を更新]
+        # }
         def record(key, **kwargs):
             handler(key, **kwargs)
             observed_focus.append(app.settings_focus)
