@@ -22,6 +22,34 @@ ver num.num.num
 
 ---
 
+ver 0.7.38
+
+親PRのコメント修正を依存順に統合し、Godotの再開準備中の自由ボール更新を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- godot/scripts/match/ball_simulation_system.gd
+
+  スロー/セットプレー準備中を自由飛行と接触の対象から除外し、変更宣言を説明。
+
+- godot/tests/ball_physics_tests.gd / godot/tests/fixtures/ball_rule_probe.gd
+
+  準備中のボール停止・時計停止・配置段階更新と解除後の飛行再開を実Godotで検査。
+
+- scripts/match/match_session.py / scripts/tools/godot_runner.py
+
+  親の説明と後続の監査乱数引数・ボール検査を両立し、衝突で機能を失わないよう統合。
+
+- doc/試合境界契約.md / doc/Godot試合核.md / doc/Godotボール物理.md / doc/PRコメント確認.md
+
+  正式な完走結果と部分基盤の時計試験を区別し、準備中の更新範囲と閉じられたPRの修正状況を記録。
+
+---
+
 ver 0.7.37
 
 差し戻されたPR #112（設定UI #118を含む）の全変更宣言に指定形式の説明を追加

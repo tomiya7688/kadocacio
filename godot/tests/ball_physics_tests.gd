@@ -1,3 +1,7 @@
+# {
+#   責務: [ball_physics_tests: 実Godotの自由ボール規則を参照fixtureと固定更新・未移行障壁で検査する]
+#   フィールド: [_assertions: 検査数; _failures: 失敗数; _entries: 外部再照合へ出す観測列]
+# }
 extends SceneTree
 ## Isolated actual ball rules, not football AI, contact success or restart parity.
 
@@ -17,6 +21,12 @@ func _expect(condition: bool, label: String) -> void:
 		push_error(label)
 
 
+# {
+#   責務: [_run: ボール規則と再開準備の回帰試験を実行して外部観測を保存する]
+#   処理: [1: 引数と公開fixtureを読込; 2: 各弾道・ペース・障壁・準備中停止を検査; 3: 参照列と比較して観測・終了コードを保存]
+#   引数: []
+#   戻り値: [void: 試験成否でプロセスを終了。全試合や接触成否を認定しない]
+# }
 func _run() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	if args.size() != 4 or args[0] != "--fixture" or args[2] != "--output":
@@ -30,6 +40,7 @@ func _run() -> void:
 		if item["name"] in ["slow_roll", "fast_roll", "lofted", "curve", "knuckle"]:
 			_check_pacing(fixture["input"] as Dictionary, item)
 	_check_integration(fixture["input"] as Dictionary, (fixture["cases"] as Array)[0] as Dictionary)
+	_check_preparation(fixture["input"] as Dictionary, (fixture["cases"] as Array)[0] as Dictionary)
 	var trace: Dictionary = {"format": MatchProtocol.values()["trace_format"], "version": 1,
 		"source": {"implementation": "godot-ball-rules", "execution": "simulation", "rng": "contact success intercepted; flight deterministic", "seed_text": "41"}, "entries": _entries}
 	var report: Dictionary = MatchTraceComparison.compare(MatchTraceRecord.read(fixture["reference"]), MatchTraceRecord.read(trace))
@@ -129,6 +140,42 @@ func _check_pacing(input: Dictionary, item: Dictionary) -> void:
 			_expect(kernel._state.step == 20, "ball fixed ticks")
 			_expect(MatchTraceComparison.first_difference(expected.observe_ball(), kernel.observe_ball()) == null, "ball frame/speed invariant")
 			_expect(kernel.rng.word_count == expected.rng.word_count, "ball observations consume no RNG")
+
+
+# {
+#   責務: [_check_preparation: 再開準備中に自由ボールが動かず配置段階と演算経過だけが進むことを確認する]
+#   処理: [1: スローとセットプレーの準備状態を作る; 2: 直接更新と固定20tickのボール・時計・候補・呼出数を確認; 3: 準備解除後の飛行再開を確認]
+#   引数: [input: 公開試合入力; item: 自由ボールの初期fixture]
+#   戻り値: [void: 準備中の誤接触・時計進行・演算全停止を試験失敗にする]
+# }
+func _check_preparation(input: Dictionary, item: Dictionary) -> void:
+	for preparation: String in ["restart", "throw_in"]:
+		var kernel: MatchKernel = _configured(input, item)
+		var system: BallSimulationSystem = BallSimulationSystem.new()
+		var probe: BallRuleProbe = BallRuleProbe.new()
+		kernel._state.ball.owner = null
+		kernel._state.ball.velocity.set_values(1000, 0)
+		kernel._state.home.players[1].position.set_values(kernel._state.ball.position.x, kernel._state.ball.position.y)
+		if preparation == "restart":
+			kernel._state.restart = {"kind": "FREE_KICK"}
+		else:
+			kernel._state.throw_in = {"side": "HOME"}
+		var before: Dictionary = kernel.observe_ball()
+		var words: int = kernel.rng.word_count
+		system.update(kernel._state, 0.05, kernel.rng)
+		_expect(MatchTraceComparison.first_difference(before, kernel.observe_ball()) == null, "direct preparation skips free ball")
+		_expect(kernel.register_system("players", probe.players) and kernel.register_system("decisions", probe.decisions) and kernel.register_system("ball", system.update), "preparation stage connection")
+		for tick: int in 20:
+			_expect(kernel.apply({"kind": "STEP", "dt": 0.05}), "preparation continues without false contact barrier")
+		_expect(MatchTraceComparison.first_difference(before, kernel.observe_ball()) == null, "preparation freezes ball and contact queues")
+		_expect(kernel._state.clock.game_time == 0.0 and is_equal_approx(kernel._state.clock.simulation_elapsed, 1.0), "preparation freezes match clock but not elapsed simulation")
+		_expect(probe.player_updates == 20 and probe.decision_updates == 20, "preparation still updates positioning stages")
+		_expect(probe.saves == 0 and probe.touches == 0 and kernel.rng.word_count == words, "preparation has no contact resolution or RNG consumption")
+		kernel._state.restart.clear()
+		kernel._state.throw_in.clear()
+		_expect(kernel.apply({"kind": "STEP", "dt": 0.05}), "free ball resumes after preparation")
+		var initial_x: float = (before["ball"]["position"] as Array)[0] as float
+		_expect(kernel._state.ball.position.x != initial_x and kernel._state.clock.game_time > 0.0, "normal ball flight and match clock resume")
 
 
 func _check_integration(input: Dictionary, item: Dictionary) -> void:
