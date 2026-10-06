@@ -109,6 +109,7 @@ set SDL_VIDEODRIVER=dummy& set SDL_AUDIODRIVER=dummy& set KADOKA_DISABLE_GPU=1& 
 
 ## 作業ルール
 
+- 宣言コメントは `doc/コメント規約.md` と指定のJson-like-comment-outs日本語正本に従う。変更したクラスへ責務・フィールド、関数へ責務・処理・引数・戻り値を宣言直前に記す。空の説明や逐語訳で代替しない。PRの実base/headを `scripts.tools.static_analysis.json_like_comments` で検査し、本文を実装と照合する。コメント不足のPRは差し戻し、閉じられたPRも確認する。
 - 調査は`rg`/`rg --files`から始め、巨大なREADMEや`match_engine.py`を丸ごと読まない。
 - 一つの挙動に複数の実装を作らず、既存コマンド・能力・固定ステップへ接続する。
 - 原則として一つのPythonファイルにはクラスを一つだけ置き、追加・移動時は`doc/クラス一覧.md`も更新する。

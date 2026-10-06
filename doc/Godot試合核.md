@@ -35,7 +35,7 @@ var driver: FixedStepDriver = FixedStepDriver.new(kernel)
 
 選手・判断・ボールの3段階を `register_system("players"|"decisions"|"ball", callable)` で接続する。シグネチャは `(state: MatchState, dt: float, rng: ObservedMatchRandom) -> void`。受信側はRefCountedでNode不可、カーネルが強参照を保持する。更新順序は3段階の順に固定。後続の演算クラスをここへ接続し、別の簡易試合エンジンを作らない。
 
-現在はキックオフの表示待ちだけ実行可能。通常プレイまたは再開準備のSTEPには3段階すべてを要求し、欠ければ**状態・時計を変更せず拒否**する。テスト専用 `KernelStepProbe` は規定の座標/判断を更新して呼出回数を検査するもので、本番の物理/AI代用品ではない。得点・反則・結果集計が未移行なので、基盤テストがFULLTIMEに到達しても `result` はnull。偽の0-0完走を返さない。
+現在はキックオフの表示待ちだけ実行可能。通常プレイまたは再開準備のSTEPには3段階すべてを要求し、欠ければ**状態・時計を変更せず拒否**する。テスト専用 `KernelStepProbe` は規定の座標/判断を更新して呼出回数を検査するもので、本番の物理/AI代用品ではない。得点・反則・結果集計が未移行なので、基盤テストがFULLTIMEに到達しても `result` はnull。偽の0-0完走を返さない。この生の部分試験観測はv1 traceの完走結果としては無効であり、完走互換の評価対象から除外する。
 
 ## 固定更新と時計
 

@@ -1,8 +1,18 @@
+# {
+#   責務: [MatchTraceComparison: 検証済み観測の最初の差を評価範囲付きで報告する]
+#   フィールド: []
+# }
 class_name MatchTraceComparison
 extends RefCounted
 ## First observed difference. Never reports unimplemented kernel parity as success.
 
 
+# {
+#   責務: [compare: 出自・状態・イベント・結果をカテゴリ別に比較する]
+#   処理: [1: 読込の有効性を確認; 2: seedと操作順の観測を比較; 3: 最初の差と未評価の互換範囲を報告]
+#   引数: [expected: 基準観測; actual: 比較対象観測]
+#   戻り値: [Dictionary: 一致と相違情報。不正観測は一致扱いにしない]
+# }
 static func compare(expected: MatchTraceRecord, actual: MatchTraceRecord) -> Dictionary:
 	if not expected.is_valid() or not actual.is_valid():
 		return {"error": "invalid trace", "same_observations": false, "kernel_parity": "not_evaluated"}
@@ -41,6 +51,12 @@ static func compare(expected: MatchTraceRecord, actual: MatchTraceRecord) -> Dic
 	return report
 
 
+# {
+#   責務: [first_difference: JSON値を安定順と項目別許容差で比較する]
+#   処理: [1: 辞書・配列を再帰比較; 2: 数値の厳密性と許容差を適用; 3: 最初の差を返す]
+#   引数: [expected: 基準値; actual: 比較値; path: 現在のJSONパス]
+#   戻り値: [Variant: 差分辞書。一致ならnull]
+# }
 static func first_difference(expected: Variant, actual: Variant, path: String = "$") -> Variant:
 	if expected is Dictionary and actual is Dictionary:
 		var left: Dictionary = expected as Dictionary
@@ -78,6 +94,12 @@ static func first_difference(expected: Variant, actual: Variant, path: String = 
 	return null if equal else {"path": path, "reason": "value", "expected": expected, "actual": actual}
 
 
+# {
+#   責務: [_tolerance: 観測パスから厳密一致または許容差を選ぶ]
+#   処理: [1: パス要素に厳密項目があればゼロ; 2: 末端に近い規約値または既定値を選択]
+#   引数: [path: 比較中のJSONパス]
+#   戻り値: [float: 絶対許容差]
+# }
 static func _tolerance(path: String) -> float:
 	var fields: PackedStringArray = path.replace("[", ".").replace("]", "").split(".")
 	for field: String in fields:

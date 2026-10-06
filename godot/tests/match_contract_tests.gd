@@ -1,3 +1,7 @@
+# {
+#   責務: [match_contract_tests: 実Godotで境界入力・観測の読込と差分を参照fixtureに照合する]
+#   フィールド: [_failures: 失敗数; _assertions: 検査数]
+# }
 extends SceneTree
 ## Contract read/roundtrip/diff tests only. Godot football execution is not implemented.
 
@@ -5,10 +9,22 @@ var _failures: int = 0
 var _assertions: int = 0
 
 
+# {
+#   責務: [_initialize: SceneTree準備後に境界試験を開始する]
+#   処理: [1: 試験本体の遅延実行を予約]
+#   引数: []
+#   戻り値: [void: 起動イベントのみ登録]
+# }
 func _initialize() -> void:
 	_run.call_deferred()
 
 
+# {
+#   責務: [_run: 共通fixtureの受理・拒否・比較結果を実エンジンで検証する]
+#   処理: [1: 入出力引数とfixtureを読む; 2: 正常入力・不正値・期待差分を検査; 3: 再出力と終了コードを保存]
+#   引数: []
+#   戻り値: [void: 試験結果に応じてプロセスを終了。演算互換の認定はしない]
+# }
 func _run() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	if args.size() != 4 or args[0] != "--fixture" or args[2] != "--output":
@@ -56,6 +72,13 @@ func _run() -> void:
 	var nonfinite: Dictionary = reference.to_payload()
 	nonfinite["extra"] = NAN
 	_expect(not MatchTraceRecord.read(nonfinite).is_valid(), "nonfinite observation")
+	for value: Variant in [9000000000000000, -9000000000000000, 9e15, -9e15]:
+		var oversized: Dictionary = reference.to_payload()
+		oversized["extra"] = {"nested": [value]}
+		_expect(not MatchTraceRecord.read(oversized).is_valid(), "oversized nested number")
+	var portable: Dictionary = reference.to_payload()
+	portable["extra"] = {"nested": [8999999999999999, -8999999999999999, 0.5, false]}
+	_expect(MatchTraceRecord.read(portable).is_valid(), "portable nested number boundary")
 	_expect(not MatchOperation.read({"kind": "STEP", "dt": NAN}).is_valid(), "nonfinite step")
 	_expect(not MatchOperation.read({"kind": "SET_SPEED", "value": true}).is_valid(), "boolean speed")
 	var operation_object: Object = MatchOperation.new()
@@ -70,6 +93,12 @@ func _run() -> void:
 	quit(0 if _failures == 0 else 1)
 
 
+# {
+#   責務: [_expect: 検査結果を件数と診断へ集約する]
+#   処理: [1: 検査数を増加; 2: 失敗時に件数とエラー表示を更新]
+#   引数: [condition: 成否; description: 失敗理由]
+#   戻り値: [void: 試験カウンタを更新]
+# }
 func _expect(condition: bool, description: String) -> void:
 	_assertions += 1
 	if not condition:

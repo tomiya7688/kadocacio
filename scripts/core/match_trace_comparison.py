@@ -5,6 +5,12 @@ import math
 from scripts.core.match_protocol import EXACT_NUMBERS, REPORT_FORMAT, TRACE_FORMAT, TOLERANCES, VERSION, is_json_integer
 
 
+# {
+#   責務: [validate_trace: 比較前に観測列の形式・時系列・数値の交換可能性を検証する]
+#   処理: [1: 出自と操作順を検証; 2: 状態・イベント・終了結果の整合を検証; 3: 全階層のJSON値を検証]
+#   引数: [trace: 外部の観測列]
+#   戻り値: [None: 正常なら終了。不正な境界値はValueError]
+# }
 def validate_trace(trace: object) -> None:
     if not isinstance(trace, dict) or trace.get("format") != TRACE_FORMAT or not is_json_integer(trace.get("version")) or trace["version"] != VERSION:
         raise ValueError("unsupported match trace")
@@ -24,6 +30,8 @@ def validate_trace(trace: object) -> None:
         events = entry.get("events")
         if not isinstance(events, list) or "result" not in entry or (entry["result"] is not None and not isinstance(entry["result"], dict)):
             raise ValueError("missing events/result boundary")
+        if (entry["snapshot"]["status"]["state"] == "FULLTIME") != (entry["result"] is not None):
+            raise ValueError("result must be present exactly at FULLTIME")
         for event in events:
             if not isinstance(event, dict) or not is_json_integer(event.get("sequence")) or event["sequence"] <= sequence or not _nonnegative_number(event.get("game_time")) or not _nonnegative_number(event.get("simulation_elapsed")) or not isinstance(event.get("text"), str):
                 raise ValueError("invalid chronological event")
@@ -35,18 +43,42 @@ def validate_trace(trace: object) -> None:
     _validate_json(trace)
 
 
+# {
+#   責務: [_nonnegative_number: 時刻等に使える有限な非負数か判定する]
+#   処理: [1: boolを除く数値型と交換範囲を確認; 2: 有限性を確認]
+#   引数: [value: 検査値]
+#   戻り値: [bool: 許容範囲ならTrue]
+# }
 def _nonnegative_number(value: object) -> bool:
     return type(value) in (int, float) and 0 <= value < 9e15 and math.isfinite(value)
 
 
+# {
+#   責務: [_nonnegative_integer: カウンタに使える交換可能な非負整数か判定する]
+#   処理: [1: 共通整数制約と符号を確認する]
+#   引数: [value: 検査値]
+#   戻り値: [bool: 許容整数ならTrue]
+# }
 def _nonnegative_integer(value: object) -> bool:
     return is_json_integer(value) and value >= 0
 
 
+# {
+#   責務: [_vector: 座標を規定の成分数と有限数値範囲に制限する]
+#   処理: [1: 配列長を確認; 2: 全成分の型・範囲・有限性を確認]
+#   引数: [value: 座標候補; size: 必要な次元数]
+#   戻り値: [bool: 全成分が有効ならTrue]
+# }
 def _vector(value: object, size: int) -> bool:
     return isinstance(value, list) and len(value) == size and all(type(component) in (int, float) and abs(component) < 9e15 and math.isfinite(component) for component in value)
 
 
+# {
+#   責務: [_validate_snapshot: 状態観測の必須項目と選手判断を検証する]
+#   処理: [1: 更新番号・時計・得点を検査; 2: ボールと再開状態を検査; 3: 両チームの選手値を検査]
+#   引数: [snapshot: 一操作後の状態観測]
+#   戻り値: [None: 不正値はValueErrorで拒否する]
+# }
 def _validate_snapshot(snapshot: object) -> None:
     if not isinstance(snapshot, dict) or not _nonnegative_integer(snapshot.get("step")):
         raise ValueError("invalid snapshot step")
@@ -71,6 +103,12 @@ def _validate_snapshot(snapshot: object) -> None:
                 raise ValueError("invalid player decision")
 
 
+# {
+#   責務: [_validate_json: 追加項目を含む全階層から交換不能なJSON値を排除する]
+#   処理: [1: 文字列キーの辞書と配列を再帰検査; 2: 整数範囲・浮動小数の有限性・型を確認]
+#   引数: [value: 観測値またはその子要素]
+#   戻り値: [None: 異常時は比較演算の前にValueError]
+# }
 def _validate_json(value: object) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -80,12 +118,20 @@ def _validate_json(value: object) -> None:
     elif isinstance(value, list):
         for child in value:
             _validate_json(child)
-    elif isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("nonfinite observation")
+    elif type(value) is int and not is_json_integer(value):
+        raise ValueError("observation integer is outside portable range")
+    elif isinstance(value, float) and (not math.isfinite(value) or abs(value) >= 9e15):
+        raise ValueError("nonfinite or out-of-range observation")
     elif value is not None and type(value) not in (str, bool, int, float):
         raise ValueError("observation must contain only JSON values")
 
 
+# {
+#   責務: [first_difference: 検証済みJSON値の最初の差を項目別許容差で特定する]
+#   処理: [1: 辞書・配列を安定順で再帰比較; 2: 数値は厳密項目と許容差を区別; 3: 差のパスと値を返す]
+#   引数: [expected: 基準値; actual: 比較値; path: 現在のJSONパス]
+#   戻り値: [dictまたはNone: 最初の相違情報。一致ならNone]
+# }
 def first_difference(expected: object, actual: object, path: str = "$") -> dict | None:
     if isinstance(expected, dict) and isinstance(actual, dict):
         for key in sorted(expected.keys() | actual.keys()):
@@ -114,6 +160,12 @@ def first_difference(expected: object, actual: object, path: str = "$") -> dict 
     return None if equal else {"path": path, "reason": "value", "expected": expected, "actual": actual}
 
 
+# {
+#   責務: [compare_traces: 状態・イベント・結果の差を互換認定と区別した報告へまとめる]
+#   処理: [1: 両観測列を検証; 2: seedと各観測カテゴリを比較; 3: 最初の相違と評価範囲を記録]
+#   引数: [expected: 基準観測列; actual: 比較する観測列]
+#   戻り値: [report: 観測一致の報告。試合核互換は常に未評価]
+# }
 def compare_traces(expected: dict, actual: dict) -> dict:
     validate_trace(expected)
     validate_trace(actual)

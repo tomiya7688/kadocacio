@@ -39,6 +39,7 @@ Forbidden / avoid:
 - `architecture_boundary.py`
 - `architecture_rule.py`
 - `architecture_violation.py`
+- `json_like_comments.py`
 - `reporting.py`
 - `run_all.py`
 - `upd_checker.py`
