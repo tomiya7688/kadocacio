@@ -8,6 +8,7 @@ README/SPECを最初から全読せず、まずこの地図と`rg`で対象だ�
 - 正式プロジェクト: 現在のGitルート。この環境では `E:\projects\kadocacio`（古いCドライブの同名コピーへ作業しない）。
 - Python: `.venv\Scripts\python.exe`
 - Godot開発入口: `godot/README.md`、`run_godot.bat [run|check|test|smoke|ui-test]`。`GODOT_BIN`または`--engine`で `godot/engine_version.txt` の固定版を指定。入口・設定・チーム/会場選択はGodot、試合核/エディタ本体は未移行。通常プレイ入口はまだPython。
+- Godot試合境界: `doc/試合境界契約.md`、`scripts/core/match_protocol.py` が正本。`godot_match_contract --write` で定義を導出、`godot_runner test` で公開fixtureの読込/差分を検証。観測再出力は演算互換の証明ではない。
 - 起動: `run_game.bat` または `.venv\Scripts\python.exe main.py`
 - 作業開始: リモートをfetchしてPRの依存順を確認し、`start_task.bat [ISSUE_NUMBER]`。番号指定時はそのIssue、未指定時は `task_selection.json` の方針で着手可能なopen Issueを1件だけ選び、`context/<issue>/`へTask Capsuleを生成する。
 - Issue一覧本文を広く読まず、`start_task.bat` が選んだ1件と生成されたTask Capsuleから開始する。
@@ -107,6 +108,7 @@ set SDL_VIDEODRIVER=dummy& set SDL_AUDIODRIVER=dummy& set KADOKA_DISABLE_GPU=1& 
 
 ## 作業ルール
 
+- 宣言コメントは `doc/コメント規約.md` と指定のJson-like-comment-outs日本語正本に従う。変更したクラスへ責務・フィールド、関数へ責務・処理・引数・戻り値を宣言直前に記す。空の説明や逐語訳で代替しない。PRの実base/headを `scripts.tools.static_analysis.json_like_comments` で検査し、本文を実装と照合する。コメント不足のPRは差し戻し、閉じられたPRも確認する。
 - 調査は`rg`/`rg --files`から始め、巨大なREADMEや`match_engine.py`を丸ごと読まない。
 - 一つの挙動に複数の実装を作らず、既存コマンド・能力・固定ステップへ接続する。
 - 原則として一つのPythonファイルにはクラスを一つだけ置き、追加・移動時は`doc/クラス一覧.md`も更新する。

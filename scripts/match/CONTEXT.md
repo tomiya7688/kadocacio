@@ -52,7 +52,9 @@ Forbidden / avoid:
 - `manager_system.py`
 - `match_engine.py`
 - `match_log_event.py`
+- `match_observation.py`
 - `match_result.py`
+- `match_session.py`
 - `match_status_snapshot.py`
 - `pass_route.py`
 - `pending_kick.py`

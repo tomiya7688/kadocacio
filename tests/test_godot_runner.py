@@ -10,6 +10,10 @@ from unittest.mock import patch
 from scripts.tools import godot_runner as runner
 
 
+# {
+#   責務: [GodotRunnerTests: エンジン入口の選択・固定版検証・試験順と失敗経路を検査する]
+#   フィールド: []
+# }
 class GodotRunnerTests(unittest.TestCase):
     def test_explicit_engine_and_environment_are_checked(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -104,6 +108,12 @@ class GodotRunnerTests(unittest.TestCase):
                 self.assertEqual(runner.execute("run", Path("engine"), Path("project"), 5, headless), 7)
                 self.assertEqual("--headless" in call.call_args.args[0], headless)
 
+    # {
+    #   責務: [test_execute_dispatch_and_stops_on_failures: 検査が構文から順に進み失敗で後続を止めることを確認する]
+    #   処理: [1: 構文とモード別の経路をmock検査; 2: 全検査でUIまたは負例失敗後の処理停止を確認]
+    #   引数: []
+    #   戻り値: [None: 呼出順と終了コードの異常は試験失敗]
+    # }
     def test_execute_dispatch_and_stops_on_failures(self):
         for mode, check_status in (("check", 0), ("test", 1), ("smoke", 1)):
             with self.subTest(mode=mode), patch.object(runner, "check_scripts", return_value=check_status), patch.object(runner, "run_checked") as checked:
@@ -113,7 +123,7 @@ class GodotRunnerTests(unittest.TestCase):
             self.assertEqual(runner.execute("smoke", Path("engine"), Path("project"), 5, False), 8)
             smoke.assert_called_once()
         for test_status, negative_status in ((1, 0), (0, 1), (0, 0)):
-            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
+            with self.subTest(test_status=test_status, negative_status=negative_status), patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=test_status), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "run_match_checks", return_value=0), patch.object(runner, "check_error_detection", return_value=negative_status) as negative, patch.object(runner, "run_smoke", return_value=0) as smoke:
                 self.assertEqual(runner.execute("test", Path("engine"), Path("project"), 5, False), test_status or negative_status)
                 self.assertEqual(negative.called, not test_status)
                 self.assertEqual(smoke.called, not (test_status or negative_status))
@@ -137,6 +147,37 @@ class GodotRunnerTests(unittest.TestCase):
         with patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=7) as checked:
             self.assertEqual(runner.execute("ui-test", Path("engine"), Path("project"), 5, False), 7)
             checked.assert_called_once_with(Path("engine"), Path("project"), 5, False)
+
+    # {
+    #   責務: [test_match_checks_native_output_and_fingerprints_on_all_paths: 境界検査の成功・不一致・例外でも原本確認が走ることを検査する]
+    #   処理: [1: 模擬外部観測を一時出力; 2: 各終了経路の終了コードとハッシュ確認を検査; 3: 全検査への失敗伝播を確認]
+    #   引数: []
+    #   戻り値: [None: 原本確認漏れや偽の成功は試験失敗]
+    # }
+    def test_match_checks_native_output_and_fingerprints_on_all_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / "fixture.json"
+            fixture.write_text('{"reference": {}}', encoding="utf-8")
+            for status, same in ((1, True), (0, True), (0, False)):
+                # {
+                #   責務: [native_output: 外部実行のJSON出力と終了コードを模擬する]
+                #   処理: [1: コマンド末尾の出力先へ空JSONを保存; 2: 指定の実行状態を返す]
+                #   引数: [command: 外部実行引数; timeout: 模擬呼出の上限秒; markers: 期待マーカー]
+                #   戻り値: [int: ケースで指定したstatus]
+                # }
+                def native_output(command, timeout, markers):
+                    Path(command[-1]).write_text('{}', encoding="utf-8")
+                    return status
+                with self.subTest(status=status, same=same), patch("scripts.tools.godot_match_fixture.write_fixture", return_value=(fixture, {})), patch("scripts.tools.godot_team_oracle.assert_sources_unchanged") as unchanged, patch.object(runner, "run_checked", side_effect=native_output), patch("scripts.core.match_trace_comparison.compare_traces", return_value={"same_observations": same}):
+                    self.assertEqual(runner.run_match_checks(Path("engine"), Path("project"), 5), status or (0 if same else 1))
+                    unchanged.assert_called_once_with({})
+            with patch("scripts.tools.godot_match_fixture.write_fixture", return_value=(fixture, {})), patch("scripts.tools.godot_team_oracle.assert_sources_unchanged") as unchanged, patch.object(runner, "run_checked", side_effect=subprocess.TimeoutExpired("engine", 5)):
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    runner.run_match_checks(Path("engine"), Path("project"), 5)
+                unchanged.assert_called_once_with({})
+        with patch.object(runner, "check_scripts", return_value=0), patch.object(runner, "run_ui_checks", return_value=0), patch.object(runner, "run_team_checks", return_value=0), patch.object(runner, "run_match_checks", return_value=1), patch.object(runner, "check_error_detection") as negative:
+            self.assertEqual(runner.execute("test", Path("engine"), Path("project"), 5, True), 1)
+            negative.assert_not_called()
 
     def test_team_checks_always_verify_source_fingerprints(self):
         for status in (0, 1):

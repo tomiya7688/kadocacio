@@ -62,6 +62,98 @@ ver 0.7.37
 
 ---
 
+ver 0.7.36
+
+指定の宣言コメント規約を導入し、PR #150のコメント不足と境界検証の指摘を修正
+
+追加したファイル
+
+- doc/コメント規約.md / doc/PRコメント確認.md
+
+  日本語正本、Python/GDScriptへの適用、閉じられたPRも含む監査と差し戻し基準を記録。
+
+- scripts/tools/static_analysis/json_like_comments.py / tests/test_json_like_comments.py
+
+  PRの実base/headから変更宣言の必須項目を検査し、本文品質の確認とは区別。
+
+変更したファイル
+
+- scripts/core/{match_operation,match_protocol,match_trace_comparison}.py / scripts/match/{match_observation,match_session}.py
+
+  宣言説明を整備し、追加観測の巨大数と試合状態に矛盾する結果を比較前に拒否。
+
+- scripts/tools/{match_contract_input,match_contract_cases,match_contract_trace,godot_match_contract,godot_match_fixture,godot_runner}.py
+
+  宣言説明と入力整数範囲を整備し、両実装で共通に拒否するfixtureを追加。
+
+- godot/scripts/core/{match_operation,match_protocol,match_trace_comparison}.gd / godot/scripts/match/{match_input_record,match_trace_record}.gd
+
+  状態・戻り値の説明とPython共通の観測値・結果位相検証を実装。
+
+- tests/test_godot_match_contract.py / tests/test_godot_runner.py / godot/tests/match_contract_tests.gd
+
+  変更宣言を説明し、数値の境界・巨大整数・結果欠落と途中結果を検証。
+
+- AGENTS.md / scripts/tools/static_analysis/CONTEXT.md / doc/試合境界契約.md
+
+  コメント規約の入口と新しい交換可能性検査を開発地図へ反映。
+
+---
+
+ver 0.7.33
+
+Python/Godot共通の試合操作・観測・最初の差分境界を追加
+
+追加したファイル
+
+- scripts/core/{match_protocol,match_operation,match_trace_comparison}.py
+
+  操作・比較許容差の正本と不変操作値、最初の状態/イベント/結果差分を定義。
+
+- scripts/match/{match_observation,match_session}.py
+
+  既存Matchを操作し、内部オブジェクトを渡さず独立した観測値を取得。
+
+- scripts/tools/{match_contract_input,match_contract_trace,match_contract_cases,godot_match_contract,godot_match_fixture}.py
+
+  既存再現入力の互換ラッパー、公開fixture・不正ケース・導出契約と差分CLIを追加。
+
+- godot/scripts/core/{match_protocol,match_operation,match_trace_comparison}.gd と各 .gd.uid
+
+  導出契約・操作検証・差分計算をNode無しで実装。
+
+- godot/scripts/match/{match_input_record,match_trace_record}.gd と各 .gd.uid
+
+  共通入力/観測を検証し独立したコピーを返す読込モデルを追加。
+
+- godot/data/match_contract.json / godot/tests/match_contract_tests.gd と .gd.uid
+
+  Python正本由来の定義と実エンジンの読込/再出力・差分照合を追加。
+
+- tests/test_godot_match_contract.py / doc/試合境界契約.md
+
+  実Match・不正値・固定ステップ・不変コピー・最終結果・差分と公開データ保護を検査し、精度/乱数の境界を明記。
+
+変更したファイル
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  新規一時出力でネイティブ観測を照合し、失敗/タイムアウト時も原本照合。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linuxの実Godot・共通契約の開発テストへ接続。
+
+- AGENTS.md / godot/README.md / doc/Godot移行.md / doc/試合エンジン境界.md / doc/クラス一覧.md
+
+  API対応・作業入口・検証範囲を更新。観測再出力を試合演算一致とみなさない。
+
+- scripts/{core,match,tools}/CONTEXT.md
+
+  新しい責務別モジュールの作業地図を再生成。
+
+---
+
 ver 0.7.32
 
 Godotへメインメニュー・設定・チーム/会場選択を移行
