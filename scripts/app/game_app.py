@@ -15,6 +15,8 @@ from scripts.app.team_select_view import TeamSelectView
 from scripts.app.fulltime_view import FulltimeView
 from scripts.app.match_hud_view import MatchHudView
 from scripts.app.player_status_view import PlayerStatusView
+from scripts.app.other_matches_view import OtherMatchesView
+from scripts.app.settings_view import SettingsView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -58,7 +60,17 @@ from scripts.team.team_data import discover_team_choices
 from scripts.team.team_editor import TeamEditor
 
 
+# {
+#   責務: [Game: Python版の画面遷移と入力・試合ホストの更新を統括する]
+#   フィールド: [match: 観戦する試合; visible_simulation: 表試合の固定更新; league_managerとleague_simulation_session: リーグ状態と裏試合; screen: 論理描画面; settings_viewとsettings_focus: 設定表示と焦点; other_matches_viewとother_matches_scroll: 速報表示とスクロール]
+# }
 class Game(RendererMixin):
+    # {
+    #   責務: [__init__: 入出力・既存演算サービス・各画面のUI状態をホストへ結び付ける]
+    #   処理: [1: pygameと設定・論理画面を初期化; 2: チームとリーグ・試合サービスを準備; 3: 各ビュー・入力領域・カメラ・観客を準備]
+    #   引数: [team_choices: 注入するチーム選択値。Noneなら通常のデータ探索]
+    #   戻り値: [None: メインメニュー状態のアプリを準備。試合はまだ開始しない]
+    # }
     def __init__(self, *, team_choices: list[dict] | None = None) -> None:
         pygame.init()
         title = PROJECT_NAME
@@ -71,6 +83,8 @@ class Game(RendererMixin):
         self.settings_open = False
         self.settings_previous_match_state = ""
         self.settings_buttons: list[tuple[pygame.Rect, str]] = []
+        self.settings_view = SettingsView()
+        self.settings_focus = 0
         self.settings_button = pygame.Rect(0, 0, 0, 0)
         self.gpu_presenter: GpuPresenter | None = None
         self.display_surface: pygame.Surface | None = None
@@ -154,6 +168,7 @@ class Game(RendererMixin):
         self.league_auto_result_delay = 0.0
         self.league_auto_matchdays = 0
         self.other_matches_open = False
+        self.other_matches_view = OtherMatchesView()
         self.other_matches_scroll = 0
         self.other_matches_button = pygame.Rect(0, 0, 0, 0)
         self.other_matches_close_button = pygame.Rect(0, 0, 0, 0)
@@ -291,11 +306,18 @@ class Game(RendererMixin):
         settings.gpu_rendering = not settings.gpu_rendering
         save_performance_settings(settings)
 
+    # {
+    #   責務: [open_settings: 元の試合状態を記録し設定モーダルを開く]
+    #   処理: [1: 二重オープンを抑止; 2: 前状態と閉じる焦点を設定; 3: PLAYINGの場合だけ一時停止]
+    #   引数: []
+    #   戻り値: [None: 設定状態を更新。時計は設定画面から進めない]
+    # }
     def open_settings(self) -> None:
         if getattr(self, "settings_open", False):
             return
         self.settings_open = True
         self.settings_previous_match_state = str(getattr(self.match, "state", ""))
+        self.settings_focus = len(SettingsView.buttons(self)) - 1
         if self.match.state == "PLAYING":
             self.match.state = "PAUSED"
 
@@ -332,9 +354,17 @@ class Game(RendererMixin):
             self.stop_league_auto_progress()
             self.close_settings()
 
+    # {
+    #   責務: [handle_settings_click: 設定ボタンのクリックを対応する既存操作へ渡す]
+    #   処理: [1: 手前のボタンから当たり判定; 2: 該当ボタンへ焦点を移して一操作だけ実行]
+    #   引数: [pos: 論理画面座標のクリック位置]
+    #   戻り値: [None: 領域外なら設定を変更しない]
+    # }
     def handle_settings_click(self, pos: tuple[int, int]) -> None:
-        for rect, action in reversed(getattr(self, "settings_buttons", ())):
+        for index in reversed(range(len(getattr(self, "settings_buttons", ())))):
+            rect, action = self.settings_buttons[index]
             if rect.collidepoint(pos):
+                self.settings_focus = index
                 self.handle_settings_action(action)
                 return
 
@@ -1393,7 +1423,13 @@ class Game(RendererMixin):
             self.roll_stadium_guests()
             self.reset_camera()
 
-    def handle_key(self, key: int) -> None:
+    # {
+    #   責務: [handle_key: 開いている画面を優先してキー操作を一つの経路へ配送する]
+    #   処理: [1: Escと設定・画面操作を処理; 2: 速報・選手一覧・終了画面の専用操作を処理; 3: 通常メニューや試合操作へ配送]
+    #   引数: [key: pygameキー; shift: 設定の逆方向焦点移動]
+    #   戻り値: [None: 上位モーダルで処理したキーは背景へ流さない]
+    # }
+    def handle_key(self, key: int, *, shift: bool = False) -> None:
         match = self.match
         if key == pygame.K_ESCAPE:
             if getattr(self, "settings_open", False):
@@ -1402,6 +1438,7 @@ class Game(RendererMixin):
                 self.open_settings()
             return
         if getattr(self, "settings_open", False):
+            self.settings_view.handle_key(self, key, shift=shift)
             return
         if key == pygame.K_F10:
             self.cycle_window_size()
@@ -1592,6 +1629,12 @@ class Game(RendererMixin):
             if rect.collidepoint(pos):
                 self.match.speed_multiplier = speed
 
+    # {
+    #   責務: [run: 入力配送・固定試合更新・描画を既存アプリの一フレームとして進める]
+    #   処理: [1: モーダルを優先してイベントを配送; 2: 裏試合・スキップ・オートを更新; 3: 許可された表試合と描画を更新; 4: 終了時にバックエンドとワーカーを閉じる]
+    #   引数: []
+    #   戻り値: [None: runningが終了するまで継続。速報と能力表示だけでは試合を停止しない]
+    # }
     def run(self) -> None:
         while self.running:
             dt = min(self.clock.tick(FPS) / 1000.0, 0.05)
@@ -1599,8 +1642,8 @@ class Game(RendererMixin):
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif getattr(self, "settings_open", False):
-                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        self.close_settings()
+                    if event.type == pygame.KEYDOWN:
+                        self.handle_key(event.key, shift=bool(getattr(event, "mod", 0) & pygame.KMOD_SHIFT))
                     elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         self.handle_settings_click(self.logical_mouse_pos(event.pos))
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

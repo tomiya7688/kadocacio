@@ -4,18 +4,11 @@ import math
 
 import pygame
 
+from scripts.app.ui_theme import SURFACE, TEXT, ACCENT, BORDER
 from scripts.app.uniform_rendering import draw_uniform_limb, draw_uniform_polygon
 
-from scripts.core.performance_settings import LEAGUE_SIMULATION_MODES
 from scripts.match.player import Player
 from scripts.league.league_rendering import LeagueRendererMixin
-from scripts.league.league_live_view import (
-    OTHER_MATCH_COLUMNS,
-    OTHER_MATCH_VISIBLE_ROWS,
-    clamp_other_match_scroll,
-    other_match_max_scroll,
-    visible_other_matches,
-)
 from scripts.match.match_engine import Match
 from scripts.match.player_commands import PlayerCommand
 from scripts.core.settings import (
@@ -27,6 +20,10 @@ from scripts.core.settings import (
 )
 
 
+# {
+#   責務: [RendererMixin: ホストの状態をPython版の試合・画面表示へ投影する]
+#   フィールド: [screen: ホスト提供の描画先; 各view: 専用画面の表示責務; 各button領域: 描画と入力で共有する論理座標]
+# }
 class RendererMixin(LeagueRendererMixin):
     """Pygame projection and drawing methods used by Game."""
 
@@ -82,140 +79,28 @@ class RendererMixin(LeagueRendererMixin):
             pygame.draw.rect(self.screen, (183, 180, 168), button, 2, border_radius=7)
             self.text(label, 10, INK, button.center, bold=True, center=True)
 
+    # {
+    #   責務: [draw_settings_button: 共通設定の入口をhover状態付きで描画する]
+    #   処理: [1: クリック領域を記録; 2: マウス状態に合う色と案内を描画]
+    #   引数: [rect: 論理画面内の設定入口領域]
+    #   戻り値: [None: 描画と設定ボタン領域を更新]
+    # }
     def draw_settings_button(self, rect: pygame.Rect) -> None:
         self.settings_button = rect
         hover = rect.collidepoint(self.logical_mouse_pos())
-        color = (37, 49, 62) if not hover else (48, 65, 80)
+        color = SURFACE if not hover else (29, 49, 57)
         pygame.draw.rect(self.screen, color, rect, border_radius=8)
-        pygame.draw.rect(self.screen, (91, 112, 128), rect, 1, border_radius=8)
-        self.text("ESC　設定", 11, (236, 240, 242), rect.center, bold=True, center=True)
+        pygame.draw.rect(self.screen, ACCENT if hover else BORDER, rect, 1, border_radius=8)
+        self.text("ESC　設定", 14, TEXT, rect.center, bold=True, center=True)
 
+    # {
+    #   責務: [draw_settings_modal: 共通設定の専用ビューへ描画を委譲する]
+    #   処理: [1: ホストをSettingsViewへ渡す]
+    #   引数: []
+    #   戻り値: [None: 設定表示を更新。保存責務はホスト側]
+    # }
     def draw_settings_modal(self) -> None:
-        """Modern modal shared by title, match, league and team editor screens."""
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((5, 10, 17, 208))
-        self.screen.blit(shade, (0, 0))
-
-        card = pygame.Rect(WIDTH // 2 - 400, 40, 800, 640)
-        shadow = pygame.Surface((card.width + 28, card.height + 28), pygame.SRCALPHA)
-        pygame.draw.rect(shadow, (0, 0, 0, 95), shadow.get_rect(), border_radius=25)
-        self.screen.blit(shadow, (card.left - 8, card.top + 7))
-        pygame.draw.rect(self.screen, (18, 25, 34), card, border_radius=20)
-        pygame.draw.rect(self.screen, (64, 79, 94), card, 1, border_radius=20)
-        pygame.draw.rect(self.screen, (77, 198, 178), (card.left, card.top, card.width, 4), border_radius=2)
-
-        self.settings_buttons = []
-        mouse = self.logical_mouse_pos()
-
-        def button(
-            rect: pygame.Rect,
-            label: str,
-            action: str,
-            *,
-            active: bool = False,
-            danger: bool = False,
-            subtitle: str = "",
-        ) -> None:
-            hover = rect.collidepoint(mouse)
-            if danger:
-                fill = (166, 59, 69) if hover else (126, 45, 55)
-                border = (225, 105, 112)
-            elif active:
-                fill = (31, 101, 94) if not hover else (38, 121, 111)
-                border = (77, 198, 178)
-            else:
-                fill = (31, 41, 53) if not hover else (43, 57, 71)
-                border = (69, 85, 100)
-            pygame.draw.rect(self.screen, fill, rect, border_radius=10)
-            pygame.draw.rect(self.screen, border, rect, 1, border_radius=10)
-            label_y = rect.centery - (8 if subtitle else 0)
-            self.text(label, 12, (244, 247, 248), (rect.centerx, label_y), bold=True, center=True)
-            if subtitle:
-                self.text(subtitle, 9, (166, 180, 191), (rect.centerx, rect.centery + 14), center=True)
-            self.settings_buttons.append((rect, action))
-
-        self.text("SETTINGS", 10, (77, 198, 178), (card.left + 32, card.top + 24), bold=True)
-        self.text("ゲーム設定", 28, (244, 247, 248), (card.left + 32, card.top + 43), bold=True)
-        self.text("Escでも閉じて元の画面へ戻れます", 11, (151, 166, 178), (card.left + 32, card.top + 81))
-        close_rect = pygame.Rect(card.right - 66, card.top + 24, 38, 38)
-        button(close_rect, "×", "close")
-
-        panel_color = (23, 32, 43)
-        panel_border = (48, 62, 76)
-        cpu_panel = pygame.Rect(card.left + 28, card.top + 112, card.width - 56, 104)
-        pygame.draw.rect(self.screen, panel_color, cpu_panel, border_radius=13)
-        pygame.draw.rect(self.screen, panel_border, cpu_panel, 1, border_radius=13)
-        self.text("CPU演算枠", 14, (230, 235, 238), (cpu_panel.left + 18, cpu_panel.top + 13), bold=True)
-        self.text("同時試合数とフレーム内の計算量を制限", 10, (143, 157, 169), (cpu_panel.left + 128, cpu_panel.top + 17))
-        cpu_values = (10, 25, 50, 75, 100)
-        gap = 8
-        chip_width = (cpu_panel.width - 36 - gap * 4) // 5
-        for index, value in enumerate(cpu_values):
-            rect = pygame.Rect(cpu_panel.left + 18 + index * (chip_width + gap), cpu_panel.top + 51, chip_width, 36)
-            button(rect, f"{value}%", f"cpu:{value}", active=value == int(getattr(self, "cpu_limit_percent", 100)))
-
-        league_panel = pygame.Rect(card.left + 28, card.top + 228, card.width - 56, 188)
-        pygame.draw.rect(self.screen, panel_color, league_panel, border_radius=13)
-        pygame.draw.rect(self.screen, panel_border, league_panel, 1, border_radius=13)
-        self.text("リーグ戦の裏試合", 14, (230, 235, 238), (league_panel.left + 18, league_panel.top + 13), bold=True)
-        self.text("ボール・衝突・時計は全モード共通。戦術AIの再判断頻度を変更", 10, (143, 157, 169), (league_panel.left + 162, league_panel.top + 17))
-        mode = str(getattr(self, "league_simulation_mode", "PRECISE"))
-        mode_descriptions = {
-            "ULTRA_PRECISE": "高頻度更新 / 最高負荷",
-            "PRECISE": "現在と同じ / 標準",
-            "NORMAL": "更新を少し抑制",
-            "LIGHT": "更新を大きく抑制",
-        }
-        mode_gap = 9
-        mode_width = (league_panel.width - 36 - mode_gap * 3) // 4
-        for index, (key, profile) in enumerate(LEAGUE_SIMULATION_MODES.items()):
-            rect = pygame.Rect(league_panel.left + 18 + index * (mode_width + mode_gap), league_panel.top + 51, mode_width, 91)
-            button(
-                rect,
-                str(profile["label"]),
-                f"league_mode:{key}",
-                active=key == mode,
-                subtitle=mode_descriptions[key],
-            )
-        self.text("設定変更は次に開始する裏試合から反映されます", 9, (126, 143, 156), (league_panel.left + 18, league_panel.bottom - 27))
-
-        display_panel = pygame.Rect(card.left + 28, card.top + 428, card.width - 56, 100)
-        pygame.draw.rect(self.screen, panel_color, display_panel, border_radius=13)
-        pygame.draw.rect(self.screen, panel_border, display_panel, 1, border_radius=13)
-        self.text("画面・バックエンド", 14, (230, 235, 238), (display_panel.left + 18, display_panel.top + 13), bold=True)
-        width, height = self.current_window_size
-        gpu_enabled = bool(getattr(getattr(self, "performance_settings", None), "gpu_rendering", True))
-        display_specs = (
-            (f"{width} × {height}", "window_size", False, "ウィンドウサイズ"),
-            ("全画面 ON" if self.fullscreen else "全画面 OFF", "fullscreen", self.fullscreen, "表示モード"),
-            ("GPU描画 ON" if gpu_enabled else "GPU描画 OFF", "gpu_rendering", gpu_enabled, "次回起動から反映"),
-        )
-        display_gap = 9
-        display_width = (display_panel.width - 36 - display_gap * 2) // 3
-        for index, (label, action, active, subtitle) in enumerate(display_specs):
-            rect = pygame.Rect(display_panel.left + 18 + index * (display_width + display_gap), display_panel.top + 48, display_width, 38)
-            button(rect, label, action, active=active, subtitle=subtitle)
-
-        backend = f"演算 {getattr(self, 'compute_backend_name', 'CPU')} / 描画 {getattr(self, 'render_backend_name', 'CPU (Surface)')}"
-        self.text(backend, 10, (132, 149, 162), (card.left + 32, card.top + 545))
-        previous_state = str(getattr(self, "settings_previous_match_state", ""))
-        auto_running = bool(getattr(self, "league_auto_running", False))
-        footer_y = card.bottom - 61
-        if previous_state in ("PLAYING", "PAUSED"):
-            if auto_running:
-                button(pygame.Rect(card.left + 28, footer_y, 170, 40), "オート停止", "auto_stop", danger=True)
-                button(pygame.Rect(card.left + 208, footer_y, 170, 40), "試合を中断", "abort", danger=True)
-                button(pygame.Rect(card.left + 388, footer_y, 170, 40), "残りをスキップ", "skip")
-                button(pygame.Rect(card.left + 568, footer_y, 184, 40), "閉じる", "close", active=True)
-            else:
-                button(pygame.Rect(card.left + 28, footer_y, 184, 40), "試合を中断", "abort", danger=True)
-                button(pygame.Rect(card.left + 222, footer_y, 184, 40), "残りをスキップ", "skip")
-                button(pygame.Rect(card.right - 212, footer_y, 184, 40), "閉じる", "close", active=True)
-        elif auto_running:
-            button(pygame.Rect(card.left + 28, footer_y, 184, 40), "オート停止", "auto_stop", danger=True)
-            button(pygame.Rect(card.right - 212, footer_y, 184, 40), "閉じる", "close", active=True)
-        else:
-            button(pygame.Rect(card.right - 212, footer_y, 184, 40), "閉じる", "close", active=True)
+        self.settings_view.draw(self)
 
     def project(self, x: float, y: float, z: float = 0.0) -> tuple[pygame.Vector2, float]:
         relative = pygame.Vector3(x, y, z) - self.camera
@@ -713,92 +598,14 @@ class RendererMixin(LeagueRendererMixin):
     def draw_player_list(self) -> None:
         self.player_status_view.draw(self)
 
+    # {
+    #   責務: [draw_other_matches: 他会場速報の専用ビューへ描画を委譲する]
+    #   処理: [1: ホストをOtherMatchesViewへ渡す]
+    #   引数: []
+    #   戻り値: [None: 速報を表示。各会場の演算と時計は変更しない]
+    # }
     def draw_other_matches(self) -> None:
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((18, 22, 29, 205))
-        self.screen.blit(shade, (0, 0))
-        modal = pygame.Rect(32, 42, WIDTH - 64, HEIGHT - 84)
-        pygame.draw.rect(self.screen, PAPER, modal, border_radius=14)
-        pygame.draw.rect(self.screen, GOLD, modal, 3, border_radius=14)
-        self.text("他の試合　リアルタイム速報", 23, INK, (modal.left + 28, modal.top + 22), bold=True)
-        session = self.league_simulation_session
-        worker_text = f" / 自動割当 {session.worker_count}コア" if session is not None else ""
-        self.text("観戦試合と同じ試合時計で、別CPUコアのAI試合を進行中" + worker_text, 11, MUTED, (modal.left + 30, modal.top + 58))
-        self.other_matches_close_button = pygame.Rect(modal.right - 142, modal.top + 20, 112, 34)
-        pygame.draw.rect(self.screen, (230, 226, 211), self.other_matches_close_button, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), self.other_matches_close_button, 2, border_radius=7)
-        self.text("O / ESC 閉じる", 11, INK, self.other_matches_close_button.center, bold=True, center=True)
-
-        statuses = [dict(item) for item in session.live_status.values()] if session is not None else list(self.league_live_last_status)
-        result_by_id = {str(item.get("fixture_id")): item for item in self.league_manager.last_results}
-        for status in statuses:
-            result = result_by_id.get(str(status.get("fixture_id")))
-            if result:
-                status.update({"home_score": result.get("home_score", 0), "away_score": result.get("away_score", 0), "minute": 90, "state": "FULLTIME"})
-        if not statuses:
-            self.text("同時開催の他の試合はありません", 16, MUTED, modal.center, center=True)
-            self.other_matches_scroll = 0
-            self.other_matches_scroll_track = pygame.Rect(0, 0, 0, 0)
-            self.other_matches_scroll_thumb = pygame.Rect(0, 0, 0, 0)
-            return
-
-        self.other_matches_scroll = clamp_other_match_scroll(self.other_matches_scroll, len(statuses))
-        visible, first_index, last_index = visible_other_matches(statuses, self.other_matches_scroll)
-        self.text(
-            f"全{len(statuses)}試合　表示 {first_index + 1}～{last_index}",
-            11, INK, (modal.right - 176, modal.top + 64), right=True, bold=True,
-        )
-        self.text(
-            "マウスホイール / ↑↓ / PageUp・PageDown / Home・End",
-            10, MUTED, (modal.left + 30, modal.top + 81),
-        )
-
-        grid = pygame.Rect(modal.left + 24, modal.top + 108, modal.width - 76, 480)
-        column_gap = 8
-        row_gap = 6
-        row_height = 48
-        column_width = (grid.width - column_gap * (OTHER_MATCH_COLUMNS - 1)) // OTHER_MATCH_COLUMNS
-        for visible_index, status in enumerate(visible):
-            column = visible_index % OTHER_MATCH_COLUMNS
-            grid_row = visible_index // OTHER_MATCH_COLUMNS
-            row = pygame.Rect(
-                grid.left + column * (column_width + column_gap),
-                grid.top + grid_row * (row_height + row_gap),
-                column_width,
-                row_height,
-            )
-            source_index = first_index + visible_index
-            pygame.draw.rect(self.screen, (236, 233, 220) if source_index % 2 == 0 else (228, 226, 214), row, border_radius=6)
-            pygame.draw.rect(self.screen, (205, 201, 188), row, 1, border_radius=6)
-            game_time = float(status.get("game_time", float(status.get("minute", 0)) * 60.0))
-            minute = "終了" if status.get("state") == "FULLTIME" else f"{int(game_time // 60):02d}:{int(game_time % 60):02d}"
-            league_label = str(status.get("league", ""))
-            self.text(league_label[:18], 9, MUTED, (row.left + 8, row.top + 5), bold=True)
-            self.text(minute, 10, INK, (row.right - 8, row.top + 5), right=True, bold=True)
-            home_name = str(status.get("home_name", ""))
-            away_name = str(status.get("away_name", ""))
-            if len(home_name) > 14:
-                home_name = home_name[:13] + "…"
-            if len(away_name) > 14:
-                away_name = away_name[:13] + "…"
-            self.text(home_name, 10, INK, (row.centerx - 34, row.top + 27), right=True, bold=True)
-            self.text(f"{status.get('home_score', 0)}-{status.get('away_score', 0)}", 14, HOME_RED, (row.centerx, row.top + 27), center=True, bold=True)
-            self.text(away_name, 10, INK, (row.centerx + 34, row.top + 27), bold=True)
-
-        maximum = other_match_max_scroll(len(statuses))
-        track = pygame.Rect(modal.right - 24, grid.top, 9, grid.height)
-        self.other_matches_scroll_track = track
-        pygame.draw.rect(self.screen, (211, 208, 196), track, border_radius=4)
-        if maximum > 0:
-            total_rows = maximum + OTHER_MATCH_VISIBLE_ROWS
-            thumb_height = max(34, round(track.height * OTHER_MATCH_VISIBLE_ROWS / total_rows))
-            thumb_y = track.top + round((track.height - thumb_height) * self.other_matches_scroll / maximum)
-            thumb = pygame.Rect(track.left, thumb_y, track.width, thumb_height)
-            pygame.draw.rect(self.screen, HOME_RED, thumb, border_radius=4)
-        else:
-            thumb = track.copy()
-            pygame.draw.rect(self.screen, (166, 163, 153), thumb, border_radius=4)
-        self.other_matches_scroll_thumb = thumb
+        self.other_matches_view.draw(self)
 
     def draw_overlay(self) -> None:
         match = self.match
