@@ -6,6 +6,12 @@ from scripts.core.match_trace_comparison import compare_traces, validate_trace
 from scripts.tools.match_contract_input import restore_contract_input
 
 
+# {
+#   責務: [input_cases: 両実装で共通に拒否すべき入力を参照検証付きで生成する]
+#   処理: [1: 正常入力を複製して一項目ずつ破損; 2: 復元可否を各ケースへ記録]
+#   引数: [payload: 正常な契約入力]
+#   戻り値: [cases: ケース名・入力・参照側の有効性の一覧]
+# }
 def input_cases(payload: dict) -> list[dict]:
     cases = []
     for name, path, value in (
@@ -14,6 +20,10 @@ def input_cases(payload: dict) -> list[dict]:
         ("seed_number", ("repro_input", "settings", "seed"), 42),
         ("seed_zeroes", ("repro_input", "settings", "seed"), "01"),
         ("max_steps_bool", ("repro_input", "settings", "max_steps"), True),
+        ("max_steps_limit", ("repro_input", "settings", "max_steps"), 9_000_000_000_000_000),
+        ("max_steps_negative", ("repro_input", "settings", "max_steps"), -1),
+        ("max_steps_fraction", ("repro_input", "settings", "max_steps"), 1.5),
+        ("repro_version_limit", ("repro_input", "version"), 9_000_000_000_000_000),
         ("dt", ("repro_input", "settings", "fixed_physics_dt"), 0.1),
         ("venue", ("repro_input", "settings", "venue_mode"), "other"),
         ("AI", ("repro_input", "settings", "ai_rethink_multiplier"), 4),
@@ -41,6 +51,12 @@ def input_cases(payload: dict) -> list[dict]:
     return cases
 
 
+# {
+#   責務: [comparison_cases: 差分位置と許容差を移植先で再現するための比較例を生成する]
+#   処理: [1: 短い基準列を複製; 2: 状態またはイベントを一箇所変更; 3: Pythonの期待報告を添付]
+#   引数: [trace: 正常な参照観測列]
+#   戻り値: [cases: 基準・変更観測と期待差分の一覧]
+# }
 def comparison_cases(trace: dict) -> list[dict]:
     expected = deepcopy(trace)
     expected["entries"] = expected["entries"][:7]
@@ -67,6 +83,12 @@ def comparison_cases(trace: dict) -> list[dict]:
     return cases
 
 
+# {
+#   責務: [trace_cases: 状態・結果・追加項目の破損を両読込実装で照合する]
+#   処理: [1: 最初の観測を複製して一項目を変更; 2: 参照側の拒否結果を記録]
+#   引数: [trace: 正常な参照観測列]
+#   戻り値: [cases: 不正観測と有効性の一覧。試合結果を捏造しない]
+# }
 def trace_cases(trace: dict) -> list[dict]:
     """Malformed observation values must not compare equal in either engine."""
     cases = []
@@ -90,6 +112,9 @@ def trace_cases(trace: dict) -> list[dict]:
         ("event_elapsed", ("events", 0, "simulation_elapsed"), -1),
         ("event_text", ("events", 0, "text"), 1),
         ("empty_result", ("result",), {}),
+        ("premature_result", ("result",), {"home_score": 0, "away_score": 0, "home_shots": 0, "away_shots": 0, "game_time": 0}),
+        ("fulltime_without_result", ("snapshot", "status", "state"), "FULLTIME"),
+        ("nested_integer_limit", ("snapshot", "extra"), {"nested": [9_000_000_000_000_000]}),
     ):
         actual = deepcopy(trace)
         actual["entries"] = actual["entries"][:1]

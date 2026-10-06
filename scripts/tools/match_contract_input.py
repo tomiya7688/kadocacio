@@ -7,6 +7,12 @@ from scripts.core.match_protocol import INPUT_FORMAT, VERSION, is_json_integer
 from scripts.tools.match_repro_input import create_input_record, restore_input_record
 
 
+# {
+#   責務: [create_contract_input: Python再現入力をGodotと交換できる操作付き入力へ変換する]
+#   処理: [1: seedを整数丸めのない十進文字列にする; 2: 復元検証後に独立したJSON値へ複製する]
+#   引数: [home: ホーム選択値; away: アウェー選択値; operations: 実行操作列; settings: 再現用の設定]
+#   戻り値: [payload: 検証済みのv1入力。元データは変更しない]
+# }
 def create_contract_input(home: dict, away: dict, operations: list[dict], **settings) -> dict:
     repro = create_input_record(home, away, **settings)
     repro["settings"]["seed"] = str(repro["settings"]["seed"])
@@ -15,6 +21,12 @@ def create_contract_input(home: dict, away: dict, operations: list[dict], **sett
     return json.loads(json.dumps(payload, ensure_ascii=False, allow_nan=False))
 
 
+# {
+#   責務: [restore_contract_input: 移植先と同じ入力制約でチーム・設定・操作を復元する]
+#   処理: [1: 形式とseed表記を検証; 2: 交換可能な整数を正規化; 3: 再現入力と操作順・予算を検証]
+#   引数: [payload: 外部から受け取るJSON互換値]
+#   戻り値: [tuple: 独立したホーム・アウェー・設定・操作列。不正値はValueError]
+# }
 def restore_contract_input(payload: object) -> tuple[dict, dict, dict, list[dict]]:
     if not isinstance(payload, dict) or payload.get("format") != INPUT_FORMAT or not is_json_integer(payload.get("version")) or payload["version"] != VERSION:
         raise ValueError("unsupported match contract input")
@@ -33,8 +45,9 @@ def restore_contract_input(payload: object) -> tuple[dict, dict, dict, list[dict
         raise ValueError("seed must be canonical decimal text")
     repro["settings"]["seed"] = number
     for key, container in (("version", repro), ("max_steps", repro["settings"])):
-        if is_json_integer(container.get(key)):
-            container[key] = int(container[key])
+        if not is_json_integer(container.get(key)):
+            raise ValueError(f"{key} must be a portable integer")
+        container[key] = int(container[key])
     teams = repro.get("teams")
     if isinstance(teams, dict):
         for team in teams.values():

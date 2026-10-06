@@ -135,6 +135,12 @@ def run_ui_checks(engine: Path, project: Path, timeout: float, headless: bool) -
     ), timeout, ("KADOCALCIO_TESTS:",))
 
 
+# {
+#   責務: [run_match_checks: 実Godotの境界再出力を参照観測と照合する]
+#   処理: [1: 公開fixtureを生成; 2: 隔離出力で実エンジンを実行; 3: 差分を保存し全終了経路で原本保持を確認]
+#   引数: [engine: 固定版実行ファイル; project: Godotプロジェクト; timeout: 一検査の上限秒]
+#   戻り値: [int: 正常一致0、不一致1、エンジン失敗はその終了コード]
+# }
 def run_match_checks(engine: Path, project: Path, timeout: float) -> int:
     from scripts.tools.godot_match_fixture import write_fixture
 
@@ -173,6 +179,12 @@ def run_native_trace_check(engine: Path, project: Path, timeout: float, fixture:
         assert_sources_unchanged(fingerprints)
 
 
+# {
+#   責務: [run_ball_checks: 公開参照データから実Godotの自由ボール規則を照合する]
+#   処理: [1: ボールfixtureと原本ハッシュを生成; 2: 共通の外部観測照合処理へ委譲]
+#   引数: [engine: 固定版実行ファイル; project: Godotプロジェクト; timeout: 一検査の上限秒]
+#   戻り値: [int: 外部試験と観測比較の終了コード。全試合互換は認定しない]
+# }
 def run_ball_checks(engine: Path, project: Path, timeout: float) -> int:
     from scripts.tools.godot_ball_fixture import write_ball_fixture
 
@@ -181,6 +193,12 @@ def run_ball_checks(engine: Path, project: Path, timeout: float) -> int:
                                   "ball_physics_tests.gd", "KADOCALCIO_BALL_TESTS:")
 
 
+# {
+#   責務: [execute: 指定モードの検査を依存順に実行して失敗時に後続を止める]
+#   処理: [1: run以外で構文を検査; 2: モード固有または全検査を順に実行; 3: 最初の失敗コードを返す]
+#   引数: [mode: 実行モード; engine: 固定版実行ファイル; project: プロジェクト; timeout: 一検査の上限秒; headless: 非表示指定]
+#   戻り値: [int: 実行した検査の終了コード]
+# }
 def execute(mode: str, engine: Path, project: Path, timeout: float, headless: bool) -> int:
     if mode == "run":
         options = ["--headless"] if headless else []
