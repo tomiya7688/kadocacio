@@ -104,6 +104,9 @@ func apply(payload: Variant) -> bool:
 func _step(dt: float) -> bool:
 	if _state.paused or _state.clock.state == "FULLTIME":
 		return true
+	if _state.ball_boundary != null or _state.ball_contact != null:
+		error = "unresolved ball contact/boundary: migration resolver required"
+		return false
 	if _state.step >= _state.max_steps:
 		error = "physics step budget exhausted"
 		return false
@@ -121,7 +124,7 @@ func _step(dt: float) -> bool:
 	_state.step += 1
 	if banner_active and _state.ball.owner != null:
 		_state.ball.position.x = _state.ball.owner.position.x + _state.ball.control_offset
-		_state.ball.position.y = _state.ball.owner.position.y
+		_state.ball.position.y = _state.ball.owner.position.y + _state.ball.control_offset_y
 	if transition == "HALFTIME":
 		_state.events.append("ハーフタイム", _state.clock)
 		MatchSetup.reset_positions(_state, _state.away, rng)
@@ -150,6 +153,14 @@ func observe(after_sequence: int = 0) -> Dictionary:
 
 func is_ready() -> bool:
 	return _started
+
+
+func observe_ball() -> Dictionary:
+	if not _started:
+		return {}
+	return {"ball": BallObservation.capture(_state.ball),
+		"boundary": null if _state.ball_boundary == null else _state.ball_boundary.to_payload(),
+		"contact": null if _state.ball_contact == null else _state.ball_contact.to_payload()}
 
 
 func is_playing() -> bool:

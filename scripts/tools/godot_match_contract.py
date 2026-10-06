@@ -7,7 +7,7 @@ from pathlib import Path
 from scripts.core.match_protocol import protocol_definition
 from scripts.core.paths import PROJECT_ROOT
 from scripts.match.player_command import PlayerCommand
-from scripts.core.settings import FIELD, GAME_CLOCK_RATE, MATCH_SECONDS
+from scripts.core.settings import FIELD, GAME_CLOCK_RATE, MATCH_SECONDS, GRAVITY, GOAL_HEIGHT, GOAL_HALF_HEIGHT, PLAYER_VISUAL_SCALE, OUTFIELD_BALL_REACH, KEEPER_BALL_REACH, PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH
 from scripts.match.stamina_system import stamina_capacity
 
 CONTRACT_PATH = PROJECT_ROOT / "godot/data/match_contract.json"
@@ -23,7 +23,10 @@ def contract_text() -> str:
     return json.dumps({**protocol_definition(), "player_commands": {command.name: command.value for command in PlayerCommand},
                        "kernel": {"field": [FIELD.left, FIELD.top, FIELD.width, FIELD.height],
                                   "clock_rate": GAME_CLOCK_RATE, "match_seconds": MATCH_SECONDS,
-                                  "stamina_base": stamina_capacity(0.0), "stamina_span": stamina_capacity(1.0) - stamina_capacity(0.0)}}, ensure_ascii=False, indent=2) + "\n"
+                                  "stamina_base": stamina_capacity(0.0), "stamina_span": stamina_capacity(1.0) - stamina_capacity(0.0)},
+                       "ball_rules": {"gravity": GRAVITY, "goal_height": GOAL_HEIGHT, "goal_half_width": GOAL_HALF_HEIGHT,
+                                      "visual_scale": PLAYER_VISUAL_SCALE, "outfield_reach": OUTFIELD_BALL_REACH, "keeper_reach": KEEPER_BALL_REACH,
+                                      "penalty_depth": PENALTY_AREA_DEPTH, "penalty_width": PENALTY_AREA_WIDTH}}, ensure_ascii=False, indent=2) + "\n"
 
 
 # {

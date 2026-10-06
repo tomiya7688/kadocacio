@@ -15,6 +15,8 @@ var sent_off: bool = false
 var personal_tactic_timer: float
 var skill: float
 var roam_timer: float
+# Current effective contact value; body/fatigue system #126 owns later updates.
+var contact_jump_accuracy: float
 
 
 func _init(player: PlayerDefinition, side: String, index: int, team_direction: int, rng: ObservedMatchRandom) -> void:
@@ -24,6 +26,7 @@ func _init(player: PlayerDefinition, side: String, index: int, team_direction: i
 	var rules: Dictionary = MatchProtocol.values()["kernel"] as Dictionary
 	stamina_max = (rules["stamina_base"] as float) + (player.normalized_stats["MaxStamina"] as float) * (rules["stamina_span"] as float)
 	stamina = stamina_max
+	contact_jump_accuracy = player.normalized_stats["JumpAccuracy"] as float
 	personal_tactic_timer = rng.uniform(1.5, 4.0)
 	skill = rng.uniform(0.88, 1.12)
 	roam_timer = rng.uniform(0.4, 1.8)
