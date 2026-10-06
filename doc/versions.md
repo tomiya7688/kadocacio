@@ -62,6 +62,52 @@ ver 0.7.37
 
 ---
 
+ver 0.7.29
+
+Godotの起動基盤と実エンジンによる型検査・ヘッドレス検証を追加
+
+追加したファイル
+
+- godot/project.godot / godot/engine_version.txt / godot/README.md
+
+  Godot 4.7.2を固定し、移行用の開発入口とPythonとの対応を記録。
+
+- godot/scripts/app/bootstrap.gd / godot/scenes/app/bootstrap.tscn
+
+  試合未移行を明示する画面と正常終了処理。
+
+- godot/scripts/core/README.md / godot/scripts/data/README.md / godot/scripts/match/README.md
+
+  表示・共通プリミティブ・データ・Node無し演算の配置境界。
+
+- godot/tests/run_tests.gd / godot/tests/fixtures/*.gd.txt / godot/**/*.gd.uid
+
+  実エンジンのアサーション、構文/型の異常検出fixtureと参照ID。
+
+- run_godot.bat / scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  薄いWindows入口、実行ファイル/固定版検証、全スクリプト検査と失敗時の終了コード。描画smokeは無音ドライバーを明示し、CIの音声デバイス不在とコードエラーを分離。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linuxで公式配布のハッシュを検証し、実Godotの起動・型検査を実行。
+
+変更したファイル
+
+- .gitignore
+
+  Godotの生成キャッシュとexport資格情報を除外。
+
+- AGENTS.md / AI_CONTEXT.md / doc/Godot移行.md / doc/クラス一覧.md
+
+  開発入口・移行対応・クラスの役割・未検証境界を追加。通常のPython入口とユーザーデータは維持。
+
+- scripts/tools/CONTEXT.md
+
+  追加した開発用モジュールの索引を自動更新。
+
+---
+
 ver 0.7.28
 
 Godot移行を24実装Issueへ分割し、依存待ちを除外する優先作業選択を整備

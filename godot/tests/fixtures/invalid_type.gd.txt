@@ -1,0 +1,4 @@
+extends SceneTree
+func _initialize() -> void:
+	var score: int = "not an integer"
+	quit(score)
