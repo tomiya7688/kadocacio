@@ -70,4 +70,4 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a python -m scripts.tools.godot_runner ui-test
       - name: Developer runner and reference contract unit tests
-        run: python -m unittest tests.test_godot_runner tests.test_godot_team_data tests.test_godot_ui_contract tests.test_godot_match_contract tests.test_godot_match_kernel -v
+        run: python -m unittest tests.test_godot_runner tests.test_godot_team_data tests.test_godot_ui_contract tests.test_godot_match_contract tests.test_godot_match_kernel tests.test_godot_ball_physics -v
