@@ -22,6 +22,38 @@ ver num.num.num
 
 ---
 
+ver 0.7.63
+
+PR #152のコメント修正を公開済み演算コードから独立して提出
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- godot/scripts/match/ball_boundary_event.gd、ball_boundary_system.gd、ball_contact_candidate.gd、ball_contact_query.gd
+
+  境界の検出順、手の規則、接触候補と成否判定の違いを説明します。
+
+- godot/scripts/match/ball_flight_system.gd、ball_observation.gd、ball_possession_system.gd、ball_state.gd
+
+  弾道の更新順、独立した観測、保持・解放で変更する情報を説明します。
+
+- godot/scripts/match/match_kernel.gd、match_setup.gd、match_state.gd、player_state.gd
+
+  未解決イベントの停止、再配置と初期化時の状態を、今回提出する実装に合わせて説明します。
+
+- godot/tests/ball_physics_tests.gd、scripts/tools/godot_ball_fixture.py、tests/test_godot_ball_physics.py
+
+  比較する実演算の範囲、模擬する境界と元チーム保護の試験を説明します。
+
+- doc/PRコメント確認.md
+
+  提出用コードのコメント検査と演算構造の不変を記録します。未提出の身体更新・UI実装は含めません。
+
+---
+
 ver 0.7.39
 
 差し戻されたPR #144の作業選択と回帰試験へ指定形式の宣言説明を追加

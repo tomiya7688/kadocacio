@@ -10,10 +10,22 @@ var _failures: int = 0
 var _entries: Array[Dictionary] = []
 
 
+# {
+#   責務: [_initialize: 初期化後のボール検査を予約します]
+#   処理: [1: 検査本体を遅延呼出しへ登録します]
+#   引数: []
+#   戻り値: [void: SceneTree初期化後に検査を実行します]
+# }
 func _initialize() -> void:
 	_run.call_deferred()
 
 
+# {
+#   責務: [_expect: 一つの不変条件の検査結果を記録します]
+#   処理: [1: 検査数を増やします; 2: 不成立なら失敗数と診断ログを更新します]
+#   引数: [condition: 成功条件; label: 違反時の診断]
+#   戻り値: [void: 最後の終了コードへ反映します]
+# }
 func _expect(condition: bool, label: String) -> void:
 	_assertions += 1
 	if not condition:
@@ -28,6 +40,7 @@ func _expect(condition: bool, label: String) -> void:
 #   戻り値: [void: 試験成否でプロセスを終了。全試合や接触成否を認定しない]
 # }
 func _run() -> void:
+	# 正式な引数でのみ入力を読み、入力不正を演算の成功へ置き換えません。
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	if args.size() != 4 or args[0] != "--fixture" or args[2] != "--output":
 		quit(2)
@@ -35,12 +48,14 @@ func _run() -> void:
 	var parsed: Dictionary = StrictJsonReader.read_file(args[1])
 	_expect((parsed["error"] as String).is_empty(), "ball fixture")
 	var fixture: Dictionary = parsed["data"] as Dictionary
+	# 全ケースの実観測を生成し、代表弾道だけはペース非依存も確認します。
 	for item: Dictionary in fixture["cases"] as Array:
 		_replay(fixture["input"] as Dictionary, item)
 		if item["name"] in ["slow_roll", "fast_roll", "lofted", "curve", "knuckle"]:
 			_check_pacing(fixture["input"] as Dictionary, item)
 	_check_integration(fixture["input"] as Dictionary, (fixture["cases"] as Array)[0] as Dictionary)
 	_check_preparation(fixture["input"] as Dictionary, (fixture["cases"] as Array)[0] as Dictionary)
+	# 再出力した期待値ではなく、実更新から得た観測列を外部比較へ渡します。
 	var trace: Dictionary = {"format": MatchProtocol.values()["trace_format"], "version": 1,
 		"source": {"implementation": "godot-ball-rules", "execution": "simulation", "rng": "contact success intercepted; flight deterministic", "seed_text": "41"}, "entries": _entries}
 	var report: Dictionary = MatchTraceComparison.compare(MatchTraceRecord.read(fixture["reference"]), MatchTraceRecord.read(trace))
@@ -55,8 +70,15 @@ func _run() -> void:
 	quit(0 if _failures == 0 else 1)
 
 
+# {
+#   責務: [_configured: Python参照のボール単体入力を試合状態へ復元します]
+#   処理: [1: 開始済み核を作成します; 2: 選手の座標・速度・退場状態と接触精度を復元します; 3: ボールの付随情報と参照を復元します; 4: 指定された保持・解放を適用します]
+#   引数: [input: 共通試合入力; item: ボール単体ケース]
+#   戻り値: [MatchKernel: AIと選手移動を進めない検証専用の試合核]
+# }
 func _configured(input: Dictionary, item: Dictionary) -> MatchKernel:
 	var copied: Dictionary = input.duplicate(true)
+	# 観測された接触精度を直接設定し、後続の疲労更新や選手移動は接続しません。
 	copied["repro_input"]["settings"]["max_steps"] = 20000
 	var kernel: MatchKernel = MatchKernel.from_input(copied)
 	_expect(kernel.error.is_empty() and kernel.apply({"kind": "START"}), "ball kernel start")
@@ -97,14 +119,20 @@ func _configured(input: Dictionary, item: Dictionary) -> MatchKernel:
 	return kernel
 
 
+# {
+#   責務: [_replay: 一ケースを実Godotで固定更新して全時点をPython参照と比較します]
+#   処理: [1: 入力状態とGK応答の模擬接続を構成します; 2: 通常接触は成否処理前で止めます; 3: 各時点を実更新して比較します; 4: 実観測を外部再照合用の列へ保存します]
+#   引数: [input: 正式試合入力; item: 初期値と期待時点列を持つボールケース]
+#   戻り値: [void: 差分を失敗数へ記録し、実観測を_entriesへ追記します]
+# }
 func _replay(input: Dictionary, item: Dictionary) -> void:
 	var kernel: MatchKernel = _configured(input, item)
 	var system: BallSimulationSystem = BallSimulationSystem.new()
 	var probe: BallRuleProbe = BallRuleProbe.new()
-	# Keeper outcomes are intercepted identically in the Python oracle; touches
-	# are observed at the first actual eligibility point before changing owner.
+	# GK成否はPythonと同様に模擬し、通常接触は所有変更前の最初の候補を観測します。
 	_expect(system.connect_contacts(probe.save, probe.touch), "connect keeper seam")
 	system._touch_resolver = Callable()
+	# 期待値は更新回数と比較に使い、実座標や候補は必ず演算で取得します。
 	for expected: Dictionary in item["frames"] as Array:
 		system.update(kernel._state, 0.05, kernel.rng)
 		var frame: Dictionary = {"step": expected["step"], "case_name": item["name"], "ball": BallObservation.capture(kernel._state.ball),
@@ -117,6 +145,12 @@ func _replay(input: Dictionary, item: Dictionary) -> void:
 			"status": {"state": "PLAYING", "game_time": 0.0, "home_score": 0, "away_score": 0}, "home": {"players": []}, "away": {"players": []}, "restart": null}, "events": [], "result": null})
 
 
+# {
+#   責務: [_simulation: 固定ドライバー経由のボール検査核を構成します]
+#   処理: [1: ボールの初期状態を復元します; 2: 選手・判断の試験用段階と実ボール段階を明示登録します]
+#   引数: [input: 正式試合入力; item: ボールの初期ケース]
+#   戻り値: [MatchKernel: 行動AIや接触成否を代用しない部分演算専用の核]
+# }
 func _simulation(input: Dictionary, item: Dictionary) -> MatchKernel:
 	var kernel: MatchKernel = _configured(input, item)
 	var system: BallSimulationSystem = BallSimulationSystem.new()
@@ -125,11 +159,19 @@ func _simulation(input: Dictionary, item: Dictionary) -> MatchKernel:
 	return kernel
 
 
+# {
+#   責務: [_check_pacing: 描画頻度と倍速を変えても同じボール演算になることを確認します]
+#   処理: [1: 直接固定更新二十回の参照を作ります; 2: 三頻度と全六倍速で固定ドライバーを進めます; 3: 更新数・ボール値・乱数消費を比較します]
+#   引数: [input: 正式試合入力; item: 比較する代表弾道]
+#   戻り値: [void: 時計だけの進行や観測の乱数消費があれば失敗します]
+# }
 func _check_pacing(input: Dictionary, item: Dictionary) -> void:
+	# 比較基準も同じ核と実ボール更新で作り、結果式へ置き換えません。
 	var expected: MatchKernel = _simulation(input, item)
 	for tick: int in 20:
 		_expect(expected.apply({"kind": "STEP", "dt": 0.05}), "headless ball step")
 	for frequency: int in [30, 60, 120]:
+		# 倍速ごとに実時間を短くし、物理時間は一秒二十tickへ揃えます。
 		for speed: int in [1, 2, 3, 5, 10, 100]:
 			var kernel: MatchKernel = _simulation(input, item)
 			_expect(kernel.apply({"kind": "SET_SPEED", "value": speed}), "ball speed")
@@ -178,7 +220,14 @@ func _check_preparation(input: Dictionary, item: Dictionary) -> void:
 		_expect(kernel._state.ball.position.x != initial_x and kernel._state.clock.game_time > 0.0, "normal ball flight and match clock resume")
 
 
+# {
+#   責務: [_check_integration: ボール接続の未解決障壁と観測・保持変更の境界を検査します]
+#   処理: [1: 未解決の境界と接触で次STEPが停止することを確認します; 2: 観測値の編集が実状態へ戻らないことを確認します; 3: 無効接続の拒否とセーブの先行順を検査します; 4: 保持者の解放で予約キックが解除されることを確認します]
+#   引数: [input: 正式試合入力; item: 検証核の初期ボールケース]
+#   戻り値: [void: 未移行成否の偽進行や所有情報の残留があれば失敗します]
+# }
 func _check_integration(input: Dictionary, item: Dictionary) -> void:
+	# 境界検出だけで得点を確定したり、未解決のまま時計を進めたりしません。
 	var boundary: MatchKernel = _simulation(input, item)
 	var field: Array = MatchProtocol.values()["kernel"]["field"] as Array
 	boundary._state.ball.position.x = (field[0] as float) + (field[2] as float) + 1
@@ -194,9 +243,11 @@ func _check_integration(input: Dictionary, item: Dictionary) -> void:
 	_expect(not contact.apply({"kind": "STEP", "dt": 0.05}), "unmigrated contact blocks clock")
 	_expect(MatchTraceComparison.first_difference(before, contact.observe()) == null, "no fake progress after touch")
 	var snapshot: Dictionary = contact.observe_ball()
+	# 観測を破壊的に変更しても、演算側の座標は所有者が保持します。
 	snapshot["ball"]["position"][0] = -999
 	_expect(contact._state.ball.position.x != -999, "flight observation detached")
 	var system: BallSimulationSystem = BallSimulationSystem.new()
+	# 接続の有効性と、境界検出より先に処理するセーブの順序を確認します。
 	_expect(not system.connect_contacts(Callable(), Callable()), "invalid callbacks")
 	var keeper: PlayerState = null
 	for player: PlayerState in contact._state.away.players:
@@ -218,6 +269,7 @@ func _check_integration(input: Dictionary, item: Dictionary) -> void:
 	system.update(contact._state, 0.05, contact.rng)
 	_expect(probe.saves == 1 and contact._state.ball_boundary == null, "successful save stops boundary")
 	var pending: MatchKernel = _configured(input, item)
+	# こぼれた後に古い保持者の予約キックが発動しないことを確認します。
 	pending._state.ball.owner = pending._state.home.players[1]
 	pending._state.pending_kick = {"player": pending._state.ball.owner.identity}
 	BallPossessionSystem.release_knockback(pending._state, pending._state.ball.owner, 1, 0)

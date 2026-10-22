@@ -1,15 +1,27 @@
+# {
+#   責務: [BallFlightSystem: 非保持ボールの曲がり・重力・バウンド・減速を固定時間で更新します]
+#   フィールド: []
+# }
 class_name BallFlightSystem
 extends RefCounted
 ## Deterministic free flight from Match.update_loose_ball; no player AI or rules.
 
 
+# {
+#   責務: [update: 一固定時間分の自由ボール弾道を更新します]
+#   処理: [1: 保持中は変更しません; 2: 再取得待ちと回収優先時間を減らします; 3: カーブとナックルを反映します; 4: 座標・重力・地面反射を更新します; 5: 空中または地上の抵抗と停止を適用します]
+#   引数: [ball: 更新対象のボール; dt: 呼出元で検証済みの最大0.05秒の固定時間]
+#   戻り値: [void: ボールだけを変更します。場外・接触・AIは判定しません]
+# }
 static func update(ball: BallState, dt: float) -> void:
 	if ball.owner != null:
 		return
+	# 回収の優先状態を永久に残さず、有効時間が切れた時点で解除します。
 	ball.pickup_lock = maxf(0.0, ball.pickup_lock - dt)
 	ball.recovery_timer = maxf(0.0, ball.recovery_timer - dt)
 	if ball.recovery_timer <= 0.0:
 		ball.recovery_team = null
+	# 元の速度へ横加速度を加え、ナックルも同じ更新順で合成します。
 	ball.velocity.y += ball.curve_acceleration * dt
 	ball.velocity.x += ball.curve_vector.x * dt
 	ball.velocity.y += ball.curve_vector.y * dt
@@ -25,10 +37,12 @@ static func update(ball: BallState, dt: float) -> void:
 		ball.velocity.y += lateral_y * wave
 		ball.knuckle_amplitude *= pow(0.72, dt)
 	ball.curve_acceleration *= pow(0.70, dt)
+	# 位置を進めた後で重力を適用するPythonの離散積分順を保ちます。
 	ball.position.x += ball.velocity.x * dt
 	ball.position.y += ball.velocity.y * dt
 	ball.position.z += ball.velocity.z * dt
 	ball.velocity.z -= (MatchProtocol.values()["ball_rules"]["gravity"] as float) * dt
+	# 強い落下だけを反射し、弱い接地は鉛直方向を停止させます。
 	if ball.position.z <= 0.0:
 		ball.position.z = 0.0
 		if ball.velocity.z < -48:
@@ -40,6 +54,7 @@ static func update(ball: BallState, dt: float) -> void:
 	speed = sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y)
 	var brake: float = clampf(ball.pass_brake, 0.0, 1.0)
 	var drag: float
+	# pass_brakeを地上で強く効かせ、微速の地上球だけを完全に止めます。
 	if ball.position.z <= 0.5:
 		drag = (0.72 if speed > 120 else 0.80) - brake * 0.14
 	else:

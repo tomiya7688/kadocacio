@@ -22,6 +22,12 @@ SCALARS = ("pickup_lock", "curve_acceleration", "knuckle_amplitude", "knuckle_ph
 VECTORS = ("control_offset", "curve_vector", "intended_destination")
 
 
+# {
+#   責務: [identity: 検証選手の参照を試合内IDへ変換します]
+#   処理: [1: 未指定を保持します; 2: 所属側と名簿内番号を結合します]
+#   引数: [match: HOMEとAWAYを持つ検証試合; player: その試合の選手またはNone]
+#   戻り値: [strまたはNone: 試合内の安定した参照名]
+# }
 def identity(match, player):
     if player is None:
         return None
@@ -29,7 +35,14 @@ def identity(match, player):
     return ("HOME" if team is match.home else "AWAY") + ":" + str(team.players.index(player))
 
 
+# {
+#   責務: [ball_values: Pythonボールの状態を参照比較用のJSON値へ写します]
+#   処理: [1: 座標と速度・飛行付随値を読みます; 2: ベクトルを配列へ写します; 3: 選手と回収チームを識別名へ変換します]
+#   引数: [match: 読取対象の検証試合]
+#   戻り値: [dict: 状態参照を共有しない現在値。試合や乱数は更新しません]
+# }
 def ball_values(match: Match) -> dict:
+    # 比較先へ実Playerや可変ベクトルを渡さず、同じキーの値へ揃えます。
     ball = match.ball
     return {"position": [ball.pos.x, ball.pos.y, ball.z], "velocity": [ball.vel.x, ball.vel.y, ball.vertical_speed],
             **{key: getattr(ball, key) for key in SCALARS}, **{key: list(getattr(ball, key)) for key in VECTORS},
@@ -37,7 +50,14 @@ def ball_values(match: Match) -> dict:
             "recovery_team": None if ball.recovery_team is None else "HOME" if ball.recovery_team is match.home else "AWAY"}
 
 
+# {
+#   責務: [case_definitions: ボール部分演算の代表値と境界条件を列挙します]
+#   処理: [1: 低速・高速・浮き球・所有変更を定義します; 2: 両ゴールの境界と最終接触の組合せを追加します; 3: 手の可否・高さ・回収順の接触条件を追加します]
+#   引数: []
+#   戻り値: [list: 実行前のケース入力列。乱数や実チームデータは使用しません]
+# }
 def case_definitions() -> list[dict]:
+    # 寸法はPythonの正本を使い、境界ぴったりと直外を別ケースにします。
     x, y = FIELD.center
     right, left, top, bottom = FIELD.right, FIELD.left, FIELD.top, FIELD.bottom
     cases = [
@@ -60,6 +80,7 @@ def case_definitions() -> list[dict]:
         {"name": "metadata_expiry", "steps": 4, "ball": {"last_touch": "AWAY:1", "intended": "HOME:1", "recovery_team": "HOME", "recovery_timer": 0.07, "pickup_lock": 0.07, "flight_serial": 7, "shot_serial": 11, "eye_contact_bonus": 0.2}},
     ]
     for side, goal_x, direction in (("right", right, 1), ("left", left, -1)):
+        # 左右で同じ検査を行い、得点とポスト・場外の優先順も確認できます。
         for label, height, lateral, outcome in (("goal", 20, 0, ""), ("bar_exact", GOAL_HEIGHT, 0, ""),
                                                   ("bar_over", GOAL_HEIGHT + 0.01, 0, "OVER"),
                                                   ("side_exact", 0, GOAL_HALF_HEIGHT, ""),
@@ -74,10 +95,12 @@ def case_definitions() -> list[dict]:
             cases.append({"name": side + "_endline_" + str(last), "steps": 1, "ball": {
                 "position": [goal_x - direction, y + 110, 0], "velocity": [direction * 80, 0, 0], "last_touch": last}})
     for touch_y in (top - 1, bottom + 1):
+        # 最終接触者なしの既定側も、両タッチラインで比較します。
         for last in (None, "HOME:1", "AWAY:1"):
             cases.append({"name": "throw_" + str(touch_y) + "_" + str(last), "steps": 1,
                           "ball": {"position": [x, touch_y, 0], "last_touch": last}})
     cases += [
+        # 接触の技能判定とは分け、幾何条件と手の規則だけを入力にします。
         {"name": "line_exact", "steps": 1, "ball": {"position": [right, y, 0]}},
         {"name": "corner_priority", "steps": 1, "ball": {"position": [right + 1, top - 1, 0]}},
         {"name": "post_above", "steps": 1, "ball": {"position": [right + 1, top - 1, 110], "flight_type": "シュート", "shot_outcome": "POST"}},
@@ -103,7 +126,14 @@ def case_definitions() -> list[dict]:
     return cases
 
 
+# {
+#   責務: [configure: ボール単体ケースをPythonの検証試合へ設定します]
+#   処理: [1: 全選手を接触しない位置へ移しスキルを無効化します; 2: ボールの指定値と参照を復元します; 3: 明示された接触検査選手の位置と能力を設定します]
+#   引数: [match: 作成直後の検証試合; case: ボールと必要な選手の入力]
+#   戻り値: [dict: HOMEとAWAYの名簿順IDから実選手への対応。入力元のチームJSONは変更しません]
+# }
 def configure(match: Match, case: dict) -> dict:
+    # 対象外の選手が偶然接触しないよう、幾何検査の初期条件を隔離します。
     players = {side + ":" + str(index): player for side, team in (("HOME", match.home), ("AWAY", match.away)) for index, player in enumerate(team.players)}
     for player in players.values():
         player.pos.update(FIELD.centerx, FIELD.top + 20)
@@ -112,6 +142,7 @@ def configure(match: Match, case: dict) -> dict:
         player.skills = frozenset()
         player.technique_command = PlayerCommand.IDLE
     references = {**players, "HOME_GK": match.home.keeper, "AWAY_GK": match.away.keeper}
+    # 検査用のIDを実参照へ戻し、位置・速度・通常値を型ごとに設定します。
     ball = match.ball
     ball.owner = ball.last_touch = ball.intended = None
     ball.pos.update(FIELD.center)
@@ -131,6 +162,7 @@ def configure(match: Match, case: dict) -> dict:
         else:
             setattr(ball, key, value)
     for record in case.get("players", []):
+        # このケースに必要な選手だけをボール近くへ置き直します。
         player = references[record["id"]]
         player.pos.update(record["position"][:2])
         player.z = record["position"][2]
@@ -139,7 +171,14 @@ def configure(match: Match, case: dict) -> dict:
     return players
 
 
+# {
+#   責務: [capture_case: 実Pythonの自由ボール処理から一ケースの参照軌道を取得します]
+#   処理: [1: 中立地・固定シードの試合と入力を構成します; 2: 指定の保持変更を実行します; 3: 成否・再開の境界を検査用応答へ差し替えます; 4: 最初の接触・場外まで固定更新を観測します]
+#   引数: [home: 正規化済みのホームチーム入力; away: アウェーチーム入力; case: 初期値・操作・最大更新回数]
+#   戻り値: [tuple: 初期状態と時点列。全試合・技能成功率・再開進行の参照ではありません]
+# }
 def capture_case(home: dict, away: dict, case: dict) -> tuple[dict, list[dict]]:
+    # ケースごとに試合を作り直し、他ケースの乱数や飛行状態を持ち越しません。
     match = Match(home, away, "NEUTRAL", seed=41)
     match.start_new()
     players = configure(match, case)
@@ -147,31 +186,57 @@ def capture_case(home: dict, away: dict, case: dict) -> tuple[dict, list[dict]]:
                "velocity": [player.motion_velocity.x, player.motion_velocity.y, 0], "sent_off": player.sent_off,
                "contact_jump_accuracy": player.effective_stat(player.jump_accuracy)} for key, player in players.items()]}
     operation = case.get("operation", "flight")
+    # この二つの所有変更だけは実メソッドで行い、軌道計算の前提へ反映します。
     if operation == "spill":
         match.release_ball_from_knockback(players["HOME:1"], Vec2(0.6, 0.8), match.away if case.get("recovery") else None)
     elif operation.startswith("claim"):
         match.change_owner(players["HOME:1"], (8, -3) if operation == "claim" else None)
-    # Only flight, spatial eligibility and boundary detection are under test.
-    # Keeper/skill/control/manager and restart progress are separately owned units.
+    # GKセーブは不成立に固定し、通常接触は確率抽選を固定して取得直前で止めます。
+    # 比較対象は実弾道・幾何候補・場外検出で、技能成否・監督・再開進行ではありません。
     match.keeper_save = lambda: False
     match.rng.random = lambda: 0.0
     match.choose_pass_target = lambda player: None
     match.apply_pending_manager_changes = lambda reason: None
     pending = {"boundary": None, "contact": None, "ball": None}
 
+    # {
+    #   責務: [goal: 得点候補の検出だけを記録します]
+    #   処理: [1: 得点側と検出時の位置を境界観測へ保存します]
+    #   引数: [team: 得点候補となった実チーム]
+    #   戻り値: [None: スコア加算・演出・再配置は実行しません]
+    # }
     def goal(team):
         pending["boundary"] = {"kind": "GOAL", "side": "HOME" if team is match.home else "AWAY", "spot": list(match.ball.pos)}
 
+    # {
+    #   責務: [set_piece: セットプレー候補の種別と再開位置だけを記録します]
+    #   処理: [1: 呼出元が決めた種別・側・位置を境界観測へ保存します]
+    #   引数: [kind: 再開の種別; team: 再開側の実チーム; spot: 再開候補位置]
+    #   戻り値: [None: キッカー移動や準備時間を進めません]
+    # }
     def set_piece(kind, team, spot):
         pending["boundary"] = {"kind": kind, "side": "HOME" if team is match.home else "AWAY", "spot": list(spot)}
 
     original_throw = match.start_throw_in
 
+    # {
+    #   責務: [throw: 実スローイン検出の側と位置を取得します]
+    #   処理: [1: 再開で変わる前のボールを保存します; 2: 元のスロー準備入口を呼びます; 3: 決定された側と位置を境界観測へ保存します]
+    #   引数: []
+    #   戻り値: [None: 準備入口の状態変更は検証試合だけに反映します。スロー進行は比較対象外です]
+    # }
     def throw():
+        # 場外へ出た物理状態と、準備用に置き直されたボールを混同しません。
         pending["ball"] = ball_values(match)
         original_throw()
         pending["boundary"] = {"kind": "THROW_IN", "side": "HOME" if match.throw_in_team is match.home else "AWAY", "spot": list(match.throw_in_spot)}
 
+    # {
+    #   責務: [touch: 実処理が取得しようとした最初の選手を記録して更新を中断します]
+    #   処理: [1: 選手IDと手の可否を保存します; 2: 所有変更前にStopIterationで検査ループへ戻します]
+    #   引数: [player: 取得処理へ到達した選手; args: 所有変更・GK処理の互換引数。使用しません]
+    #   戻り値: [None: 常にStopIterationを送出します。実技能の成功率は評価しません]
+    # }
     def touch(player, *args):
         pending["contact"] = {"kind": "TOUCH", "player": identity(match, player), "hands_legal": player.is_keeper and match.keeper_can_use_hands(player)}
         raise StopIteration
@@ -179,6 +244,7 @@ def capture_case(home: dict, away: dict, case: dict) -> tuple[dict, list[dict]]:
     match.handle_goal, match.start_set_piece, match.start_throw_in = goal, set_piece, throw
     match.change_owner = match.resolve_keeper_contact = touch
     frames = []
+    # 接触中断だけを捕捉し、それ以外の演算失敗は検証失敗として伝播させます。
     for step in range(case["steps"]):
         try:
             match.update_loose_ball(0.05)
@@ -191,18 +257,32 @@ def capture_case(home: dict, away: dict, case: dict) -> tuple[dict, list[dict]]:
     return initial, frames
 
 
+# {
+#   責務: [observation: ボール部分観測を既存のトレース形式で包みます]
+#   処理: [1: 時点値へ固定の未評価フィールドを加えてトレース要素を構成します]
+#   引数: [frame: ボール・境界・候補の実観測; index: トレース内の連番]
+#   戻り値: [dict: 全試合のスコア・時計・結果を評価したとは扱わない部分観測]
+# }
 def observation(frame: dict, index: int) -> dict:
     return {"operation_index": index, "snapshot": {**frame, "paused": False, "simulation_elapsed": 0.0,
             "status": {"state": "PLAYING", "game_time": 0.0, "home_score": 0, "away_score": 0},
             "home": {"players": []}, "away": {"players": []}, "restart": None}, "events": [], "result": None}
 
 
+# {
+#   責務: [write_ball_fixture: ボールの実Python参照と入力を開発用JSONへ保存します]
+#   処理: [1: 既存の試合入力と元ファイルの指紋を取得します; 2: 全ケースを実行して観測列を作ります; 3: 有限なJSONを保存します; 4: 成否にかかわらず元チームの指紋を確認します]
+#   引数: [output: fixtureを保存する開発用ディレクトリ]
+#   戻り値: [tuple: fixtureのPathと元ファイル指紋。読込・実行・保存・指紋不一致は例外を通知します]
+# }
 def write_ball_fixture(output: Path = DEFAULT_OUTPUT) -> tuple[Path, dict[str, str]]:
+    # 通常の入力生成器を再利用し、参照生成中に元チームを書き換えないことを監視します。
     path, hashes = write_fixture(output, 1)
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
         home, away, _, _ = restore_contract_input(document["input"])
         cases, entries = [], []
+        # ケースの初期値と実観測を併記し、Godotは入力側から独立に計算します。
         for case in case_definitions():
             initial, frames = capture_case(home, away, case)
             cases.append({**deepcopy(case), "initial": initial, "frames": frames})
@@ -215,9 +295,16 @@ def write_ball_fixture(output: Path = DEFAULT_OUTPUT) -> tuple[Path, dict[str, s
         path.write_text(json.dumps(document, ensure_ascii=False, allow_nan=False), encoding="utf-8")
         return path, hashes
     finally:
+        # 途中の例外でも元データの変更検出を省略しません。
         assert_sources_unchanged(hashes)
 
 
+# {
+#   責務: [main: ボール参照生成の開発者用CLIを提供します]
+#   処理: [1: 出力ディレクトリを解析します; 2: fixtureを保存して保存先を表示します]
+#   引数: [argv: 任意のCLI引数。Noneならプロセス引数]
+#   戻り値: [int: 成功0。生成や保存の失敗は例外として通知します]
+# }
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

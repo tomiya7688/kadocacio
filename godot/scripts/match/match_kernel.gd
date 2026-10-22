@@ -1,3 +1,7 @@
+# {
+#   責務: [MatchKernel: 明示接続された試合段階へ固定更新と操作を配信する演算核です]
+#   フィールド: [error: 直近の拒否理由; rng: 試合専用乱数; _state: 外部へ共有しない試合状態; _systems: 選手・判断・ボールの呼出先; _system_owners: 受信側を生存させる強参照; _started: 開始済みか]
+# }
 class_name MatchKernel
 extends RefCounted
 ## Fixed-step foundation, not a complete football match. Missing systems fail closed.
@@ -101,7 +105,14 @@ func apply(payload: Variant) -> bool:
 	return true
 
 
+# {
+#   責務: [_step: 一固定時間の時計と接続済み段階の実行を指揮します]
+#   処理: [1: ポーズ・終了と未解決の接触境界を確認します; 2: 更新上限と必須段階の存在を時計更新前に検査します; 3: 時計と前後半遷移を反映します; 4: 準備中または通常中の各段階を順に呼びます]
+#   引数: [dt: 操作契約で検証済みの固定秒]
+#   戻り値: [bool: 受理ならtrue。未接続・未解決・上限超過はerrorへ理由を保存してfalse]
+# }
 func _step(dt: float) -> bool:
+	# 停止は受理しますが、未解決の物理イベントを時計だけで追い越しません。
 	if _state.paused or _state.clock.state == "FULLTIME":
 		return true
 	if _state.ball_boundary != null or _state.ball_contact != null:
@@ -119,6 +130,7 @@ func _step(dt: float) -> bool:
 				error = "unimplemented simulation stage: " + stage
 				return false
 	rng.purpose = "step"
+	# 試合時計の準備停止と、演算経過・段階の固定更新を区別します。
 	rng.step = _state.step + 1
 	var transition: String = _state.clock.advance(dt, waiting)
 	_state.step += 1
@@ -126,6 +138,7 @@ func _step(dt: float) -> bool:
 		_state.ball.position.x = _state.ball.owner.position.x + _state.ball.control_offset
 		_state.ball.position.y = _state.ball.owner.position.y + _state.ball.control_offset_y
 	if transition == "HALFTIME":
+		# 前後半の再配置と終了は通常の選手段階を呼ぶ前に確定します。
 		_state.events.append("ハーフタイム", _state.clock)
 		MatchSetup.reset_positions(_state, _state.away, rng)
 		return true
@@ -155,6 +168,12 @@ func is_ready() -> bool:
 	return _started
 
 
+# {
+#   責務: [observe_ball: 現在のボールと未解決の境界・接触候補を観測します]
+#   処理: [1: 未開始なら空を返します; 2: ボール・検出値を独立したペイロードへ変換します]
+#   引数: []
+#   戻り値: [Dictionary: ボール単体の部分観測。時間や乱数を進めません]
+# }
 func observe_ball() -> Dictionary:
 	if not _started:
 		return {}
