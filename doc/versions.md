@@ -22,6 +22,34 @@ ver num.num.num
 
 ---
 
+ver 0.7.64
+
+PR #151の乱数・固定更新・時計の責務と互換条件を説明
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- godot/scripts/core/python_random_stream.gd、observed_match_random.gd
+
+  CPython互換乱数の初期化・消費順・観測履歴を日本語で説明します。
+
+- godot/scripts/core/fixed_step_driver.gd、simulation_coordinate.gd
+
+  固定更新の残時間と描画から独立した座標の扱いを説明します。
+
+- godot/scripts/match/match_clock.gd、scripts/tools/match_random_audit.py
+
+  再開待機の時計停止とPython参照側の乱数監査を説明します。
+
+- doc/PRコメント確認.md、doc/versions.md
+
+  今回の修正範囲とPR全体に残るコメント不足を区別して記録します。
+
+---
+
 ver 0.7.39
 
 差し戻されたPR #144の作業選択と回帰試験へ指定形式の宣言説明を追加

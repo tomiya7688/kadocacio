@@ -2,6 +2,25 @@
 
 正本と適用基準は [コメント規約](コメント規約.md)。CI成功だけでレビュー完了とせず、コメント不足が残るPRは差し戻し扱いとする。閉じられたPRを検査対象から外さない。
 
+## PR #151の限定修正（2026-10-22、ver 0.7.64）
+
+乱数・固定更新・時計の互換条件を追いやすくするため、次の6ファイルの32宣言に、日本語の宣言コメントと処理単位の通常コメントを追加しました。
+
+- `godot/scripts/core/python_random_stream.gd`
+- `godot/scripts/core/observed_match_random.gd`
+- `godot/scripts/core/fixed_step_driver.gd`
+- `godot/scripts/core/simulation_coordinate.gd`
+- `godot/scripts/match/match_clock.gd`
+- `scripts/tools/match_random_audit.py`
+
+修正前の提出headは `3c9e21280be7251528fcca8c919a4fa309e0c5a6`、実baseは `0bc319eee1635c4bf6675f3eb026af152a438729` です。対象の全32宣言で必須項目の不足は0です。Python ASTとコメントを除いたGDScriptの比較でも、6ファイルの実処理は変更していません。乱数の生成・消費順、固定ステップ、時計、セーブ形式は変更しません。
+
+PR全体では106宣言のうち不足が97件から65件へ減りました。試合状態・初期配置・観測・試験・fixture生成など15ファイルには不足が残るため、PR全体の判定は差し戻しを維持します。下書き解除、mainへのマージ、Issue完了は行いません。
+
+検証では、関連Pythonテスト4件、固定版Godot 4.7.2の正式検査（試合核6,256項目を含む）、Python全テストが成功しました。実ウィンドウの操作E2E、全試合の演算互換、性能向上は今回のコメント変更では検証・主張しません。検証ログはGit管理外の `user_data/logs/pr151_review/` に保存します。
+
+開発者は、上記6ファイルを `python -m scripts.tools.static_analysis.json_like_comments <ファイル...>` で確認してください。PR全体は実baseと提出headを指定して再検査してください。関連するPythonテストの入口は `python -m unittest discover -s tests -p test_godot_match_kernel.py -v`、Godotの入口は固定版エンジンを指定する `run_godot.bat test` です。構造検査だけで文章や実装の正しさを認定しないでください。
+
 ## 初回監査
 
 各PRの実baseと提出headを使用した構造検査。件数はPR単位の追加・変更宣言であり、依存先で変更された同じクラスの重複を含む。GDScriptのスクリプトクラスも対象。下表は**修正前の提出状態**で、現在の下書き/closed等の状態とは区別する。
