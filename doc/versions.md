@@ -22,6 +22,34 @@ ver num.num.num
 
 ---
 
+ver 0.7.67
+
+PR #102の再現入力検証を安全化しseed・比較手順を説明
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/core/match_seed.py、scripts/tools/match_repro_check.py
+
+  既存seed式と描画有無の固定更新比較・差分診断・保存条件を説明します。
+
+- scripts/tools/match_repro_input.py
+
+  巨大な整数倍率でOverflowErrorが漏れる問題を修正し、入力復元と互換条件を説明します。
+
+- tests/test_match_seed_contract.py、tests/test_match_repro_check.py、tests/test_match_repro_input.py
+
+  試験の目的と未検証の境界を記し、不正倍率と有効な両端値の回帰試験を追加します。
+
+- doc/試合再現性.md、doc/versions.md
+
+  入力エラーの診断と今回の修正範囲を記録します。
+
+---
+
 ver 0.7.22
 
 対戦設定画面を開始メニューと統一し、長い名前のはみ出しと描画中のファイル走査を解消
