@@ -22,6 +22,32 @@ ver num.num.num
 
 ---
 
+ver 0.7.70
+
+リーグ裏試合の構築時seedと実行経路間の整合性を検査
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/league/league_simulation_workers.py
+
+  単独・同期バッチのseed、固定更新、ペース解除、進捗と終了状態を説明します。実行処理は変更しません。
+
+- tests/test_league_simulation_session.py
+
+  模擬試合の責務を説明し、両ワーカーが各対戦seedを構築時に渡すことを検査します。
+
+- tests/test_match_seed_contract.py
+
+  単独・同期バッチで実Matchの状態・乱数指紋と共通結果が短区間で一致することを検査します。
+
+- doc/試合再現性.md
+
+  裏試合のseed・時計・終了状態と検証の境界を説明します。
+
 ver 0.7.69
 
 全イベント記録の順序・時計・独立性を説明し回帰試験を追加

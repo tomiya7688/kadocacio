@@ -3,14 +3,18 @@
 import hashlib
 import random
 import unittest
+from queue import SimpleQueue
+from threading import Event
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from scripts.app.game_app import Game
 from scripts.core.match_seed import league_fixture_seed
 from scripts.core.simulation_runtime import advance_match_fixed
-from scripts.league.league_simulation_workers import _match_output, _run_headless_league_match
+from scripts.league.league_simulation_workers import _match_output, _run_headless_league_match, _run_synchronized_match_batch
 from scripts.match.match_engine import Match
 from scripts.team.team_data import discover_team_choices
+from scripts.tools.match_repro_check import match_state_payload
 
 
 # {
@@ -145,6 +149,42 @@ class MatchSeedContractTests(unittest.TestCase):
             {key: headless[key] for key in _match_output(game.match)},
             _match_output(game.match),
         )
+
+    # {
+    #   責務: [test_real_headless_and_batch_workers_share_seed_and_state: 同一対戦の単独処理と同期バッチが短区間の実Match状態を共有することを確認する]
+    #   処理: [1: 実Matchを保持する構築窓口を用意する; 2: 同じ対戦を両ワーカー入口で83固定更新する; 3: 構築seed・乱数指紋を含む状態・共通結果項目を照合する]
+    #   引数: []
+    #   戻り値: [None: 初期化または固定更新の差は試験失敗。実子プロセス・90分・描画速度の検証ではない]
+    # }
+    def test_real_headless_and_batch_workers_share_seed_and_state(self):
+        # 実試合核を使い、移動や乱数を模擬して経路間の差を隠さない。
+        matches = []
+
+        # {
+        #   責務: [construct_observed_match: ワーカーの構築引数から実Matchを作り比較用参照を保持する]
+        #   処理: [1: 引数を変更せず実Matchへ渡す; 2: 構築済み試合を保持して返す]
+        #   引数: [args・kwargs: ワーカーが渡したMatch構築引数]
+        #   戻り値: [Match: 通常の演算状態。観測参照の保持で乱数や時計は進めない]
+        # }
+        def construct_observed_match(*args, **kwargs):
+            # 参照を記録するだけで、開始・更新・seed設定を肩代わりしない。
+            match = Match(*args, **kwargs)
+            matches.append(match)
+            return match
+
+        job = {"fixture": {"id": "worker-seed-contract"}, "home_choice": self.home_choice,
+               "away_choice": self.away_choice, "max_match_steps": 83, "ai_rethink_multiplier": 0.75}
+        with patch("scripts.league.league_simulation_workers.Match", side_effect=construct_observed_match):
+            headless = _run_headless_league_match(job)
+            batch = _run_synchronized_match_batch([job], SimpleNamespace(value=-1.0), SimpleQueue(), Event())
+        self.assertEqual(len(matches), 2)
+        expected_seed = league_fixture_seed(job["fixture"]["id"], self.home_choice["name"], self.away_choice["name"])
+        self.assertEqual([match.seed for match in matches], [expected_seed, expected_seed])
+        self.assertEqual(match_state_payload(matches[0]), match_state_payload(matches[1]))
+        self.assertEqual(len(batch), 1)
+        self.assertEqual({key: headless[key] for key in batch[0]}, batch[0])
+        self.assertEqual((headless["engine_steps"], batch[0]["engine_steps"]), (83, 83))
+        self.assertFalse(headless["fulltime"])
 
 
 if __name__ == "__main__":
