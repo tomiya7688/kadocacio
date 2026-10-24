@@ -94,7 +94,7 @@ class MatchReproInputTests(unittest.TestCase):
             first_report = json.loads(output.getvalue())
             output = StringIO()
             # 読込時に現在のteamsへ戻る退行を、探索呼出しそのもので検出する。
-            with patch("scripts.tools.match_repro_check.discover_team_choices", side_effect=AssertionError("discovery")):
+            with patch("scripts.tools.match_repro_cli.discover_team_choices", side_effect=AssertionError("discovery")):
                 with patch("scripts.app.game_app.discover_team_choices", side_effect=AssertionError("discovery")):
                     with redirect_stdout(output):
                         self.assertEqual(main(["--load-input", str(path), "--allow-partial"]), 0)

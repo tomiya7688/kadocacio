@@ -2,25 +2,20 @@
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import os
 from itertools import zip_longest
-from pathlib import Path
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 from scripts.core.simulation_limits import SimulationLimits
 from scripts.core.simulation_runtime import (
     FIXED_PHYSICS_DT,
-    MAX_FULL_MATCH_STEPS,
     advance_match_fixed,
     run_headless_match,
 )
 from scripts.match.match_engine import Match
-from scripts.team.team_data import discover_team_choices
-from scripts.tools.match_repro_input import create_input_record, restore_input_record
 
 
 # {
@@ -243,96 +238,16 @@ def compare_matches(
 
 
 # {
-#   責務: [_choose_team: 既定の順番または完全一致のID・チーム名から一チームを選ぶ]
-#   処理: [1: 指定なしなら既定indexで選ぶ; 2: 指定があればID文字列または名前と完全一致する候補を探す]
-#   引数: [choices: 読込済み候補; query: IDまたは名前。Noneは既定選択; fallback_index: 呼出し元が存在を確認した既定index]
-#   戻り値: [dict: 選んだ候補の参照。指定が見つからない時はValueError]
-# }
-def _choose_team(choices: list[dict], query: str | None, fallback_index: int) -> dict:
-    # 部分一致や似た名前へ黙って置き換えず、再現条件を明確にする。
-    if query is None:
-        return choices[fallback_index]
-    for choice in choices:
-        if query in (str(choice.get("id")), choice.get("name")):
-            return choice
-    raise ValueError(f"team not found: {query}")
-
-
-# {
-#   責務: [_resolve_input: 保存入力の読込か現行チームからの記録作成の一方を選ぶ]
-#   処理: [1: load時は試合条件の上書き指定を拒否して記録を読む; 2: 新規時だけ有効チームを探索する; 3: 指定チームと既定条件から再現入力を作る]
-#   引数: [args: mainが解析したCLI設定]
-#   戻り値: [dict: 再現入力。保存形式の検証はmainの復元で行う。競合指定・候補不足はValueError、読込失敗はOSError]
-# }
-def _resolve_input(args: argparse.Namespace) -> dict:
-    # 保存入力は開始時のチーム値を持つため、現在のチームファイルを探し直さない。
-    if args.load_input:
-        overrides = (args.home, args.away, args.seed, args.max_steps, args.venue, args.ai_rethink_multiplier)
-        if any(value is not None for value in overrides):
-            raise ValueError("--load-input cannot be combined with team or simulation input overrides")
-        return json.loads(args.load_input.read_text(encoding="utf-8-sig"))
-    # 新規入力だけに現在の探索結果と既定値を適用する。明示seed=0は維持する。
-    choices = discover_team_choices()
-    if len(choices) < 2:
-        raise ValueError("at least two valid teams are required")
-    home = _choose_team(choices, args.home, 0)
-    away = _choose_team(choices, args.away, 1)
-    return create_input_record(
-        home, away,
-        seed=12345 if args.seed is None else args.seed,
-        max_steps=MAX_FULL_MATCH_STEPS if args.max_steps is None else args.max_steps,
-        venue_mode=args.venue or "HOME",
-        ai_rethink_multiplier=1.0 if args.ai_rethink_multiplier is None else args.ai_rethink_multiplier,
-    )
-
-
-# {
-#   責務: [main: 再現性検証CLIの入力・任意保存・比較結果と終了コードを提供する]
-#   処理: [1: CLI引数を解析し入力を復元する; 2: 要求された新規入力を比較前に保存する; 3: 両経路を比較し要求時だけ調査レポートを新規保存する; 4: 要約を出力して一致と完走条件を判定する]
+#   責務: [main: 従来のCLI入口を専用のコマンド指揮へ接続する]
+#   処理: [1: CLI担当を遅延読込する; 2: 比較関数を接続して実行を委譲する]
 #   引数: [argv: CLI引数列。Noneはプロセス引数]
-#   戻り値: [int: 一致かつ完走または部分許可なら0、それ以外は1。入力・I/OエラーはargparseのSystemExitで終了する]
+#   戻り値: [int: CLI担当の終了コード。入力エラー等のSystemExitも変更せず返す]
 # }
 def main(argv: list[str] | None = None) -> int:
-    # 保存入力の条件と描画間隔を分け、後者だけは再実行時に変更できる。
-    parser = argparse.ArgumentParser(description="Compare seeded headless and Pygame-rendered match state")
-    parser.add_argument("--home", help="home team ID or exact name; defaults to the first team")
-    parser.add_argument("--away", help="away team ID or exact name; defaults to the second team")
-    parser.add_argument("--seed", type=int, help="default: 12345")
-    parser.add_argument("--max-steps", type=int, help=f"default: {MAX_FULL_MATCH_STEPS}")
-    parser.add_argument("--venue", choices=("HOME", "AWAY", "NEUTRAL"), help="default: HOME")
-    parser.add_argument("--ai-rethink-multiplier", type=float, help="0.5..3.0; default: 1.0")
-    parser.add_argument("--save-input", type=Path, help="save a new UTF-8 input record before running; never overwrite")
-    parser.add_argument("--load-input", type=Path, help="use saved teams and settings without discovering team files")
-    parser.add_argument("--save-report", type=Path, help="save inputs, comparison and both full event logs to a new JSON file")
-    parser.add_argument("--render-every", type=int, default=60)
-    parser.add_argument("--allow-partial", action="store_true", help="accept a matching run before full time")
-    args = parser.parse_args(argv)
-    try:
-        record = _resolve_input(args)
-        home, away, settings = restore_input_record(record)
-        # 排他的な新規作成により、調査前の再現入力を上書きしない。
-        if args.save_input:
-            with args.save_input.open("x", encoding="utf-8") as output:
-                json.dump(record, output, ensure_ascii=False, indent=2, allow_nan=False)
-                output.write("\n")
-        # 保存が要求されている時だけ、比較結果に全イベント本文を含める。
-        report = compare_matches(
-            home, away, render_every=args.render_every, include_events=args.save_report is not None, **settings,
-        )
-        # 不一致や未完走も調査できるよう、終了判定の前に比較結果を保存する。
-        if args.save_report:
-            with args.save_report.open("x", encoding="utf-8") as output:
-                json.dump({
-                    "format": "kadocalcio.match-repro-report", "version": 1,
-                    "input": record, "comparison": report,
-                }, output, ensure_ascii=False, indent=2, allow_nan=False)
-                output.write("\n")
-    except (ValueError, OSError) as error:
-        parser.error(str(error))
-    # 全ログはファイルだけへ出し、標準出力は短い結果要約を保つ。
-    summary = {key: value for key, value in report.items() if key != "event_history"}
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
-    return 0 if report["same_state"] and (report["fulltime"] or args.allow_partial) else 1
+    # 比較APIだけを使う呼出し元へCLIの探索・保存依存を持ち込まない。
+    from scripts.tools.match_repro_cli import MatchReproductionCli
+
+    return MatchReproductionCli(compare_matches).run(argv)
 
 
 if __name__ == "__main__":

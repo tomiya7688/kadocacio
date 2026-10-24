@@ -22,6 +22,42 @@ ver num.num.num
 
 ---
 
+ver 0.7.68
+
+再現性検査CLIの指揮とJSON入出力を比較処理から分離
+
+追加したファイル
+
+- scripts/tools/match_repro_cli.py
+
+  引数・入力選択と比較・保存の呼出し順、CLI診断を担当します。
+
+- scripts/tools/match_repro_files.py
+
+  BOM付きUTF-8の読込と既存ファイルを保護する新規保存を担当します。
+
+- tests/test_match_repro_cli.py
+
+  分割前後で保存順・不一致報告・出力保護・入力条件が変わらないことを検査します。
+
+変更したファイル
+
+- scripts/tools/match_repro_check.py
+
+  比較処理を維持し、既存CLI入口から専用の指揮クラスへ委譲します。
+
+- tests/test_match_repro_check.py、tests/test_match_repro_input.py
+
+  チーム探索のモック接続先を移動先へ合わせ、既存の検査条件を維持します。
+
+- scripts/tools/CONTEXT.md
+
+  生成器から新しいCLI・入出力モジュールの所在を反映します。
+
+- doc/クラス一覧.md、doc/試合再現性.md
+
+  CLIの責務と担当の地図・開発者の確認方法を説明します。
+
 ver 0.7.67
 
 PR #102の再現入力検証を安全化しseed・比較手順を説明

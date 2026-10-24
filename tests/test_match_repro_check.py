@@ -133,7 +133,7 @@ class MatchReproCheckTests(unittest.TestCase):
     def test_cli_accepts_explicit_teams_and_partial_result(self):
         # CLI配線の確認であり、ここで短い模擬結果を完走の証拠にはしない。
         report = {"same_state": True, "fulltime": False}
-        with patch("scripts.tools.match_repro_check.discover_team_choices", return_value=[self.home, self.away]):
+        with patch("scripts.tools.match_repro_cli.discover_team_choices", return_value=[self.home, self.away]):
             with patch("scripts.tools.match_repro_check.compare_matches", return_value=report) as compare:
                 with redirect_stdout(StringIO()):
                     result = main([
@@ -151,7 +151,7 @@ class MatchReproCheckTests(unittest.TestCase):
     # }
     def test_cli_rejects_incomplete_and_mismatching_results(self):
         # allow-partialは完走条件だけを緩め、状態不一致を許可しない。
-        with patch("scripts.tools.match_repro_check.discover_team_choices", return_value=[self.home, self.away]):
+        with patch("scripts.tools.match_repro_cli.discover_team_choices", return_value=[self.home, self.away]):
             with patch("scripts.tools.match_repro_check.compare_matches") as compare:
                 with redirect_stdout(StringIO()):
                     compare.return_value = {"same_state": True, "fulltime": False}
@@ -167,10 +167,10 @@ class MatchReproCheckTests(unittest.TestCase):
     # }
     def test_cli_rejects_unknown_or_insufficient_teams(self):
         # 不足時に同一候補を流用したり、未知の名前を無視したりしない。
-        with patch("scripts.tools.match_repro_check.discover_team_choices", return_value=[self.home]):
+        with patch("scripts.tools.match_repro_cli.discover_team_choices", return_value=[self.home]):
             with self.assertRaises(SystemExit):
                 main([])
-        with patch("scripts.tools.match_repro_check.discover_team_choices", return_value=[self.home, self.away]):
+        with patch("scripts.tools.match_repro_cli.discover_team_choices", return_value=[self.home, self.away]):
             with self.assertRaises(SystemExit):
                 main(["--home", "missing-team"])
 
