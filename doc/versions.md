@@ -22,6 +22,196 @@ ver num.num.num
 
 ---
 
+ver 0.7.37
+
+差し戻されたPR #112（設定UI #118を含む）の全変更宣言に指定形式の説明を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/app/{game_app,rendering,other_matches_view,settings_view}.py / scripts/league/league_live_view.py
+
+  画面ホスト・速報・設定・結果合成の責務、主要状態、処理順と入出力を宣言直前に記録。
+
+- tests/{test_other_matches_view,test_settings_view,test_league_live_view,test_main_menu}.py
+
+  変更した試験と入れ子関数に、隔離する状態・観測内容・失敗条件を記録。
+
+---
+
+ver 0.7.27
+
+共通設定を読みやすい統一UIへ整理し、説明の見切れとキーボード操作の不足を解消
+
+追加したファイル
+
+- scripts/app/settings_view.py
+
+  設定専用ビューへ分離し、CPU・裏試合精度・描画を共通の配置とフォーカスで表示。
+
+- tests/test_settings_view.py
+
+  画面境界、重なり、設定保存、全項目のキー操作、拡大表示と実ループの試合再開を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py / scripts/app/rendering.py
+
+  設定描画を委譲し、Tab・Shift+Tab・Enter・F10・F11を共通入力経路へ接続。
+
+- tests/test_main_menu.py
+
+  設定のキー操作が背面メニューへ流れない既存テストを専用ビューへ接続。
+
+- README.md / SPEC.md
+
+  設定操作、CPU演算枠とGPU描画の反映タイミング・実行環境の区別を記録。
+
+- doc/クラス一覧.md / scripts/app/CONTEXT.md
+
+  設定ビューの役割と自動生成の作業地図を更新。
+
+---
+
+ver 0.7.26
+
+他会場の速報を統一デザインへ整理し、説明の不整合と表示による元データの書換えを解消
+
+追加したファイル
+
+- scripts/app/other_matches_view.py
+
+  独立した会場時計・スコアを文字幅に応じて表示し、27件ずつ全試合をスクロール閲覧。
+
+- tests/test_other_matches_view.py
+
+  90件の全件閲覧、長文、速報データの不変性、独立時計、操作と表示中の実試合進行を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py / scripts/app/rendering.py
+
+  他会場表示を専用ビューへ委譲し、独立時計と共通Esc設定に合う説明へ変更。
+
+- scripts/league/league_live_view.py / tests/test_league_live_view.py
+
+  確定結果を元データへ書き込まず重ね合わせ、ID欠落時の誤照合も防ぐ。
+
+- README.md / SPEC.md
+
+  独立時計・速報一覧の全件閲覧・共通Esc設定の説明を、実装の動作へ揃える。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画の地図・役割・履歴を更新。試合計算・並列実行・保存形式は維持。
+
+---
+
+ver 0.7.25
+
+試合中の選手一覧を統一デザインへ整理し、長文の重なりと背面へのキー入力を解消
+
+追加したファイル
+
+- scripts/app/player_status_view.py
+
+  両チームの11人、カード、保持者、現在のスタミナと能力ランクを専用の表示領域へ整理。
+
+- tests/test_player_status_view.py
+
+  22人・長文の表示、全能力系統、現在値更新、操作の分離と実際の試合進行を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  選手一覧ビューを保持し、Gキーでの表示切替と一覧表示中の背面入力の遮断を追加。
+
+- scripts/app/rendering.py
+
+  選手一覧の描画を専用ビューへ委譲。
+
+- README.md / SPEC.md
+
+  Gキーの表示切替、両チーム7〜11人の表示と一覧内の操作ルールを記載。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画の地図・役割・履歴を更新。試合計算・能力値・保存形式を維持。
+
+---
+
+ver 0.7.24
+
+試合中のスコア・情報パネルを整理し、長文とログによる表示の重なりを解消
+
+追加したファイル
+
+- scripts/app/match_hud_view.py
+
+  共通の配色でスコア、勝敗予想、統計、最新8件のログと既存の観戦操作を表示。
+
+- tests/test_match_hud_view.py
+
+  長文の収まり、ログとボタンの分離、実際の操作経路、縮小・余白付き画面、確率と時計を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  試合情報専用ビューを保持し、既存の入力操作へ接続。
+
+- scripts/app/rendering.py
+
+  スコア・情報パネル・開始時の勝敗予想を専用ビューへ委譲。
+
+- tests/test_match_status_snapshot.py
+
+  新しい描画環境で、スコアボードが可変のチーム状態を要求しない契約を維持。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画の地図・役割・履歴を更新。試合計算・能力値・保存形式は維持。
+
+---
+
+ver 0.7.23
+
+試合終了画面のデザインを統一し、得点記録と同日結果を全件閲覧可能に
+
+追加したファイル
+
+- scripts/app/fulltime_view.py
+
+  スコア・実際の試合統計・ページ切替・次の操作を表示する専用ビュー。
+
+- scripts/app/fulltime_pagination.py
+
+  描画に依存せず、終了後の記録ページの上限と初期化を管理。
+
+- tests/test_fulltime_view.py
+
+  全得点者・90試合の結果閲覧、他会場待ち、再戦の初期化、長文と旧操作の遮断を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  終了画面のクリックとキーを共通の操作へ接続し、ページ内のホイール入力を追加。
+
+- scripts/app/rendering.py
+
+  終了画面を専用ビューへ委譲し、終了後のピッチ描画と隠れたカメラ操作を停止。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  専用ビューの地図・役割・変更履歴を更新。試合計算・能力値・保存形式は維持。
+
+---
+
 ver 0.7.22
 
 対戦設定画面を開始メニューと統一し、長い名前のはみ出しと描画中のファイル走査を解消

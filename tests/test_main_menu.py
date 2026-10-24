@@ -5,8 +5,13 @@ from unittest.mock import patch
 import pygame
 
 from scripts.app.game_app import Game
+from scripts.app.settings_view import SettingsView
 
 
+# {
+#   責務: [MainMenuTests: メニュー経路と設定モーダルの入力優先度を検査する]
+#   フィールド: []
+# }
 class MainMenuTests(unittest.TestCase):
     def _game(self, action: str) -> Game:
         game = Game.__new__(Game)
@@ -86,9 +91,17 @@ class MainMenuTests(unittest.TestCase):
         game.handle_key(pygame.K_RETURN)
         self.assertEqual(game.route, "league_start")
 
+    # {
+    #   責務: [test_settings_modal_blocks_menu_keys_at_handler_boundary: 設定中にメニューの焦点や経路を変更しないことを確認する]
+    #   処理: [1: 設定ビューを注入してキーを配送; 2: 背景状態の不変を確認; 3: Escでの設定終了を確認]
+    #   引数: []
+    #   戻り値: [None: モーダル境界での入力漏れは試験失敗]
+    # }
     def test_settings_modal_blocks_menu_keys_at_handler_boundary(self) -> None:
         game = self._game("team_editor")
         game.settings_open = True
+        game.settings_view = SettingsView()
+        game.handle_settings_action = lambda action: setattr(game, "settings_action", action)
         for key in (pygame.K_1, pygame.K_RETURN, pygame.K_RIGHT, pygame.K_TAB):
             game.handle_key(key)
         self.assertFalse(hasattr(game, "route"))
