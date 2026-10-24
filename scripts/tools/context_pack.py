@@ -6,18 +6,18 @@ import re
 import subprocess
 from pathlib import Path
 
+from scripts.tools.issue_priority import PRIORITY_ORDER as PRIORITY_ORDER, issue_priority as issue_priority
+
 ROOT = Path(__file__).resolve().parents[2]
 
 ROUTES = [
+    (("godot", "gdscript"), ["godot/", "doc/Godot移行.md"], ["godot/tests/"]),
     (("match", "試合", "pass", "shoot", "goal", "ai"), ["scripts/match/"], ["tests/"]),
     (("league", "リーグ", "tournament"), ["scripts/league/"], ["tests/test_league_manager.py"]),
     (("team", "チーム", "uniform", "ユニフォーム"), ["scripts/team/", "teams/"], ["tests/test_uniforms.py", "tests/test_team_file_organization.py"]),
     (("render", "描画", "ui", "画面"), ["scripts/app/"], ["tests/test_rendering_smoke.py"]),
     (("static", "解析", "context", "コンテキスト", "codex"), ["scripts/tools/static_analysis/", "scripts/tools/"], ["tests/"]),
 ]
-
-PRIORITY_ORDER = ("P0", "P1", "P2", "P3")
-
 
 def run_command(command: list[str]) -> object:
     completed = subprocess.run(
@@ -50,23 +50,68 @@ def list_open_issues() -> list[dict]:
     return payload
 
 
-def issue_priority(issue: dict) -> int:
-    title = str(issue.get("title", ""))
-    labels = [str(label.get("name", "")) for label in issue.get("labels", [])]
-    searchable = " ".join([title, *labels]).upper()
-    for rank, priority in enumerate(PRIORITY_ORDER):
-        if re.search(rf"(?:^|[^A-Z0-9]){priority}(?:[^A-Z0-9]|$)", searchable):
-            return rank
-    return len(PRIORITY_ORDER)
+# {
+#   責務: [load_task_policy: 作業選択の編集可能なラベル設定を検証して読み込む]
+#   処理: [1: 対象パスと設定項目を決める; 2: ファイル不在なら空設定を返す; 3: オブジェクトと非空文字列配列を検証; 4: ラベルを前後空白除去・大小文字正規化する]
+#   引数: [path: 設定JSONの任意パス。省略時はプロジェクトのtask_selection.json]
+#   戻り値: [dict: 項目ごとの正規化ラベル配列。不正なJSONや設定構造はValueError、読込失敗はI/O例外を伝播する]
+# }
+def load_task_policy(path: Path | None = None) -> dict[str, list[str]]:
+    """Read the editable task policy; an absent file retains priority-only selection."""
+    path = path or ROOT / "task_selection.json"
+    fields = ("preferred_labels", "excluded_labels", "urgent_labels")
+    if not path.exists():
+        return {field: [] for field in fields}
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
+        raise ValueError("task_selection.json must contain an object")
+    policy = {}
+    for field in fields:
+        values = payload.get(field, [])
+        if not isinstance(values, list) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError(f"task_selection.json {field} must contain nonempty label strings")
+        policy[field] = [value.strip().casefold() for value in values]
+    return policy
 
 
-def select_next_issue(issues: list[dict]) -> dict:
+# {
+#   責務: [issue_labels: 作業選択でラベルの大小文字による判定差をなくす]
+#   処理: [1: Issueのラベル名を文字列化; 2: 大小文字を正規化して集合へまとめる]
+#   引数: [issue: GitHubから取得したラベル情報を持つIssue]
+#   戻り値: [set: 重複しない正規化ラベル名。ラベル項目が無ければ空集合]
+# }
+def issue_labels(issue: dict) -> set[str]:
+    return {str(label.get("name", "")).casefold() for label in issue.get("labels", [])}
+
+
+# {
+#   責務: [selection_key: 優先度を最優先し、同順位のカテゴリと番号で作業順を決める]
+#   処理: [1: 正規化ラベルと優先度を取得; 2: 優先カテゴリ一致の有無を比較値へ変換; 3: 優先度・カテゴリ一致・番号の順でキーを返す]
+#   引数: [issue: 比較するIssue; policy: 優先カテゴリの正規化済みラベル設定を含む辞書]
+#   戻り値: [tuple: 優先度・カテゴリ順位・番号の比較キー。P0はbugラベルの有無で制限せず、対象Issueや設定も変更しない]
+# }
+def selection_key(issue: dict, policy: dict[str, list[str]]) -> tuple[int, int, int]:
+    """Priority first; preferred category breaks ties, then the Issue number."""
+    labels = issue_labels(issue)
+    priority = issue_priority(issue)
+    preferred = 0 if labels.intersection(policy["preferred_labels"]) else 1
+    return priority, preferred, int(issue.get("number", 1_000_000_000))
+
+
+# {
+#   責務: [select_next_issue: 除外ラベルに該当しない候補から次の作業一件を選ぶ]
+#   処理: [1: 入力の空リストを拒否; 2: 明示設定またはJSON設定を取得; 3: tracking等の除外候補を取り除く; 4: 比較キー最小の候補を返す]
+#   引数: [issues: 取得済みのopen Issue一覧; policy: 任意の読込済み設定。Noneなら設定ファイルを読む]
+#   戻り値: [dict: 選択した既存Issue。候補なしはRuntimeError、設定読込のエラーは伝播する。元の一覧は変更しない]
+# }
+def select_next_issue(issues: list[dict], *, policy: dict[str, list[str]] | None = None) -> dict:
     if not issues:
         raise RuntimeError("No open Issues were found.")
-    return min(
-        issues,
-        key=lambda issue: (issue_priority(issue), int(issue.get("number", 1_000_000_000))),
-    )
+    policy = load_task_policy() if policy is None else policy
+    candidates = [issue for issue in issues if not issue_labels(issue).intersection(policy["excluded_labels"])]
+    if not candidates:
+        raise RuntimeError("No runnable Issues: remaining work is tracking, blocked or in review.")
+    return min(candidates, key=lambda issue: selection_key(issue, policy))
 
 
 def section(body: str, names: tuple[str, ...]) -> str:

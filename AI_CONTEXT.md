@@ -6,6 +6,7 @@ AI/Codex が最初に読む最小入口です。詳細仕様はここへ複製�
 - Name: Kadocalcio
 - Purpose: サッカーゲーム本体、編集/評価ツール、将来の再利用可能なゲームエンジン層を開発する。
 - Runtime: Python / Pygame
+- Priority: Godot / 型付きGDScriptへの段階移行。現行Python版は比較用に残す。作業索引は [`doc/Godot移行.md`](doc/Godot移行.md) と管理Issue #119。
 
 ## Current State
 - 現行構成は `main.py` を入口に、試合・リーグ・チーム編集・開発ツールを `scripts/` の役割別パッケージへ分けている。
@@ -18,6 +19,7 @@ AI/Codex が最初に読む最小入口です。詳細仕様はここへ複製�
 - 詳細仕様: `SPEC.md`
 - 実装: `main.py`, `scripts/`
 - テスト: `tests/`
+- Godot起動/型検査/移行対応: `godot/README.md`, `run_godot.bat`, `godot/tests/`
 - タスク: GitHub Issues
 
 ## Read First
@@ -60,4 +62,6 @@ README / SPEC / docs / 全Issueを最初から全読しない。
 検証結果は `VERIFIED` / `UNVERIFIED` / `BLOCKED` / `NOT_APPLICABLE` を区別する。`UNVERIFIED` をゼロにするためだけの全探索は行わず、Acceptance・安全性・互換性に必要な確認だけ必須へ昇格する。
 
 ## Task Capsule
+
+番号なしの選択は `doc/Issue優先度方針.md` と `task_selection.json` に従う。P0（緊急専用）→P1（優先）→P2（通常・既定）→P3（後回し）→P4（将来）の順。同じ優先度内で依存確認済みGodot移行を優先し、親・依存待ち・レビュー待ちは除外する。
 `start_task.bat [issue-number]` で `context/<issue-number>/` に短い作業入口を生成する。`request.md` は「対象・目的・制約・読むべきファイル・完了条件」の5項目だけで渡せる作業指示、`task.md` は詳細、`files.txt` は推定された候補。Task CapsuleはSource of Truthではなく索引であり、必要なら原Issue・コード・テストへ戻る。

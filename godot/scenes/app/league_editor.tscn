@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/app/migration_notice_view.gd" id="1"]
+
+[node name="LeagueEditor" type="Control"]
+script = ExtResource("1")
+heading = "リーグ戦エディタ"
+explanation = "リーグ・大会・日程のGodot版エディタは #139 で移行予定です。現在のテンプレートは変更しません。"

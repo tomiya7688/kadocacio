@@ -1,0 +1,707 @@
+{
+  "contract_version": 1,
+  "scale": {
+    "current": {
+      "バージョン": 2,
+      "最小": 0,
+      "最大": 5500
+    },
+    "legacy_min": 50.0,
+    "legacy_max": 1250.0,
+    "metadata_key": "能力値スケール",
+    "player_default": 2979.1666666666665,
+    "manager_activity_default": 2062,
+    "manager_intelligence_default": 2979,
+    "grades": [
+      {
+        "rank": "S",
+        "minimum": 5000
+      },
+      {
+        "rank": "A+",
+        "minimum": 4500
+      },
+      {
+        "rank": "A-",
+        "minimum": 4000
+      },
+      {
+        "rank": "B+",
+        "minimum": 3500
+      },
+      {
+        "rank": "B-",
+        "minimum": 3000
+      },
+      {
+        "rank": "C+",
+        "minimum": 2500
+      },
+      {
+        "rank": "C-",
+        "minimum": 2000
+      },
+      {
+        "rank": "D+",
+        "minimum": 1500
+      },
+      {
+        "rank": "D",
+        "minimum": 1000
+      },
+      {
+        "rank": "E+",
+        "minimum": 500
+      },
+      {
+        "rank": "E-",
+        "minimum": 0
+      }
+    ]
+  },
+  "player_aliases": {
+    "ID": [
+      "選手ID"
+    ],
+    "Name": [
+      "名前",
+      "選手名"
+    ],
+    "Position": [
+      "ポジション"
+    ],
+    "JerseyNumber": [
+      "背番号"
+    ],
+    "ShotPower": [
+      "シュート力"
+    ],
+    "ShotAccuracy": [
+      "シュート精度"
+    ],
+    "PassAccuracy": [
+      "パス精度"
+    ],
+    "PassPower": [
+      "パス力"
+    ],
+    "DashSpeed": [
+      "ダッシュ時のスピード",
+      "ダッシュ速度"
+    ],
+    "WalkSpeed": [
+      "ウォーク時のスピード",
+      "ウォーク速度"
+    ],
+    "DribbleSpeed": [
+      "ドリブル時のスピード",
+      "ドリブル速度"
+    ],
+    "KickMotionSpeed": [
+      "キックモーションのスピード",
+      "キックモーション速度"
+    ],
+    "MaxStamina": [
+      "スタミナ最大値"
+    ],
+    "StaminaRecovery": [
+      "スタミナ回復速度"
+    ],
+    "StaminaManagement": [
+      "スタミナ管理"
+    ],
+    "FatigueResistance": [
+      "疲労耐性"
+    ],
+    "MistakeAvoidance": [
+      "ミスの少なさ"
+    ],
+    "DribbleTechnique": [
+      "ドリブルの上手さ"
+    ],
+    "TrapTechnique": [
+      "トラップの上手さ"
+    ],
+    "PassInterception": [
+      "パスカットの上手さ"
+    ],
+    "GoalStopping": [
+      "ゴールストップ力"
+    ],
+    "ShootingTechnique": [
+      "シュートの上手さ"
+    ],
+    "PassingTechnique": [
+      "パスの上手さ"
+    ],
+    "StealTechnique": [
+      "スティールの上手さ"
+    ],
+    "CollisionPhysical": [
+      "衝突時のフィジカル"
+    ],
+    "DribblePhysical": [
+      "ドリブル時のフィジカル"
+    ],
+    "PhysicalPlayQuality": [
+      "フィジカルプレイの質"
+    ],
+    "JumpHeight": [
+      "ジャンプの高さ"
+    ],
+    "JumpAccuracy": [
+      "ジャンプの正確さ"
+    ],
+    "JumpSpeed": [
+      "ジャンプの速さ"
+    ],
+    "JumpJudgment": [
+      "ジャンプの判断力"
+    ],
+    "HeadingPower": [
+      "ヘディングの強さ"
+    ],
+    "HeadingAccuracy": [
+      "ヘディングの正確さ"
+    ],
+    "HeadingJudgment": [
+      "ヘディングの判断力"
+    ],
+    "Mental": [
+      "メンタル"
+    ],
+    "Intelligence": [
+      "インテリジェンス"
+    ],
+    "Skills": [
+      "スキル"
+    ],
+    "SafePlay": [
+      "安全なプレー"
+    ],
+    "FreeKickSkill": [
+      "フリーキック"
+    ],
+    "PenaltyKickSkill": [
+      "ペナルティキック"
+    ],
+    "GoalKickSkill": [
+      "ゴールキック"
+    ],
+    "ThrowInSkill": [
+      "スローイン"
+    ],
+    "CornerKickSkill": [
+      "コーナーキック"
+    ],
+    "PlayerType": [
+      "プレイヤータイプ"
+    ],
+    "PositionX": [
+      "ポジションX"
+    ],
+    "PositionY": [
+      "ポジションY"
+    ],
+    "gender": [
+      "性別"
+    ],
+    "age": [
+      "年齢"
+    ],
+    "ZoneMarking": [
+      "ゾーンマーキング"
+    ],
+    "ManMarking": [
+      "マンツーマン"
+    ],
+    "Pressing": [
+      "プレッシング"
+    ],
+    "ShotBlocking": [
+      "シュートカット"
+    ],
+    "Interception": [
+      "インターセプト"
+    ],
+    "Support": [
+      "サポート"
+    ],
+    "Triangle": [
+      "トライアングル"
+    ],
+    "LoseMark": [
+      "マークを外す"
+    ],
+    "Overlap": [
+      "オーバーラップ"
+    ],
+    "DiagonalRun": [
+      "ダイアゴナルラン"
+    ],
+    "RunIntoSpace": [
+      "スペースに走り込む"
+    ],
+    "GoalPoaching": [
+      "ゴール前待機"
+    ],
+    "Confidence": [
+      "自信"
+    ],
+    "TacticalDiscipline": [
+      "戦術への忠実さ"
+    ],
+    "Kick": [
+      "キック"
+    ],
+    "Speed": [
+      "スピード"
+    ],
+    "Stamina": [
+      "スタミナ"
+    ],
+    "Technique": [
+      "テクニック"
+    ],
+    "Jump": [
+      "ジャンプ"
+    ],
+    "Physical": [
+      "フィジカル"
+    ]
+  },
+  "stat_keys": [
+    "ShotPower",
+    "ShotAccuracy",
+    "PassAccuracy",
+    "PassPower",
+    "DashSpeed",
+    "WalkSpeed",
+    "DribbleSpeed",
+    "KickMotionSpeed",
+    "MaxStamina",
+    "StaminaRecovery",
+    "StaminaManagement",
+    "FatigueResistance",
+    "MistakeAvoidance",
+    "DribbleTechnique",
+    "TrapTechnique",
+    "PassInterception",
+    "GoalStopping",
+    "ShootingTechnique",
+    "PassingTechnique",
+    "StealTechnique",
+    "CollisionPhysical",
+    "DribblePhysical",
+    "PhysicalPlayQuality",
+    "JumpHeight",
+    "JumpAccuracy",
+    "JumpSpeed",
+    "JumpJudgment",
+    "HeadingPower",
+    "HeadingAccuracy",
+    "HeadingJudgment",
+    "Mental",
+    "Intelligence",
+    "SafePlay",
+    "FreeKickSkill",
+    "PenaltyKickSkill",
+    "GoalKickSkill",
+    "ThrowInSkill",
+    "CornerKickSkill",
+    "ZoneMarking",
+    "ManMarking",
+    "Pressing",
+    "ShotBlocking",
+    "Interception",
+    "Support",
+    "Triangle",
+    "LoseMark",
+    "Overlap",
+    "DiagonalRun",
+    "RunIntoSpace",
+    "GoalPoaching",
+    "Confidence",
+    "Kick",
+    "Speed",
+    "Stamina",
+    "Technique",
+    "Jump",
+    "Physical"
+  ],
+  "stat_fallbacks": {
+    "ShotPower": "Kick",
+    "ShotAccuracy": "Kick",
+    "PassAccuracy": "Kick",
+    "PassPower": "Kick",
+    "DashSpeed": "Speed",
+    "WalkSpeed": "Speed",
+    "DribbleSpeed": "Speed",
+    "KickMotionSpeed": "Speed",
+    "MaxStamina": "Stamina",
+    "StaminaRecovery": "Stamina",
+    "StaminaManagement": "Stamina",
+    "FatigueResistance": "Stamina",
+    "MistakeAvoidance": "Technique",
+    "DribbleTechnique": "Technique",
+    "TrapTechnique": "Technique",
+    "PassInterception": "Technique",
+    "GoalStopping": "Technique",
+    "ShootingTechnique": "Technique",
+    "PassingTechnique": "Technique",
+    "StealTechnique": "Technique",
+    "CollisionPhysical": "Physical",
+    "DribblePhysical": "Physical",
+    "PhysicalPlayQuality": "Physical",
+    "JumpHeight": "Jump",
+    "JumpAccuracy": "Jump",
+    "JumpSpeed": "Jump",
+    "JumpJudgment": "Jump",
+    "HeadingPower": "Jump",
+    "HeadingAccuracy": "Jump",
+    "HeadingJudgment": "Jump",
+    "Mental": "Mental",
+    "Intelligence": "Mental",
+    "SafePlay": "Mental",
+    "FreeKickSkill": "Mental",
+    "PenaltyKickSkill": "Mental",
+    "GoalKickSkill": "Mental",
+    "ThrowInSkill": "Mental",
+    "CornerKickSkill": "Mental",
+    "ZoneMarking": "ZoneMarking",
+    "ManMarking": "ManMarking",
+    "Pressing": "Pressing",
+    "ShotBlocking": "ShotBlocking",
+    "Interception": "Interception",
+    "Support": "Support",
+    "Triangle": "Triangle",
+    "LoseMark": "LoseMark",
+    "Overlap": "Overlap",
+    "DiagonalRun": "DiagonalRun",
+    "RunIntoSpace": "RunIntoSpace",
+    "GoalPoaching": "GoalPoaching",
+    "Confidence": "Mental",
+    "Kick": "Kick",
+    "Speed": "Kick",
+    "Stamina": "Kick",
+    "Technique": "Kick",
+    "Jump": "Kick",
+    "Physical": "Kick"
+  },
+  "tactics": {
+    "超攻撃的": "ULTRA_ATTACK",
+    "攻撃的": "ATTACK",
+    "バランス": "BALANCE",
+    "防御的": "DEFEND",
+    "守備的": "DEFEND",
+    "超防御的": "ULTRA_DEFEND",
+    "超守備的": "ULTRA_DEFEND",
+    "指示なし": "NO_INSTRUCTION",
+    "ランダム": "RANDOM"
+  },
+  "default_color": [
+    222,
+    68,
+    66
+  ],
+  "player_types": [
+    "バックアップ",
+    "スイーパー",
+    "ストッパー",
+    "マンマーカー",
+    "リベロ",
+    "オールラウンド",
+    "ダイナモ",
+    "レジスタ",
+    "アタッカー",
+    "チャンスメーカー",
+    "ストライカー"
+  ],
+  "type_aliases": {
+    "セカンドトップ": "チャンスメーカー",
+    "ウイング": "アタッカー",
+    "プレイメーカー": "レジスタ",
+    "サイドバック": "ダイナモ",
+    "ゴールキーパー": "バックアップ",
+    "ドリブラー": "チャンスメーカー"
+  },
+  "type_preferences": {
+    "バックアップ": {
+      "zone_marking": 0.94,
+      "man_marking": 0.42,
+      "pressing": 0.32,
+      "shot_blocking": 0.98,
+      "interception": 0.5,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.5,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "スイーパー": {
+      "zone_marking": 0.92,
+      "man_marking": 0.5,
+      "pressing": 0.78,
+      "shot_blocking": 0.72,
+      "interception": 0.68,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.5,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "ストッパー": {
+      "zone_marking": 0.38,
+      "man_marking": 0.94,
+      "pressing": 0.9,
+      "shot_blocking": 0.5,
+      "interception": 0.58,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.5,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "マンマーカー": {
+      "zone_marking": 0.35,
+      "man_marking": 0.97,
+      "pressing": 0.62,
+      "shot_blocking": 0.5,
+      "interception": 0.88,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.5,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "リベロ": {
+      "zone_marking": 0.86,
+      "man_marking": 0.5,
+      "pressing": 0.5,
+      "shot_blocking": 0.72,
+      "interception": 0.5,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.5,
+      "overlap": 0.72,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.76,
+      "goal_poaching": 0.64
+    },
+    "オールラウンド": {
+      "zone_marking": 0.5,
+      "man_marking": 0.76,
+      "pressing": 0.65,
+      "shot_blocking": 0.5,
+      "interception": 0.5,
+      "support": 0.9,
+      "triangle": 0.72,
+      "lose_mark": 0.5,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "ダイナモ": {
+      "zone_marking": 0.5,
+      "man_marking": 0.5,
+      "pressing": 0.68,
+      "shot_blocking": 0.5,
+      "interception": 0.5,
+      "support": 0.65,
+      "triangle": 0.5,
+      "lose_mark": 0.86,
+      "overlap": 0.97,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.95,
+      "goal_poaching": 0.5
+    },
+    "レジスタ": {
+      "zone_marking": 0.5,
+      "man_marking": 0.5,
+      "pressing": 0.5,
+      "shot_blocking": 0.5,
+      "interception": 0.62,
+      "support": 0.98,
+      "triangle": 0.98,
+      "lose_mark": 0.5,
+      "overlap": 0.36,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.5
+    },
+    "アタッカー": {
+      "zone_marking": 0.5,
+      "man_marking": 0.5,
+      "pressing": 0.5,
+      "shot_blocking": 0.5,
+      "interception": 0.5,
+      "support": 0.5,
+      "triangle": 0.5,
+      "lose_mark": 0.7,
+      "overlap": 0.88,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.94,
+      "goal_poaching": 0.9
+    },
+    "チャンスメーカー": {
+      "zone_marking": 0.5,
+      "man_marking": 0.5,
+      "pressing": 0.5,
+      "shot_blocking": 0.5,
+      "interception": 0.5,
+      "support": 0.68,
+      "triangle": 0.64,
+      "lose_mark": 0.96,
+      "overlap": 0.5,
+      "diagonal_run": 0.96,
+      "run_into_space": 0.5,
+      "goal_poaching": 0.76
+    },
+    "ストライカー": {
+      "zone_marking": 0.5,
+      "man_marking": 0.5,
+      "pressing": 0.38,
+      "shot_blocking": 0.5,
+      "interception": 0.5,
+      "support": 0.38,
+      "triangle": 0.5,
+      "lose_mark": 0.9,
+      "overlap": 0.5,
+      "diagonal_run": 0.5,
+      "run_into_space": 0.92,
+      "goal_poaching": 0.99
+    }
+  },
+  "style_fields": {
+    "zone_marking": "ZoneMarking",
+    "man_marking": "ManMarking",
+    "pressing": "Pressing",
+    "shot_blocking": "ShotBlocking",
+    "interception": "Interception",
+    "support": "Support",
+    "triangle": "Triangle",
+    "lose_mark": "LoseMark",
+    "overlap": "Overlap",
+    "diagonal_run": "DiagonalRun",
+    "run_into_space": "RunIntoSpace",
+    "goal_poaching": "GoalPoaching"
+  },
+  "skills": [
+    "エアリアルヘッド",
+    "スライドフィニッシュ",
+    "アークカーブ",
+    "揺らぎ弾",
+    "決定機センサー",
+    "魔術師のプレースキック",
+    "城塞ブロック",
+    "スピンターン",
+    "密着封鎖",
+    "空白カバー",
+    "背後の狩人",
+    "楔のキープ",
+    "ワンタッチリレー",
+    "キャリーショット",
+    "不屈の心",
+    "オーバーロード",
+    "リカバリーチェイス",
+    "奪取カウンター",
+    "反転ヒールターン",
+    "不動の体幹",
+    "オーバーヘッドボレー",
+    "ハーフウェイ砲",
+    "タイトタッチ",
+    "スプリントキャリー",
+    "エナジーキープ",
+    "クールダウン休息",
+    "パワースライド",
+    "片道封鎖",
+    "ブラインドフィード",
+    "サイン連携",
+    "ラストチャンス砲",
+    "セービングオーラ",
+    "先読みセーブ",
+    "キャノンミドル",
+    "ダイレクトボレー",
+    "セット＆シュート",
+    "幻惑ステップ",
+    "猛追プレス",
+    "フューチャーリード",
+    "スイーパーキーパー"
+  ],
+  "skill_aliases": {
+    "ヘディングシュート": "エアリアルヘッド",
+    "スライディングシュート": "スライドフィニッシュ",
+    "バナナシュート": "アークカーブ",
+    "ナックルシュート": "揺らぎ弾",
+    "ゴールの嗅覚": "決定機センサー",
+    "伝説のフリーキック": "魔術師のプレースキック",
+    "カテナチオ": "城塞ブロック",
+    "マルセイユルーレット": "スピンターン",
+    "鉄壁のマンツーマンディフェンス": "密着封鎖",
+    "カバーリング": "空白カバー",
+    "シャドーストライカー": "背後の狩人",
+    "ポストプレー": "楔のキープ",
+    "ダイレクトパス": "ワンタッチリレー",
+    "ドリブルシュート": "キャリーショット",
+    "スティールハート": "不屈の心",
+    "数的優位": "オーバーロード",
+    "チェイシング": "リカバリーチェイス",
+    "反転速攻": "奪取カウンター",
+    "クライフターン": "反転ヒールターン",
+    "鋼のボディ": "不動の体幹",
+    "バイシクルシュート": "オーバーヘッドボレー",
+    "超ロングシュート": "ハーフウェイ砲",
+    "カミソリドリブル": "タイトタッチ",
+    "高速ドリブル": "スプリントキャリー",
+    "タフネスダイナモ": "エナジーキープ",
+    "ウルトラリラックス": "クールダウン休息",
+    "必殺スライディング": "パワースライド",
+    "ワンサイドカット": "片道封鎖",
+    "ノールックパス": "ブラインドフィード",
+    "アイコンタクト": "サイン連携",
+    "ブザービート": "ラストチャンス砲",
+    "ゴールの守護神": "セービングオーラ",
+    "スーパーセーブ": "先読みセーブ",
+    "強烈ミドルシュート": "キャノンミドル",
+    "ボレーシュート": "ダイレクトボレー",
+    "ワントラップシュート": "セット＆シュート",
+    "トリッキーフェイント": "幻惑ステップ",
+    "鬼プレス": "猛追プレス",
+    "シミュレーション": "フューチャーリード",
+    "ゴールキーパーの攻撃参加": "スイーパーキーパー"
+  },
+  "uniform": {
+    "version": 1,
+    "parts": {
+      "胸": [
+        6,
+        6
+      ],
+      "左腕": [
+        3,
+        5
+      ],
+      "右腕": [
+        3,
+        5
+      ],
+      "左脚": [
+        3,
+        5
+      ],
+      "右脚": [
+        3,
+        5
+      ]
+    }
+  }
+}

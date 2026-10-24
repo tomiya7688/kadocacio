@@ -1,0 +1,53 @@
+{
+  "cpu_options": [
+    10,
+    25,
+    50,
+    75,
+    100
+  ],
+  "cpu_min": 10,
+  "cpu_max": 100,
+  "cpu_default": 100,
+  "mode_default": "PRECISE",
+  "modes": {
+    "ULTRA_PRECISE": {
+      "label": "超精密モード",
+      "description": "戦術判断を現在より高頻度で更新。最も重い",
+      "ai_rethink_multiplier": 0.65
+    },
+    "PRECISE": {
+      "label": "精密モード",
+      "description": "現在と同じ判断・更新頻度。デフォルト",
+      "ai_rethink_multiplier": 1.0
+    },
+    "NORMAL": {
+      "label": "通常モード",
+      "description": "戦術判断の更新頻度を少し抑える",
+      "ai_rethink_multiplier": 1.6
+    },
+    "LIGHT": {
+      "label": "軽量モード",
+      "description": "戦術判断の更新頻度をさらに抑える。最も軽い",
+      "ai_rethink_multiplier": 2.4
+    }
+  },
+  "window_sizes": [
+    [
+      960,
+      540
+    ],
+    [
+      1280,
+      720
+    ],
+    [
+      1600,
+      900
+    ],
+    [
+      1920,
+      1080
+    ]
+  ]
+}

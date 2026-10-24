@@ -22,6 +22,54 @@ ver num.num.num
 
 ---
 
+ver 0.7.64
+
+PR #151の乱数・固定更新・時計の責務と互換条件を説明
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- godot/scripts/core/python_random_stream.gd、observed_match_random.gd
+
+  CPython互換乱数の初期化・消費順・観測履歴を日本語で説明します。
+
+- godot/scripts/core/fixed_step_driver.gd、simulation_coordinate.gd
+
+  固定更新の残時間と描画から独立した座標の扱いを説明します。
+
+- godot/scripts/match/match_clock.gd、scripts/tools/match_random_audit.py
+
+  再開待機の時計停止とPython参照側の乱数監査を説明します。
+
+- doc/PRコメント確認.md、doc/versions.md
+
+  今回の修正範囲とPR全体に残るコメント不足を区別して記録します。
+
+---
+
+ver 0.7.39
+
+差し戻されたPR #144の作業選択と回帰試験へ指定形式の宣言説明を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/context_pack.py
+
+  設定読込・ラベル正規化・選択キー・候補選択の目的、処理順と失敗条件を説明。
+
+- tests/test_context_pack.py
+
+  変更クラスと7試験の検査対象、一時データの範囲、失敗条件を宣言直前に記録。
+
+---
+
 ver 0.7.37
 
 差し戻されたPR #112（設定UI #118を含む）の全変更宣言に指定形式の説明を追加
@@ -39,6 +87,358 @@ ver 0.7.37
 - tests/{test_other_matches_view,test_settings_view,test_league_live_view,test_main_menu}.py
 
   変更した試験と入れ子関数に、隔離する状態・観測内容・失敗条件を記録。
+
+---
+
+ver 0.7.36
+
+指定の宣言コメント規約を導入し、PR #150のコメント不足と境界検証の指摘を修正
+
+追加したファイル
+
+- doc/コメント規約.md / doc/PRコメント確認.md
+
+  日本語正本、Python/GDScriptへの適用、閉じられたPRも含む監査と差し戻し基準を記録。
+
+- scripts/tools/static_analysis/json_like_comments.py / tests/test_json_like_comments.py
+
+  PRの実base/headから変更宣言の必須項目を検査し、本文品質の確認とは区別。
+
+変更したファイル
+
+- scripts/core/{match_operation,match_protocol,match_trace_comparison}.py / scripts/match/{match_observation,match_session}.py
+
+  宣言説明を整備し、追加観測の巨大数と試合状態に矛盾する結果を比較前に拒否。
+
+- scripts/tools/{match_contract_input,match_contract_cases,match_contract_trace,godot_match_contract,godot_match_fixture,godot_runner}.py
+
+  宣言説明と入力整数範囲を整備し、両実装で共通に拒否するfixtureを追加。
+
+- godot/scripts/core/{match_operation,match_protocol,match_trace_comparison}.gd / godot/scripts/match/{match_input_record,match_trace_record}.gd
+
+  状態・戻り値の説明とPython共通の観測値・結果位相検証を実装。
+
+- tests/test_godot_match_contract.py / tests/test_godot_runner.py / godot/tests/match_contract_tests.gd
+
+  変更宣言を説明し、数値の境界・巨大整数・結果欠落と途中結果を検証。
+
+- AGENTS.md / scripts/tools/static_analysis/CONTEXT.md / doc/試合境界契約.md
+
+  コメント規約の入口と新しい交換可能性検査を開発地図へ反映。
+
+---
+
+ver 0.7.34
+
+Godotへ描画非依存の試合状態・固定更新・整数seed互換乱数の基盤を追加
+
+追加したファイル
+
+- godot/scripts/core/{python_random_stream,observed_match_random,simulation_coordinate,fixed_step_driver}.gd と各 .gd.uid
+
+  MT19937互換サブセット・監査・倍精度座標・未処理時間を保持する固定更新を分離。
+
+- godot/scripts/match/{player_state,team_state,ball_state,match_clock,match_event_log,match_state,match_setup,match_snapshot,match_kernel}.gd と各 .gd.uid
+
+  Node無しの状態・初期配置・独立時計・観測・更新接続を実装し、未移行処理の時計単独進行を拒否。
+
+- godot/tests/match_kernel_tests.gd / godot/tests/fixtures/kernel_step_probe.gd と各 .gd.uid
+
+  初期状態・時計・乱数の実参照照合と、テスト専用更新で描画頻度/倍率/停止/予算を検査。
+
+- scripts/tools/{match_random_audit,godot_kernel_fixture}.py / tests/test_godot_match_kernel.py
+
+  通常の乱数を変えず監査し、公開チームの実Matchから初期状態と乱数/時計fixtureを生成。
+
+- doc/Godot試合核.md
+
+  参照対応・接続API・再現範囲・未移行処理と検証の限界を記録。
+
+変更したファイル
+
+- scripts/match/{match_engine,match_session}.py
+
+  検証用RNGの任意注入を追加し、通常呼出しは従来のRandomと判定を維持。
+
+- scripts/core/match_protocol.py / scripts/tools/godot_match_contract.py / godot/data/match_contract.json
+
+  MT状態の厳密比較とPython由来の時計/フィールド/スタミナ初期値を導出。
+
+- godot/scripts/core/match_operation.gd / godot/scripts/data/team_payload_decoder.gd
+
+  整数倍率の互換読込を修正し、正規化選手の定義変換を再利用。
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py / .github/workflows/godot-bootstrap.yml
+
+  共通の新規ネイティブtrace照合経路と実Godot基盤検査をWindows/Linux CIへ接続。
+
+- AGENTS.md / godot/README.md / doc/{Godot移行,試合境界契約,試合エンジン境界,クラス一覧}.md
+
+  クラス責務・作業地図・互換範囲を更新。実際の物理/AI/得点/試合表示は未移行。
+
+- scripts/tools/CONTEXT.md
+
+  開発用監査/fixture生成の地図を再生成。
+
+---
+
+ver 0.7.33
+
+Python/Godot共通の試合操作・観測・最初の差分境界を追加
+
+追加したファイル
+
+- scripts/core/{match_protocol,match_operation,match_trace_comparison}.py
+
+  操作・比較許容差の正本と不変操作値、最初の状態/イベント/結果差分を定義。
+
+- scripts/match/{match_observation,match_session}.py
+
+  既存Matchを操作し、内部オブジェクトを渡さず独立した観測値を取得。
+
+- scripts/tools/{match_contract_input,match_contract_trace,match_contract_cases,godot_match_contract,godot_match_fixture}.py
+
+  既存再現入力の互換ラッパー、公開fixture・不正ケース・導出契約と差分CLIを追加。
+
+- godot/scripts/core/{match_protocol,match_operation,match_trace_comparison}.gd と各 .gd.uid
+
+  導出契約・操作検証・差分計算をNode無しで実装。
+
+- godot/scripts/match/{match_input_record,match_trace_record}.gd と各 .gd.uid
+
+  共通入力/観測を検証し独立したコピーを返す読込モデルを追加。
+
+- godot/data/match_contract.json / godot/tests/match_contract_tests.gd と .gd.uid
+
+  Python正本由来の定義と実エンジンの読込/再出力・差分照合を追加。
+
+- tests/test_godot_match_contract.py / doc/試合境界契約.md
+
+  実Match・不正値・固定ステップ・不変コピー・最終結果・差分と公開データ保護を検査し、精度/乱数の境界を明記。
+
+変更したファイル
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  新規一時出力でネイティブ観測を照合し、失敗/タイムアウト時も原本照合。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linuxの実Godot・共通契約の開発テストへ接続。
+
+- AGENTS.md / godot/README.md / doc/Godot移行.md / doc/試合エンジン境界.md / doc/クラス一覧.md
+
+  API対応・作業入口・検証範囲を更新。観測再出力を試合演算一致とみなさない。
+
+- scripts/{core,match,tools}/CONTEXT.md
+
+  新しい責務別モジュールの作業地図を再生成。
+
+---
+
+ver 0.7.32
+
+Godotへメインメニュー・設定・チーム/会場選択を移行
+
+追加したファイル
+
+- godot/scenes/app/{main_menu,league_start,league_editor,team_editor,match_test}.tscn
+
+  入口を個別Controlシーンへ分割し、未実装の機能は移行待ちと明示。
+
+- godot/scripts/app/{main_menu_view,match_test_view,migration_notice_view,team_picker,settings_overlay}.gd と各 .gd.uid
+
+  ルート・両チーム/会場・検索/長文閲覧・設定入力を責務別に実装。
+
+- godot/scripts/app/{menu_theme,ui_layout,window_preferences_controller}.gd と各 .gd.uid
+
+  共通外観と部品、16:9の画面サイズ/全画面操作を分離。
+
+- godot/scripts/core/{ui_contract,ui_preferences}.gd と各 .gd.uid
+
+  Python由来のUI契約と設定希望値モデルを追加。
+
+- godot/scripts/data/{migration_paths,ui_preferences_repository}.gd と各 .gd.uid
+
+  データ位置とGodot専用設定JSONの読み書きを分離し、既存ゲームデータを保護。
+
+- godot/data/ui_contract.json
+
+  CPU枠・裏試合モード・画面サイズのPython正本由来の導出契約。
+
+- scripts/tools/godot_ui_contract.py
+
+  UI契約の明示生成と鮮度検査。
+
+- tests/test_godot_ui_contract.py
+
+  正本との一致・未作成/古い契約・明示生成を検査。
+
+変更したファイル
+
+- godot/scripts/app/bootstrap.gd / godot/scenes/app/bootstrap.tscn
+
+  メニュー遷移・設定の背面入力遮断・IME中のキー保護を仲介。
+
+- godot/project.godot
+
+  正式タイトルと最小960×540の画面を設定。
+
+- godot/tests/run_tests.gd
+
+  隔離fixtureでUI操作・設定保存・入力・長文と表示寸法を実エンジン検査。
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  ui-test入口と契約鮮度の失敗検出を追加。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linux仮想表示のネイティブUI操作検査を追加。
+
+- godot/README.md / doc/Godot移行.md / doc/クラス一覧.md / AGENTS.md / scripts/tools/CONTEXT.md
+
+  移行対応・実適用/保存のみの境界・確認手順と作業地図を更新。
+
+---
+
+ver 0.7.31
+
+Issue優先度を緊急専用P0から将来予定P4まで整理
+
+追加したファイル
+
+- doc/Issue優先度方針.md
+
+  P0〜P4の基準、未指定P2、ラベル正本、依存状態と作業順を明記。
+
+- scripts/tools/issue_priority.py
+
+  優先度ラベル・旧タイトル・既定値の解釈だけを専用モジュールへ分離。
+
+変更したファイル
+
+- scripts/tools/context_pack.py / tests/test_context_pack.py / task_selection.json
+
+  P4とラベル優先を追加し、P0は分類を問わず最優先、カテゴリ優先は同一優先度内だけに適用。
+
+- AGENTS.md / AI_CONTEXT.md / doc/Godot移行.md / doc/開発予定.md / scripts/tools/CONTEXT.md
+
+  AI入口と開発文書を新方針へ揃え、旧数値優先度との混同を防止。
+
+---
+
+ver 0.7.30
+
+GodotへチームJSONの読込互換とPython参照による差分検査を追加
+
+追加したファイル
+
+- godot/scripts/core/team_contract.gd / json_value.gd / stat_scale.gd
+
+  Python導出の契約、互換スカラー変換、能力換算をNode無しで分離。
+
+- godot/scripts/data/team_definition.gd / player_definition.gd / manager_definition.gd
+
+  元JSONを残したチーム・選手・監督の独立モデル。
+
+- godot/scripts/data/team_data_diagnostic.gd / team_load_result.gd / team_catalog.gd
+
+  診断と読込結果、再帰フォルダの有効チーム一覧。
+
+- godot/scripts/data/team_json_repository.gd / strict_json_reader.gd / team_payload_validator.gd / team_payload_decoder.gd / uniform_decoder.gd
+
+  読み取り専用I/O・厳密JSON解析・検証・変換・ユニフォーム正規化を責務別に分離。
+
+- godot/data/team_contract.json / scripts/tools/godot_team_contract.py
+
+  能力スケール・別名・タイプ・スキル等をPython正本から明示再生成し、差異を検出。
+
+- scripts/tools/godot_team_oracle.py / tests/test_godot_team_data.py / godot/tests/team_data_tests.gd / godot/**/*.gd.uid
+
+  公開チームと境界fixtureのPython/Godot照合、元チーム不変チェックと負の検査。
+
+変更したファイル
+
+- scripts/tools/godot_runner.py / tests/test_godot_runner.py / .github/workflows/godot-bootstrap.yml
+
+  開発test入口とWindows/Linux CIへ互換照合を接続し、失敗時も元JSONのハッシュを検査。
+
+- godot/README.md / godot/scripts/core/README.md / godot/scripts/data/README.md / doc/Godot移行.md / doc/クラス一覧.md / scripts/tools/CONTEXT.md
+
+  読込API、移行対応、検証境界、クラスの役割と開発地図を更新。
+
+---
+
+ver 0.7.29
+
+Godotの起動基盤と実エンジンによる型検査・ヘッドレス検証を追加
+
+追加したファイル
+
+- godot/project.godot / godot/engine_version.txt / godot/README.md
+
+  Godot 4.7.2を固定し、移行用の開発入口とPythonとの対応を記録。
+
+- godot/scripts/app/bootstrap.gd / godot/scenes/app/bootstrap.tscn
+
+  試合未移行を明示する画面と正常終了処理。
+
+- godot/scripts/core/README.md / godot/scripts/data/README.md / godot/scripts/match/README.md
+
+  表示・共通プリミティブ・データ・Node無し演算の配置境界。
+
+- godot/tests/run_tests.gd / godot/tests/fixtures/*.gd.txt / godot/**/*.gd.uid
+
+  実エンジンのアサーション、構文/型の異常検出fixtureと参照ID。
+
+- run_godot.bat / scripts/tools/godot_runner.py / tests/test_godot_runner.py
+
+  薄いWindows入口、実行ファイル/固定版検証、全スクリプト検査と失敗時の終了コード。描画smokeは無音ドライバーを明示し、CIの音声デバイス不在とコードエラーを分離。
+
+- .github/workflows/godot-bootstrap.yml
+
+  Windows/Linuxで公式配布のハッシュを検証し、実Godotの起動・型検査を実行。
+
+変更したファイル
+
+- .gitignore
+
+  Godotの生成キャッシュとexport資格情報を除外。
+
+- AGENTS.md / AI_CONTEXT.md / doc/Godot移行.md / doc/クラス一覧.md
+
+  開発入口・移行対応・クラスの役割・未検証境界を追加。通常のPython入口とユーザーデータは維持。
+
+- scripts/tools/CONTEXT.md
+
+  追加した開発用モジュールの索引を自動更新。
+
+---
+
+ver 0.7.28
+
+Godot移行を24実装Issueへ分割し、依存待ちを除外する優先作業選択を整備
+
+追加したファイル
+
+- doc/Godot移行.md
+
+  管理Issue #119、実装Issue #120～#143の依存、互換契約と一回分の作業手順を記録。
+
+- task_selection.json
+
+  優先ラベル・除外ラベル・重大バグラベルを編集可能な設定として保持。
+
+変更したファイル
+
+- scripts/tools/context_pack.py / tests/test_context_pack.py
+
+  重大P0バグ、Godot移行、通常Issueの順で選択し、親/依存待ち/レビュー待ちを除外。旧設定なし・明示指定の互換を検証。
+
+- AGENTS.md / AI_CONTEXT.md
+
+  Godot優先、依存確認とPR検証後のラベル更新、Python参照実装の維持を作業入口へ反映。
 
 ---
 

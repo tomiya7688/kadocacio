@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/app/migration_notice_view.gd" id="1"]
+
+[node name="TeamEditor" type="Control"]
+script = ExtResource("1")
+heading = "チームエディタ"
+explanation = "チーム編集のGodot版は #138 で移行予定です。試合テストのチーム選択では現在のJSONを閲覧できます。"
