@@ -1,0 +1,23 @@
+# Python 3.10 / 127 columns follow the existing CI and .flake8 contract.
+required-version = "==0.16.8"
+target-version = "py310"
+line-length = 127
+force-exclude = true
+extend-exclude = [
+    ".venv/**",
+    "user_data/**",
+    "static_analysis/reports/**",
+    "vendor/**",
+    "runtime/**",
+    "python_embed/**",
+    "teams/**",
+    "teameditor_templete/**",
+    "godot/**",
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+# Keep documentation examples as written; this task only formats Python source.
+docstring-code-format = false

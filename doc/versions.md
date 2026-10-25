@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.72
+
+変更Pythonだけを整形・確認する固定版formatterを導入
+
+追加したファイル
+
+- ruff.toml、tests/test_python_formatter.py、doc/Python整形.md
+
+  固定設定と実CLIによる非更新・構文木一致・除外の試験、実行方法を追加します。
+
+変更したファイル
+
+- requirements-dev.txt、.github/workflows/python-app.yml
+
+  Ruff 0.16.8を固定し、既存CIへ変更Pythonの非更新確認を追加します。
+
+- README.md、doc/クラス一覧.md
+
+  開発者向けの整形入口と試験クラスの役割を説明します。試合計算は変更しません。
+
 ver 0.7.71
 
 AI評価の構築seed・対象側の集計・部分終了を検査

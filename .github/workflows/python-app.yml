@@ -27,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -44,6 +46,35 @@ jobs:
 
       - name: Verify installed dependencies
         run: python -m pip check
+
+      - name: Check changed Python formatting
+        shell: bash
+        env:
+          FORMAT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          # PR/pushは変更範囲、手動実行は直前コミットを比較します。
+          base="${FORMAT_BASE:-}"
+          if [[ -z "$base" ]]; then
+            base="$(git rev-parse --verify HEAD^ 2>/dev/null || true)"
+          fi
+          if [[ -n "$base" && ! "$base" =~ ^0+$ ]]; then
+            git diff --no-ext-diff --no-textconv --no-renames --name-only --diff-filter=AMT -z "$base" HEAD -- '*.py' > "$RUNNER_TEMP/format-files"
+          else
+            git ls-files -z -- '*.py' > "$RUNNER_TEMP/format-files"
+          fi
+          # NUL区切りで空白・日本語を保持し、空リストでは全体検査を起動しません。
+          while IFS= read -r -d '' file; do
+            if [[ -L "$file" ]]; then
+              printf 'Python symlink is not a formatting target: %q\n' "$file" >&2
+              exit 1
+            fi
+            if [[ ! -f "$file" ]]; then
+              printf 'Python target is not a regular file: %q\n' "$file" >&2
+              exit 1
+            fi
+          done < "$RUNNER_TEMP/format-files"
+          xargs -0 -r python -m ruff format --check --no-cache --force-exclude --output-format=concise -- < "$RUNNER_TEMP/format-files"
 
       - name: Run repository checks
         run: python -m scripts.tools.static_analysis.run_all --keep-going
