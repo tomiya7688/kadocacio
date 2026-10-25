@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.71
+
+AI評価の構築seed・対象側の集計・部分終了を検査
+
+追加したファイル
+
+- tests/test_ai_evaluator_job.py
+
+  模擬試合の配線と短い実Matchの繰り返しを分けて検査します。
+
+変更したファイル
+
+- scripts/tools/ai_evaluator.py
+
+  指定seed・ホーム／アウェーの集計対象と終了情報を説明します。計算は変更しません。
+
+- doc/試合再現性.md、doc/クラス一覧.md
+
+  AI評価のseed方式・実時間上限の注意・検証方法と試験クラスの役割を説明します。
+
 ver 0.7.70
 
 リーグ裏試合の構築時seedと実行経路間の整合性を検査

@@ -59,7 +59,14 @@ def _with_parameter(choice: dict, parameter: str, value: int) -> dict:
     return changed
 
 
+# {
+#   責務: [_run_evaluation_job: 一条件の実試合を描画せず実行し評価対象側の指標と終了状態を返す]
+#   処理: [1: 対象側を選び整数seedを構築時から適用する; 2: 共通ランタイムへ上限と観測を渡す; 3: 対象側の集計を終了情報と返す]
+#   引数: [job: target・opponent・target_is_home・seed・value・wall_time_limit・target_game_timeが必須。cpu_duty_cycleは省略時1.0]
+#   戻り値: [dict: 条件・対象側の指標・終了理由・更新回数・完走フラグ。実時間上限で止まる場合は更新数が実行環境により変わり得る]
+# }
 def _run_evaluation_job(job: dict) -> dict:
+    # 選手生成前からseedを適用し、ホーム／アウェーのどちらを集計するか保持する。
     if job["target_is_home"]:
         match = Match(job["target"], job["opponent"], "NEUTRAL", seed=int(job["seed"]))
         target = match.home
@@ -68,6 +75,7 @@ def _run_evaluation_job(job: dict) -> dict:
         match = Match(job["opponent"], job["target"], "NEUTRAL", seed=int(job["seed"]))
         target = match.away
         opponent = match.home
+    # 評価では画面用キックオフ演出を開始せず、構築状態から共通の固定更新を行う。
     match.state = "PLAYING"
     telemetry = MatchTelemetry(match)
     result = run_headless_match(
@@ -80,6 +88,7 @@ def _run_evaluation_job(job: dict) -> dict:
         ),
         telemetry,
     )
+    # ホーム側へ固定せず、指定した対象側から得失点・保持率・平均スタミナを求める。
     possession_total = target.possession + opponent.possession
     metrics = telemetry.team_metrics(target)
     metrics.update({
@@ -90,6 +99,7 @@ def _run_evaluation_job(job: dict) -> dict:
         "possession_share": target.possession / possession_total if possession_total else 0.5,
         "remaining_stamina": mean(player.stamina_ratio for player in target.players),
     })
+    # 実測時間や目標時刻での途中停止を、完走結果へ置き換えず呼出し元へ渡す。
     return {
         "value": job["value"],
         "seed": job["seed"],
