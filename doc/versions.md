@@ -22,6 +22,27 @@ ver num.num.num
 
 ---
 
+ver 0.7.73
+
+チューナーの比較seedと候補側集計の契約を説明・検証
+
+追加したファイル
+
+- `tests/test_team_tuner_seed_contract.py`
+
+  構築seed・巡回更新・候補側集計と逐次/並列経路の配線を隔離して確認します。
+
+変更したファイル
+
+- `scripts/team/team_tuner.py`
+
+  seedと試行状態の責務・処理コメントを追加し、固定版formatterで整形します。計算処理は変更しません。
+- `doc/試合再現性.md`、`doc/クラス一覧.md`、`doc/versions.md`
+
+  比較条件と試験の範囲・限界、追加クラスと変更履歴を記録します。
+
+---
+
 ver 0.7.72
 
 変更Pythonだけを整形・確認する固定版formatterを導入
