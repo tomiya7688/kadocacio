@@ -46,11 +46,32 @@ from scripts.match.physical_system import (
 )
 from scripts.match.prediction_system import expected_goals, outcome_probabilities, percentage_triplet
 from scripts.core.settings import (
-    AWAY_BLUE, AWAY_DARK, BASE_TACTIC_KEYS, FIELD, GAME_CLOCK_RATE, GOAL_HALF_HEIGHT, GOAL_HEIGHT,
-    GRAVITY, HOME_DARK, HOME_RED, KEEPER_BALL_REACH, MATCH_SECONDS, OUTFIELD_BALL_REACH,
-    PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH, PENALTY_SPOT_DISTANCE, PLAYER_CONTACT_DISTANCE,
-    PLAYER_VISUAL_SCALE, SLIDE_START_MAX_DISTANCE, SLIDE_START_MIN_DISTANCE,
-    SLIDE_TACKLE_REACH, STANDING_TACKLE_REACH, TACTICS, clamp, darken_color, safe_normalize,
+    AWAY_BLUE,
+    AWAY_DARK,
+    BASE_TACTIC_KEYS,
+    FIELD,
+    GAME_CLOCK_RATE,
+    GOAL_HALF_HEIGHT,
+    GOAL_HEIGHT,
+    GRAVITY,
+    HOME_DARK,
+    HOME_RED,
+    KEEPER_BALL_REACH,
+    MATCH_SECONDS,
+    OUTFIELD_BALL_REACH,
+    PENALTY_AREA_DEPTH,
+    PENALTY_AREA_WIDTH,
+    PENALTY_SPOT_DISTANCE,
+    PLAYER_CONTACT_DISTANCE,
+    PLAYER_VISUAL_SCALE,
+    SLIDE_START_MAX_DISTANCE,
+    SLIDE_START_MIN_DISTANCE,
+    SLIDE_TACKLE_REACH,
+    STANDING_TACKLE_REACH,
+    TACTICS,
+    clamp,
+    darken_color,
+    safe_normalize,
     player_stat,
 )
 from scripts.match.skill_system import (
@@ -141,11 +162,16 @@ def score_pass_candidate(
     delta = candidate.pos - owner.pos
     distance = delta.length()
     progress = delta.x * owner.team.direction
-    receiver_support = 1.0 if candidate.action_command in (
-        PlayerCommand.SUPPORT,
-        PlayerCommand.TRIANGLE_SUPPORT,
-        PlayerCommand.RECEIVE_PASS,
-    ) else 0.0
+    receiver_support = (
+        1.0
+        if candidate.action_command
+        in (
+            PlayerCommand.SUPPORT,
+            PlayerCommand.TRIANGLE_SUPPORT,
+            PlayerCommand.RECEIVE_PASS,
+        )
+        else 0.0
+    )
     receiver_intelligence = candidate.effective_intelligence
     receiver_reliability = 0.34 + receiver_intelligence * 0.56 + receiver_support * 0.14
     touchline_clearance = min(candidate.pos.y - FIELD.top, FIELD.bottom - candidate.pos.y)
@@ -179,7 +205,21 @@ def offside_position_active(
     return attacker_x < offside_line and attacker_x < passer_x
 
 
+# {
+#   責務: [Match: 一試合の専用乱数・選手/ボール状態・固定更新のルールと再開を管理する]
+#   フィールド: [seed・rng: 構築前から使う試合専用の乱数条件; home・away・teams・ball: 試合内の可変状態;
+#     state・game_time・simulation_elapsed: 進行状態・プレー時計・再開準備を含む演算時計;
+#     restart_*・pending_kick・各cooldown: 再開と予約行動の状態; events: 最新8件の表示ログ;
+#     _event_history: 有効時だけ保持する全ログ; 各counts・goal_scorers: 試合内の集計]
+# }
 class Match:
+    # {
+    #   責務: [__init__: チーム生成より前に専用乱数器を作り、独立した一試合を構築する]
+    #   処理: [1: seedと判断倍率を設定する; 2: 両チーム・ユニフォーム・会場役割を生成する; 3: 時計・行動予約・集計・任意ログを初期化し配置する]
+    #   引数: [home_choice・away_choice: 読込済みの正規化チーム; venue_mode: HOME/NEUTRAL/AWAY;
+    #     ai_rethink_multiplier: 判断更新間隔の倍率; seed: 整数化する再現条件、Noneは非決定的; record_events: 全ログを保持するか]
+    #   戻り値: [None: TITLE状態の試合を作る。欠けたチームはValueError、不正なチーム/seedの例外は呼出し元へ伝える]
+    # }
     def __init__(
         self,
         home_choice: dict,
@@ -190,6 +230,7 @@ class Match:
         seed: int | None = None,
         record_events: bool = False,
     ) -> None:
+        # 選手の初期値にも同じ専用乱数器を使い、プロセス全体のrandom.seedは変更しない。
         if home_choice is None or away_choice is None:
             raise ValueError("Match requires two preloaded team choices")
         self.seed = int(seed) if seed is not None else None
@@ -212,6 +253,7 @@ class Match:
         self.home_choice = home_choice
         self.away_choice = away_choice
         self.teams = (self.home, self.away)
+        # HOMEは第1チームの会場を示す。候補を第2チームへ置けばアウェー評価になる。
         self.venue_mode = venue_mode if venue_mode in ("HOME", "NEUTRAL", "AWAY") else "HOME"
         if self.venue_mode == "HOME":
             self.home.venue_role, self.away.venue_role = "HOME", "AWAY"
@@ -225,6 +267,7 @@ class Match:
         for team in self.teams:
             for player in team.players:
                 player.venue_role = team.venue_role
+        # 以後の行動予約・再開・集計はこの試合だけが所有する。
         self.ball = Ball()
         self._pre_match_prediction: tuple[float, float, float] | None = None
         self.header_claim_serial = {self.home: -1, self.away: -1}
@@ -301,6 +344,7 @@ class Match:
         self.possession_anchor = Vec2(FIELD.center)
         self.possession_anchor_owner: Player | None = None
         self.restart_counts = {"THROW_IN": 0, "FREE_KICK": 0, "PENALTY_KICK": 0, "GOAL_KICK": 0, "CORNER_KICK": 0}
+        # 通常の表示ログは有界とし、調査用の全件保持は明示指定時だけ有効にする。
         self.events: deque[tuple[int, str]] = deque(maxlen=8)
         self._event_history: list[MatchLogEvent] | None = [] if record_events else None
         self.goal_scorers: list[tuple[int, str]] = []
@@ -339,7 +383,14 @@ class Match:
             uniform_data=choice.get("uniform_data"),
         )
 
+    # {
+    #   責務: [start_new: 現在の両チームで試合内状態と集計を開始状態へ戻す]
+    #   処理: [1: 得点・両時計・ログ・各集計を初期化する; 2: 選手と監督の試合状態を戻す; 3: キックオフを記録し配置する]
+    #   引数: []
+    #   戻り値: [None: PLAYINGへ入り、試合内状態を更新する。rngは再seedしないため再現比較には新しいMatchを構築する]
+    # }
     def start_new(self) -> None:
+        # 表示8件と任意の全件記録を、それぞれの保存方式のまま空にする。
         self.home.score = self.away.score = 0
         self.home.shots = self.away.shots = 0
         self.home.possession = self.away.possession = 0.0
@@ -378,6 +429,7 @@ class Match:
         self.possession_anchor.update(FIELD.center)
         self.possession_anchor_owner = None
         self.restart_counts = {kind: 0 for kind in self.restart_counts}
+        # 監督の次回判断にも既存の乱数列を続けて使う。
         for team in self.teams:
             team.reset_roster()
             team.tactic = team.initial_tactic
@@ -397,24 +449,41 @@ class Match:
                 player._active_skill_consider_cooldowns.clear()
                 player.yellow_cards = 0
                 player.sent_off = False
+        # キックオフを最初のログとして残してから、開始配置へ戻す。
         self.state = "PLAYING"
         self.add_event("キックオフ！")
         self._pre_match_prediction = None
         self.show_banner("KICK OFF", 2.8)
         self.reset_positions(self.home)
 
+    # {
+    #   責務: [add_event: 試合メッセージを表示ログと有効な全件記録へ写す]
+    #   処理: [1: 表示用の最新側へ分単位のログを追加する; 2: 有効時は通番と両時計を値として記録する]
+    #   引数: [text: 記録する表示文面。同じ文面でも別イベントとして扱う]
+    #   戻り値: [None: eventsと任意の_event_historyを更新する。乱数やファイルI/Oは使わない]
+    # }
     def add_event(self, text: str) -> None:
+        # 表示は最新順、全件は発生順とし、再開準備中も両時計を区別する。
         self.events.appendleft((int(self.game_time // 60), text))
         if self._event_history is not None:
-            self._event_history.append(MatchLogEvent(
-                sequence=len(self._event_history) + 1,
-                game_time=float(self.game_time),
-                simulation_elapsed=float(self.simulation_elapsed),
-                text=text,
-            ))
+            self._event_history.append(
+                MatchLogEvent(
+                    sequence=len(self._event_history) + 1,
+                    game_time=float(self.game_time),
+                    simulation_elapsed=float(self.simulation_elapsed),
+                    text=text,
+                )
+            )
 
+    # {
+    #   責務: [event_history: 現時点の全ログを変更できない記録値の列として返す]
+    #   処理: [1: 任意履歴をtupleへ写す]
+    #   引数: []
+    #   戻り値: [tuple: 発生順のMatchLogEvent。記録無効なら空。取得後の追記で取得済みの列は増えない]
+    # }
     def event_history(self) -> tuple[MatchLogEvent, ...]:
         """Copy the optional full message history without sharing mutable state."""
+        # 内部の可変listを呼出し側へ渡さない。
         return tuple(self._event_history or ())
 
     def status_snapshot(self) -> MatchStatusSnapshot:
@@ -459,20 +528,32 @@ class Match:
     def role_rating(player: Player) -> float:
         attributes = {
             "FW": (
-                player.shot_power, player.shot_accuracy, player.shooting_technique,
-                player.dribble_technique, player.dash_speed,
+                player.shot_power,
+                player.shot_accuracy,
+                player.shooting_technique,
+                player.dribble_technique,
+                player.dash_speed,
             ),
             "MF": (
-                player.pass_accuracy, player.pass_power, player.passing_technique,
-                player.dribble_technique, player.stamina_management,
+                player.pass_accuracy,
+                player.pass_power,
+                player.passing_technique,
+                player.dribble_technique,
+                player.stamina_management,
             ),
             "DF": (
-                player.steal_technique, player.pass_interception, player.shot_blocking,
-                player.collision_physical, player.dash_speed,
+                player.steal_technique,
+                player.pass_interception,
+                player.shot_blocking,
+                player.collision_physical,
+                player.dash_speed,
             ),
             "GK": (
-                player.goal_stopping, player.jump_judgment, player.jump_height,
-                player.pass_accuracy, player.passing_technique,
+                player.goal_stopping,
+                player.jump_judgment,
+                player.jump_height,
+                player.pass_accuracy,
+                player.passing_technique,
             ),
         }.get(player.role, (player.dash_speed, player.passing_technique))
         return sum(player.effective_stat(value) for value in attributes) / len(attributes)
@@ -497,8 +578,7 @@ class Match:
 
         if (
             team.pending_tactic is None
-            and self.game_time - team.manager_last_change
-            >= 250.0 - profile.tactic_aggression * 115.0
+            and self.game_time - team.manager_last_change >= 250.0 - profile.tactic_aggression * 115.0
         ):
             possession_total = team.possession + opponent.possession
             possession_share = team.possession / possession_total if possession_total > 0.0 else 0.5
@@ -512,18 +592,17 @@ class Match:
                 self.rng,
             )
             selected = choose_manager_tactic(
-                profile, team.tactic, target, match_progress, self.rng,
+                profile,
+                team.tactic,
+                target,
+                match_progress,
+                self.rng,
             )
             if selected is not None:
                 team.pending_tactic = selected
                 self.add_event(f"{team.manager}監督が戦術変更を準備")
 
-        if (
-            team.pending_substitution is None
-            and team.substitutions_used < 3
-            and team.bench
-            and match_progress >= 0.12
-        ):
+        if team.pending_substitution is None and team.substitutions_used < 3 and team.bench and match_progress >= 0.12:
             threshold = substitution_fatigue_threshold(profile, match_progress)
             choices: list[tuple[float, Player, dict]] = []
             for outgoing in team.players:
@@ -554,12 +633,7 @@ class Match:
             self.review_manager_team(team)
 
     def execute_substitution(self, team: Team, outgoing: Player, reserve: dict) -> bool:
-        if (
-            team.substitutions_used >= 3
-            or outgoing not in team.players
-            or outgoing.sent_off
-            or reserve not in team.bench
-        ):
+        if team.substitutions_used >= 3 or outgoing not in team.players or outgoing.sent_off or reserve not in team.bench:
             return False
         record = dict(reserve)
         record["raw"] = dict(reserve.get("raw", {}))
@@ -709,7 +783,9 @@ class Match:
         player.spend_stamina(player.skill_command)
         self.skill_attempt_counts[skill] = self.skill_attempt_counts.get(skill, 0) + 1
         intelligence = player.effective_intelligence
-        success_quality = clamp(execution_quality * 0.76 + intelligence * 0.14 + player.technique_success_factor * 0.10, 0.0, 1.0)
+        success_quality = clamp(
+            execution_quality * 0.76 + intelligence * 0.14 + player.technique_success_factor * 0.10, 0.0, 1.0
+        )
         success_probability = clamp(0.14 + success_quality * 0.80, 0.14, 0.96)
         if self.rng.random() >= success_probability:
             player.skill_command = PlayerCommand.IDLE
@@ -865,9 +941,7 @@ class Match:
         owner.set_movement(PlayerCommand.IDLE)
         owner.spend_stamina(command)
         owner.start_kick_motion()
-        self.pending_kick = PendingKick(
-            owner, command, target_player, set_piece_skill, Vec2(target_point)
-        )
+        self.pending_kick = PendingKick(owner, command, target_player, set_piece_skill, Vec2(target_point))
         self.ball.vel.update(0, 0)
         self.decision_timer = owner.kick_contact_time
         return True
@@ -890,9 +964,7 @@ class Match:
                 if pending.target_player is not None and self.is_offside_pass(owner, pending.target_player):
                     self.start_offside_free_kick(owner, pending.target_player)
                     return
-                self._release_pass(
-                    owner, pending.target_player, pending.set_piece_skill, pending.target_point
-                )
+                self._release_pass(owner, pending.target_player, pending.set_piece_skill, pending.target_point)
         elif pending.command is PlayerCommand.KEEPER_PUNT:
             if pending.target_player is not None:
                 self._release_keeper_punt(owner, pending.target_player)
@@ -907,7 +979,11 @@ class Match:
         return (FIELD.right - world_x) / FIELD.width
 
     def offside_line(self, attacking_team: Team) -> float:
-        opponents = [player for player in (self.away.players if attacking_team is self.home else self.home.players) if not player.sent_off]
+        opponents = [
+            player
+            for player in (self.away.players if attacking_team is self.home else self.home.players)
+            if not player.sent_off
+        ]
         if not opponents:
             return FIELD.left if attacking_team.direction == 1 else FIELD.right
         ordered = sorted(opponents, key=lambda player: player.pos.x, reverse=attacking_team.direction == 1)
@@ -994,8 +1070,7 @@ class Match:
                 player.tactical_loyalty += (clamp(loyalty_target, 0.0, 1.0) - player.tactical_loyalty) * 0.08
 
                 style_drive = (
-                    player.pressing + player.overlap + player.diagonal_run
-                    + player.run_into_space + player.goal_poaching
+                    player.pressing + player.overlap + player.diagonal_run + player.run_into_space + player.goal_poaching
                 ) / 5.0
                 tactic = team.tactical_settings(player)
                 tactic_drive = clamp((tactic["push"] - 0.52) / 0.48, 0.0, 1.0)
@@ -1008,14 +1083,20 @@ class Match:
                 player.aggressiveness += (aggression_target - player.aggressiveness) * 0.10
                 random_disorder = 0.17 if team.tactic == "RANDOM" else 0.0
                 zone_target = clamp(
-                    0.18 + player.tactical_loyalty * 0.53 + player.effective_intelligence * 0.25
-                    - player.aggressiveness * 0.10 - random_disorder,
+                    0.18
+                    + player.tactical_loyalty * 0.53
+                    + player.effective_intelligence * 0.25
+                    - player.aggressiveness * 0.10
+                    - random_disorder,
                     0.05,
                     0.98,
                 )
                 position_target = clamp(
-                    0.20 + player.tactical_loyalty * 0.49 + player.effective_intelligence * 0.23
-                    - player.aggressiveness * 0.12 - random_disorder,
+                    0.20
+                    + player.tactical_loyalty * 0.49
+                    + player.effective_intelligence * 0.23
+                    - player.aggressiveness * 0.12
+                    - random_disorder,
                     0.05,
                     0.98,
                 )
@@ -1024,8 +1105,10 @@ class Match:
 
                 for opponent in opponent_team.players:
                     threat = (
-                        opponent.shooting_technique * 0.24 + opponent.shot_power * 0.16
-                        + opponent.passing_technique * 0.17 + opponent.dribble_technique * 0.18
+                        opponent.shooting_technique * 0.24
+                        + opponent.shot_power * 0.16
+                        + opponent.passing_technique * 0.17
+                        + opponent.dribble_technique * 0.18
                         + opponent.confidence * 0.12
                         + self.team_progress(opponent.team, opponent.pos.x) * 0.13
                     )
@@ -1039,8 +1122,7 @@ class Match:
 
     def most_alert_opponent(self, player: Player, fallback: Player) -> Player:
         opponents = [
-            opponent for team in self.teams if team is not player.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not player.team for opponent in team.players if not opponent.sent_off
         ]
         return max(
             opponents,
@@ -1052,7 +1134,8 @@ class Match:
                     and teammate.action_command is PlayerCommand.MARK
                     and teammate.command_target.distance_to(opponent.pos) < 72
                     for teammate in player.team.players
-                ) * (0.20 + player.effective_intelligence * 0.20)
+                )
+                * (0.20 + player.effective_intelligence * 0.20)
             ),
             default=fallback,
         )
@@ -1102,13 +1185,9 @@ class Match:
         width_scale = settings["width"]
         role_lateral = {"DF": 1.0, "MF": 0.85, "FW": 0.70}.get(player.role, 0.8)
         ball_lateral_shift = (
-            (self.ball.pos.y - FIELD.centery) * settings["lateral"] * role_lateral
-            * (0.35 + player.zone_awareness * 0.65)
+            (self.ball.pos.y - FIELD.centery) * settings["lateral"] * role_lateral * (0.35 + player.zone_awareness * 0.65)
         )
-        y = (
-            FIELD.centery + (base_y - FIELD.centery) * width_scale
-            + ball_lateral_shift + player.roam.y * roam_scale
-        )
+        y = FIELD.centery + (base_y - FIELD.centery) * width_scale + ball_lateral_shift + player.roam.y * roam_scale
         if catenaccio_quality > 0.0:
             y += (FIELD.centery - y) * (0.10 + catenaccio_quality * 0.20)
         result = Vec2(clamp(base_x, FIELD.left + 20, FIELD.right - 20), clamp(y, FIELD.top + 18, FIELD.bottom - 18))
@@ -1204,14 +1283,18 @@ class Match:
         deception_weight = 0.24 if super_active else 0.52
         keeper_friendly = self.ball.shot_outcome == SHOT_KEEPER_FRIENDLY
         read_quality = clamp(
-            stopping + (0.24 if super_active else 0.0)
-            - self.ball.shot_deception * deception_weight + 0.30
+            stopping
+            + (0.24 if super_active else 0.0)
+            - self.ball.shot_deception * deception_weight
+            + 0.30
             + (0.22 if keeper_friendly else 0.0),
             0.0,
             1.0,
         )
         wrong_chance = clamp(
-            0.48 - stopping * 0.43 + self.ball.shot_deception * (0.07 if super_active else 0.17)
+            0.48
+            - stopping * 0.43
+            + self.ball.shot_deception * (0.07 if super_active else 0.17)
             - (0.24 if super_active else 0.0),
             0.01,
             0.58,
@@ -1246,8 +1329,7 @@ class Match:
             return False, 0.0
         ball_progress = clamp(self.team_progress(keeper.team, self.ball.pos.x), 0.0, 1.0)
         opponents = [
-            player for team in self.teams if team is not keeper.team
-            for player in team.players if not player.sent_off
+            player for team in self.teams if team is not keeper.team for player in team.players if not player.sent_off
         ]
         deepest_threat = min((self.team_progress(keeper.team, player.pos.x) for player in opponents), default=1.0)
         nearest_threat = min((keeper.pos.distance_to(player.pos) for player in opponents), default=999.0)
@@ -1302,8 +1384,7 @@ class Match:
         if last_touch is None or last_touch is keeper or last_touch.team is not keeper.team:
             return True
         deliberate_back_pass = self.ball.intended is keeper or any(
-            token in self.ball.flight_type
-            for token in ("パス", "スローイン", "ゴールキック", "コーナーキック")
+            token in self.ball.flight_type for token in ("パス", "スローイン", "ゴールキック", "コーナーキック")
         )
         return not deliberate_back_pass
 
@@ -1336,9 +1417,7 @@ class Match:
         player.ai_cached_action = action
         player.ai_cached_target.update(target)
         player.ai_cached_locomotion = locomotion
-        player.ai_rethink_timer = (
-            0.12 + (1.0 - player.effective_intelligence) * 0.16
-        ) * self.ai_rethink_multiplier
+        player.ai_rethink_timer = (0.12 + (1.0 - player.effective_intelligence) * 0.16) * self.ai_rethink_multiplier
         return action, Vec2(target), locomotion
 
     def update_possession_stagnation(self, dt: float) -> None:
@@ -1368,7 +1447,8 @@ class Match:
             ranks, congestion = cache[cache_key]
             return ranks.get(player, len(ranks)), congestion
         teammates = [
-            teammate for teammate in player.team.players
+            teammate
+            for teammate in player.team.players
             if teammate is not owner and not teammate.is_keeper and not teammate.sent_off
         ]
         ranked = sorted(
@@ -1399,12 +1479,15 @@ class Match:
             nearest_friend = min(nearest_friend, current_distance, target_distance)
             current_claim = clamp((100 - current_distance) / 70.0, 0.0, 1.0)
             moving_claim = clamp((92 - target_distance) / 64.0, 0.0, 1.0)
-            if teammate.action_command in (PlayerCommand.SUPPORT, PlayerCommand.TRIANGLE_SUPPORT, PlayerCommand.CREATE_PASS_LANE):
+            if teammate.action_command in (
+                PlayerCommand.SUPPORT,
+                PlayerCommand.TRIANGLE_SUPPORT,
+                PlayerCommand.CREATE_PASS_LANE,
+            ):
                 moving_claim *= 1.18
             occupancy += max(current_claim, moving_claim * 0.88)
         opponents = [
-            opponent for team in self.teams if team is not player.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not player.team for opponent in team.players if not opponent.sent_off
         ]
         # This is only a cheap off-ball support estimate; the real pass engine
         # evaluates every defender again before releasing the ball.  The six
@@ -1468,8 +1551,7 @@ class Match:
 
     def open_space_target(self, player: Player, origin: Vec2, forward: float = 100.0) -> Vec2:
         opponents = [
-            opponent for team in self.teams if team is not player.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not player.team for opponent in team.players if not opponent.sent_off
         ]
         # Run destinations are a coarse tactical choice and are reconsidered a
         # few times per second. Nearby pressure matters much more than a player
@@ -1479,10 +1561,7 @@ class Match:
             opponents,
             key=lambda opponent: opponent.pos.distance_squared_to(origin),
         )[:6]
-        teammates = [
-            teammate for teammate in player.team.players
-            if teammate is not player and not teammate.sent_off
-        ]
+        teammates = [teammate for teammate in player.team.players if teammate is not player and not teammate.sent_off]
         intelligence = player.effective_intelligence
         run_quality = self.behavior_quality(player, "run_into_space", player.dash_speed)
         candidates = []
@@ -1497,9 +1576,13 @@ class Match:
             friendly_clearance = min((candidate.distance_to(teammate.pos) for teammate in teammates), default=180.0)
             target_claims = sum(
                 teammate.target.distance_to(candidate) < 96
-                and teammate.action_command in (
-                    PlayerCommand.SUPPORT, PlayerCommand.TRIANGLE_SUPPORT,
-                    PlayerCommand.OVERLAP, PlayerCommand.DIAGONAL_RUN, PlayerCommand.RUN_INTO_SPACE,
+                and teammate.action_command
+                in (
+                    PlayerCommand.SUPPORT,
+                    PlayerCommand.TRIANGLE_SUPPORT,
+                    PlayerCommand.OVERLAP,
+                    PlayerCommand.DIAGONAL_RUN,
+                    PlayerCommand.RUN_INTO_SPACE,
                 )
                 for teammate in teammates
             )
@@ -1524,8 +1607,7 @@ class Match:
         who is immediately boxed in with no forward or lateral exit.
         """
         opponents = [
-            opponent for team in self.teams if team is not owner.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not owner.team for opponent in team.players if not opponent.sent_off
         ]
         opponents = sorted(
             opponents,
@@ -1569,10 +1651,7 @@ class Match:
 
     def defensive_intercept_target(self, player: Player, owner: Player) -> Vec2:
         """Choose a likely and dangerous passing lane without a search tree."""
-        receivers = [
-            candidate for candidate in owner.team.players
-            if candidate is not owner and not candidate.sent_off
-        ]
+        receivers = [candidate for candidate in owner.team.players if candidate is not owner and not candidate.sent_off]
         if not receivers:
             return Vec2(owner.pos)
         intelligence = player.effective_intelligence
@@ -1665,8 +1744,7 @@ class Match:
         support = passer.effective_stat(passer.support)
         quality = clamp(passing * 0.34 + support * 0.24 + intelligence * 0.42, 0.0, 1.0)
         opponents = [
-            opponent for team in self.teams if team is not passer.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not passer.team for opponent in team.players if not opponent.sent_off
         ]
         candidates: list[tuple[float, Vec2]] = []
         forward = 54 + quality * 96
@@ -1721,14 +1799,13 @@ class Match:
         )
         support_marginal, support_occupancy = self.support_location_value(player, owner, support_target)
         triangle_marginal, triangle_occupancy = self.support_location_value(player, owner, triangle_target)
-        if (
-            player.can_consider_skill(BACKLINE_HUNTER)
-            and player.role in ("FW", "MF")
-            and attacking_progress >= 0.54
-        ):
+        if player.can_consider_skill(BACKLINE_HUNTER) and player.role in ("FW", "MF") and attacking_progress >= 0.54:
             opponents = [
-                opponent for team in self.teams if team is not player.team
-                for opponent in team.players if not opponent.sent_off
+                opponent
+                for team in self.teams
+                if team is not player.team
+                for opponent in team.players
+                if not opponent.sent_off
             ]
             marker = min(opponents, key=lambda opponent: opponent.pos.distance_squared_to(player.pos))
             behind_marker = marker.pos + Vec2(player.team.direction * (38 + player.goal_poaching * 48), 0)
@@ -1752,12 +1829,15 @@ class Match:
             numerical_target = self.open_space_target(player, shape, 82)
             nearby_friends = sum(
                 teammate.pos.distance_to(numerical_target) < 150
-                for teammate in player.team.players if teammate is not player and not teammate.sent_off
+                for teammate in player.team.players
+                if teammate is not player and not teammate.sent_off
             )
             nearby_opponents = sum(
                 opponent.pos.distance_to(numerical_target) < 150
-                for team in self.teams if team is not player.team
-                for opponent in team.players if not opponent.sent_off
+                for team in self.teams
+                if team is not player.team
+                for opponent in team.players
+                if not opponent.sent_off
             )
             number_edge = nearby_friends - nearby_opponents
         else:
@@ -1782,9 +1862,7 @@ class Match:
             PlayerCommand.RUN_INTO_SPACE: self.behavior_quality(player, "run_into_space", player.dash_speed),
             PlayerCommand.WAIT_IN_FRONT_OF_GOAL: self.behavior_quality(player, "goal_poaching", player.shooting_technique),
         }
-        utilities = {
-            command: 0.18 + quality * 0.76 for command, quality in qualities.items()
-        }
+        utilities = {command: 0.18 + quality * 0.76 for command, quality in qualities.items()}
         if player.role == "DF":
             utilities[PlayerCommand.SUPPORT] += 0.16
             utilities[PlayerCommand.OVERLAP] -= 0.10
@@ -1800,7 +1878,8 @@ class Match:
         duplicate_pressure = max(support_occupancy, triangle_occupancy)
         redistribute = clamp(
             duplicate_pressure * 0.34 + friendly_congestion * 0.20 + stale_possession * 0.30,
-            0.0, 0.78,
+            0.0,
+            0.78,
         )
         utilities[PlayerCommand.RUN_INTO_SPACE] += redistribute * 0.46
         utilities[PlayerCommand.DIAGONAL_RUN] += redistribute * 0.38
@@ -1830,7 +1909,13 @@ class Match:
         elif command is PlayerCommand.TRIANGLE_SUPPORT:
             target = triangle_target
         elif command is PlayerCommand.LOSE_MARK:
-            opponents = [opponent for team in self.teams if team is not player.team for opponent in team.players if not opponent.sent_off]
+            opponents = [
+                opponent
+                for team in self.teams
+                if team is not player.team
+                for opponent in team.players
+                if not opponent.sent_off
+            ]
             marker = min(opponents, key=lambda opponent: opponent.pos.distance_squared_to(player.pos))
             escape = safe_normalize(player.pos - marker.pos)
             target = shape + escape * (48 + qualities[command] * 58) + Vec2(player.team.direction * 34, 0)
@@ -1849,7 +1934,11 @@ class Match:
         quality = qualities[command]
         target += player.roam * (1.0 - quality) * 0.22
         target = self.spread_attacking_target(
-            player, owner, target, support_rank, friendly_congestion,
+            player,
+            owner,
+            target,
+            support_rank,
+            friendly_congestion,
         )
         intense = command in (
             PlayerCommand.LOSE_MARK,
@@ -1857,7 +1946,9 @@ class Match:
             PlayerCommand.DIAGONAL_RUN,
             PlayerCommand.RUN_INTO_SPACE,
         )
-        locomotion = PlayerCommand.DASH if intense and player.can_dash(command, emergency=goal_urgency > 0.48) else PlayerCommand.WALK
+        locomotion = (
+            PlayerCommand.DASH if intense and player.can_dash(command, emergency=goal_urgency > 0.48) else PlayerCommand.WALK
+        )
         return command, target, locomotion
 
     def choose_defensive_action(
@@ -1881,10 +1972,7 @@ class Match:
         distance = player.pos.distance_to(owner.pos)
         _, direct_goal_danger = self.goal_event_urgency(player.team, owner.pos, player)
         goal_emergency = max(danger, direct_goal_danger)
-        if (
-            player.can_consider_skill(VACANT_COVER)
-            and player.role in ("DF", "MF")
-        ):
+        if player.can_consider_skill(VACANT_COVER) and player.role in ("DF", "MF"):
             vacancies = []
             for teammate in player.team.players:
                 if teammate is player or teammate.is_keeper or teammate.sent_off:
@@ -1904,7 +1992,11 @@ class Match:
                     cover_execution,
                     duration=1.0,
                 ):
-                    return PlayerCommand.SKILL_VACANT_COVER, vacancy, PlayerCommand.DASH if player.can_dash(PlayerCommand.COVER) else PlayerCommand.WALK
+                    return (
+                        PlayerCommand.SKILL_VACANT_COVER,
+                        vacancy,
+                        PlayerCommand.DASH if player.can_dash(PlayerCommand.COVER) else PlayerCommand.WALK,
+                    )
 
         owner_has_passed = (owner.pos.x - player.pos.x) * owner.team.direction > 24
         if player.can_consider_skill(RECOVERY_CHASE) and owner_has_passed and distance < 145:
@@ -1913,7 +2005,9 @@ class Match:
                 player.effective_intelligence,
                 0.70,
             )
-            if self.try_activate_player_skill(player, RECOVERY_CHASE, 0.48 + (145 - distance) / 330.0, chase_execution, duration=1.15):
+            if self.try_activate_player_skill(
+                player, RECOVERY_CHASE, 0.48 + (145 - distance) / 330.0, chase_execution, duration=1.15
+            ):
                 player.chasing_timer = 1.15
                 return PlayerCommand.SKILL_RECOVERY_CHASE, Vec2(owner.pos), PlayerCommand.DASH
 
@@ -1929,7 +2023,11 @@ class Match:
                 player.one_side_cut_timer = 0.92
                 cut_side = -1.0 if owner.pos.y < FIELD.centery else 1.0
                 cut_target = owner.pos + Vec2(owner.team.direction * 24, cut_side * 28)
-                return PlayerCommand.SKILL_ONE_WAY_BLOCK, cut_target, PlayerCommand.DASH if player.can_dash(PlayerCommand.PRESS) else PlayerCommand.WALK
+                return (
+                    PlayerCommand.SKILL_ONE_WAY_BLOCK,
+                    cut_target,
+                    PlayerCommand.DASH if player.can_dash(PlayerCommand.PRESS) else PlayerCommand.WALK,
+                )
         utilities = {
             PlayerCommand.COVER: 0.26 + zone * 0.72,
             PlayerCommand.MARK: 0.24 + man * 0.64 + alertness * 0.18,
@@ -1949,11 +2047,7 @@ class Match:
             utilities[PlayerCommand.PRESS] -= conservation * 0.22
             utilities[PlayerCommand.COVER] += conservation * 0.16
         command = choose_utility_action(utilities, intelligence, self.rng)
-        if (
-            command is PlayerCommand.PRESS
-            and player.can_consider_skill(RELENTLESS_PRESS)
-            and distance < 155
-        ):
+        if command is PlayerCommand.PRESS and player.can_consider_skill(RELENTLESS_PRESS) and distance < 155:
             press_execution = blended_judgment(
                 press * 0.58 + player.effective_stat(player.steal_technique) * 0.42,
                 intelligence,
@@ -2049,7 +2143,8 @@ class Match:
 
         intelligence = player.effective_intelligence
         dribble_skills = {
-            skill for skill in (ILLUSION_STEP, HEEL_REVERSE_TURN, TIGHT_TOUCH, SPRINT_CARRY, ENERGY_KEEP)
+            skill
+            for skill in (ILLUSION_STEP, HEEL_REVERSE_TURN, TIGHT_TOUCH, SPRINT_CARRY, ENERGY_KEEP)
             if player.can_consider_skill(skill)
         }
         post_ready = player.can_consider_skill(PIVOT_KEEP)
@@ -2089,14 +2184,16 @@ class Match:
         if not options:
             return None
         selected = choose_utility_action(options, intelligence, self.rng)
-        execution = dribbling if selected not in (PIVOT_KEEP, ENERGY_KEEP) else (passing if selected == PIVOT_KEEP else player.effective_stat(player.stamina_management))
+        execution = (
+            dribbling
+            if selected not in (PIVOT_KEEP, ENERGY_KEEP)
+            else (passing if selected == PIVOT_KEEP else player.effective_stat(player.stamina_management))
+        )
         if not self.try_activate_player_skill(player, selected, options[selected], execution, duration=1.05):
             return None
         if selected == ILLUSION_STEP:
             escape_side = safe_normalize(player.pos - nearest_opponent.pos)
-            player.tricky_feint_direction = safe_normalize(
-                Vec2(player.team.direction, side * 0.78) + escape_side * 0.72
-            )
+            player.tricky_feint_direction = safe_normalize(Vec2(player.team.direction, side * 0.78) + escape_side * 0.72)
             player.tricky_feint_timer = 0.82
         elif selected == HEEL_REVERSE_TURN:
             escape_side = safe_normalize(player.pos - nearest_opponent.pos)
@@ -2141,10 +2238,7 @@ class Match:
         owner = self.ball.owner
         shared_context_expiry = getattr(self, "_shared_movement_context_expiry", -1.0)
         shared_context_owner = getattr(self, "_shared_movement_context_owner", None)
-        refresh_shared_context = (
-            self.simulation_elapsed >= shared_context_expiry
-            or owner is not shared_context_owner
-        )
+        refresh_shared_context = self.simulation_elapsed >= shared_context_expiry or owner is not shared_context_owner
         if refresh_shared_context:
             # Formation and broad pressure ordering do not need 20 Hz precision.
             # A 0.10-second snapshot is short enough to remain visually smooth,
@@ -2192,19 +2286,16 @@ class Match:
             press_count = max(2, int(settings["pressers"]))
             if owner_team is not None and owner_team is not team and ball_progress < 0.46:
                 press_count = max(press_count, 3)
-            pressing_players = pressure_order[:min(4, press_count)]
+            pressing_players = pressure_order[: min(4, press_count)]
             press_limit = clamp(max(0.78, settings["press_trigger"] + 0.18), 0.0, 0.96)
             press_allowed = ball_progress <= press_limit
-            tackle_recovery = (
-                owner is None
-                and self.ball.recovery_timer > 0.0
-                and self.ball.recovery_team is team
-            )
+            tackle_recovery = owner is None and self.ball.recovery_timer > 0.0 and self.ball.recovery_team is team
             recovery_runners = pressure_order[:2] if tackle_recovery else []
             attacking_goal_urgency, defending_goal_urgency = self.goal_event_urgency(team)
             loose_goal_urgency = max(attacking_goal_urgency, defending_goal_urgency) if owner is None else 0.0
             goal_runners: set[Player] = set()
             if loose_goal_urgency > 0.18:
+
                 def goal_rush_score(candidate: Player) -> float:
                     arrival = candidate.pos.distance_to(self.ball.pos) / max(
                         45.0,
@@ -2251,7 +2342,8 @@ class Match:
                 and self.catenaccio_cooldown[team] <= 0.0
             ):
                 callers = [
-                    player for player in outfield
+                    player
+                    for player in outfield
                     if player.has_skill(FORTRESS_BLOCK)
                     and player.skill_cooldowns.get(FORTRESS_BLOCK, 0.0) <= 0.0
                     and player.skill_command is PlayerCommand.IDLE
@@ -2267,7 +2359,8 @@ class Match:
                     )
                     defensive_danger = clamp((0.62 - ball_progress) / 0.50, 0.0, 1.0)
                     defensive_execution = blended_judgment(
-                        (caller.effective_stat(caller.steal_technique) + caller.effective_stat(caller.physical_play_quality)) * 0.5,
+                        (caller.effective_stat(caller.steal_technique) + caller.effective_stat(caller.physical_play_quality))
+                        * 0.5,
                         caller.effective_intelligence,
                         0.64,
                     )
@@ -2336,7 +2429,11 @@ class Match:
                     locomotion = PlayerCommand.IDLE
                 elif player.slide_active:
                     player.target.update(player.pos + player.slide_direction * 40)
-                    action = self.pending_kick.command if self.pending_kick and self.pending_kick.player is player else PlayerCommand.SLIDE_TACKLE
+                    action = (
+                        self.pending_kick.command
+                        if self.pending_kick and self.pending_kick.player is player
+                        else PlayerCommand.SLIDE_TACKLE
+                    )
                     locomotion = PlayerCommand.IDLE
                 elif self.pending_kick and self.pending_kick.player is player:
                     player.target.update(player.pos)
@@ -2358,8 +2455,7 @@ class Match:
                     goal_x = FIELD.left + 24 if team.direction == 1 else FIELD.right - 24
                     goal_center = Vec2(goal_x, FIELD.centery)
                     patrol_depth = clamp(
-                        46 + ball_progress * (PENALTY_AREA_DEPTH * 0.48)
-                        + (30 if owner_team is team else 0),
+                        46 + ball_progress * (PENALTY_AREA_DEPTH * 0.48) + (30 if owner_team is team else 0),
                         42,
                         PENALTY_AREA_DEPTH * 0.68,
                     )
@@ -2370,11 +2466,7 @@ class Match:
                             FIELD.centery + (self.ball.pos.y - FIELD.centery) * 0.56,
                         ),
                     )
-                    incoming_shot = (
-                        owner is None
-                        and self.ball_is_shot()
-                        and self.ball.vel.x * team.direction < 0
-                    )
+                    incoming_shot = owner is None and self.ball_is_shot() and self.ball.vel.x * team.direction < 0
                     if incoming_shot:
                         self.prepare_keeper_read(player)
                     safe_attack, attack_situation = self.keeper_attack_is_safe(player)
@@ -2417,8 +2509,16 @@ class Match:
                         predicted = self.ball.pos + self.ball.vel * prediction_time
                         player.target.update(self.clamp_to_goalkeeper_area(team, predicted, inset=7.0))
                         action = PlayerCommand.RECOVER_LOOSE_BALL
-                        locomotion = PlayerCommand.DASH if player.can_dash(action, emergency=player_defense_urgency > 0.34) else PlayerCommand.WALK
-                    elif owner is not None and owner.team is not team and self.point_in_own_penalty_area(team, owner.pos, margin=26):
+                        locomotion = (
+                            PlayerCommand.DASH
+                            if player.can_dash(action, emergency=player_defense_urgency > 0.34)
+                            else PlayerCommand.WALK
+                        )
+                    elif (
+                        owner is not None
+                        and owner.team is not team
+                        and self.point_in_own_penalty_area(team, owner.pos, margin=26)
+                    ):
                         # Close the angle inside the box while leaving a small
                         # cushion so the keeper does not run through the attacker.
                         approach = goal_center.lerp(owner.pos, 0.78)
@@ -2430,7 +2530,11 @@ class Match:
                         attack_progress = min(0.40, max(0.22, ball_progress - 0.28))
                         player.target.update(
                             self.progress_to_world_x(team, attack_progress),
-                            clamp(FIELD.centery + (self.ball.pos.y - FIELD.centery) * 0.34, FIELD.centery - 150, FIELD.centery + 150),
+                            clamp(
+                                FIELD.centery + (self.ball.pos.y - FIELD.centery) * 0.34,
+                                FIELD.centery - 150,
+                                FIELD.centery + 150,
+                            ),
                         )
                         action = PlayerCommand.SKILL_SWEEPER_KEEPER
                         locomotion = PlayerCommand.DASH if player.can_dash(action) else PlayerCommand.WALK
@@ -2439,7 +2543,8 @@ class Match:
                         action = PlayerCommand.GUARD_GOAL
                 elif player is owner:
                     opponents = [
-                        opponent for opponent in (self.away.players if team is self.home else self.home.players)
+                        opponent
+                        for opponent in (self.away.players if team is self.home else self.home.players)
                         if not opponent.sent_off
                     ]
                     nearest_opponent = min(opponents, key=lambda opponent: opponent.pos.distance_squared_to(player.pos))
@@ -2466,8 +2571,7 @@ class Match:
                     carry_skill = self.choose_owner_carry_skill(player, nearest_opponent, opponent_distance)
                     if (
                         carry_skill is None
-                        and
-                        player.roulette_timer <= 0.0
+                        and player.roulette_timer <= 0.0
                         and 24 < opponent_distance < 78
                         and player.skill_command is PlayerCommand.IDLE
                     ):
@@ -2526,10 +2630,15 @@ class Match:
                         carry_distance = 70 + settings["push"] * 28
                         player.target.update(player.pos.x + team.direction * carry_distance, lane_y)
                         action = PlayerCommand.KEEP_BALL if opponent_distance < 60 else PlayerCommand.DRIBBLE
-                        locomotion = PlayerCommand.DASH if opponent_distance > 145 and player.can_dash(
-                            action,
-                            emergency=player_attack_urgency > 0.48,
-                        ) else PlayerCommand.WALK
+                        locomotion = (
+                            PlayerCommand.DASH
+                            if opponent_distance > 145
+                            and player.can_dash(
+                                action,
+                                emergency=player_attack_urgency > 0.48,
+                            )
+                            else PlayerCommand.WALK
+                        )
                 elif owner is None and self.ball.intended is player:
                     reception_point = Vec2(self.ball.intended_destination)
                     remaining = reception_point - self.ball.pos
@@ -2554,16 +2663,24 @@ class Match:
                         locomotion = PlayerCommand.DASH if player.can_dash(action, emergency=True) else PlayerCommand.WALK
                     elif player in recovery_runners or player in goal_runners:
                         action = PlayerCommand.RECOVER_LOOSE_BALL
-                        locomotion = PlayerCommand.DASH if player.can_dash(
-                            action,
-                            emergency=player_goal_urgency > 0.34,
-                        ) else PlayerCommand.WALK
+                        locomotion = (
+                            PlayerCommand.DASH
+                            if player.can_dash(
+                                action,
+                                emergency=player_goal_urgency > 0.34,
+                            )
+                            else PlayerCommand.WALK
+                        )
                     elif self.ball.vel.length() > 60:
                         action = PlayerCommand.FOLLOW_BALL
-                        locomotion = PlayerCommand.DASH if player.can_dash(
-                            action,
-                            emergency=player_goal_urgency > 0.34,
-                        ) else PlayerCommand.WALK
+                        locomotion = (
+                            PlayerCommand.DASH
+                            if player.can_dash(
+                                action,
+                                emergency=player_goal_urgency > 0.34,
+                            )
+                            else PlayerCommand.WALK
+                        )
                     else:
                         action = PlayerCommand.RECOVER_LOOSE_BALL
                         locomotion = PlayerCommand.WALK
@@ -2582,7 +2699,12 @@ class Match:
                         if player.combination_quality >= 0.52 and player.can_dash(action)
                         else PlayerCommand.WALK
                     )
-                elif owner is not None and owner_team is not team and player in pressing_players and (press_allowed or player is nearest):
+                elif (
+                    owner is not None
+                    and owner_team is not team
+                    and player in pressing_players
+                    and (press_allowed or player is nearest)
+                ):
                     press_shape = self.shape_position(player, False)
                     action, target, locomotion = self.cached_off_ball_decision(
                         player,
@@ -2650,7 +2772,11 @@ class Match:
                         pass
                     elif not ball_pursuit:
                         player.target.update(self.shape_position(player, owner_team is team))
-                        action = PlayerCommand.COVER if owner is not None and owner_team is not team else PlayerCommand.RETURN_POSITION
+                        action = (
+                            PlayerCommand.COVER
+                            if owner is not None and owner_team is not team
+                            else PlayerCommand.RETURN_POSITION
+                        )
                         locomotion = PlayerCommand.WALK
                     else:
                         locomotion = PlayerCommand.WALK
@@ -2692,7 +2818,9 @@ class Match:
                     else:
                         ability = player.dash_speed if player.movement_command is PlayerCommand.DASH else player.walk_speed
                         speed = movement_speed(player.movement_command, ability)
-                    speed *= team.tactical_settings(player)["speed"] * player.skill * player.fatigue_factor * player.venue_factor
+                    speed *= (
+                        team.tactical_settings(player)["speed"] * player.skill * player.fatigue_factor * player.venue_factor
+                    )
                     if player.high_speed_dribble_timer > 0.0:
                         speed *= 1.24 + player.effective_stat(player.dribble_speed) * 0.18
                     if player.chasing_timer > 0.0:
@@ -2764,7 +2892,7 @@ class Match:
         players = [player for team in self.teams for player in team.players if not player.sent_off]
         touching_now: set[tuple[int, int]] = set()
         for index, first in enumerate(players):
-            for second in players[index + 1:]:
+            for second in players[index + 1 :]:
                 # Most of the 231 player pairs are far apart.  Reject them on
                 # each axis before allocating a Vector2, taking a square root,
                 # or constructing the stable contact key.  This is an exact
@@ -2816,7 +2944,8 @@ class Match:
                 winner_score, loser_score = (first_score, second_score) if winner is first else (second_score, first_score)
                 if loser.skill_command is PlayerCommand.IDLE:
                     body_execution = blended_judgment(
-                        loser.effective_stat(loser.collision_physical) * 0.65 + loser.effective_stat(loser.physical_play_quality) * 0.35,
+                        loser.effective_stat(loser.collision_physical) * 0.65
+                        + loser.effective_stat(loser.physical_play_quality) * 0.35,
                         loser.effective_intelligence,
                         0.72,
                     )
@@ -2919,7 +3048,8 @@ class Match:
                 if purpose is PlayerCommand.IDLE:
                     continue
                 if not player.is_keeper and not player.can_use_intense_action(
-                    emergency=purpose in (
+                    emergency=purpose
+                    in (
                         PlayerCommand.BLOCK_SHOT,
                         PlayerCommand.SKILL_AERIAL_HEADER,
                         PlayerCommand.SKILL_OVERHEAD_VOLLEY,
@@ -2956,8 +3086,10 @@ class Match:
                         0.70,
                     )
                     purpose_label = (
-                        "SHOOT" if purpose in (PlayerCommand.SKILL_AERIAL_HEADER, PlayerCommand.SKILL_OVERHEAD_VOLLEY)
-                        else "BLOCK" if purpose is PlayerCommand.BLOCK_SHOT
+                        "SHOOT"
+                        if purpose in (PlayerCommand.SKILL_AERIAL_HEADER, PlayerCommand.SKILL_OVERHEAD_VOLLEY)
+                        else "BLOCK"
+                        if purpose is PlayerCommand.BLOCK_SHOT
                         else "INTERCEPT"
                     )
                     utility = header_attempt_utility(
@@ -2969,11 +3101,16 @@ class Match:
                         goal_distance,
                         self.rng,
                     )
-                    threshold = 0.60 if purpose in (
-                        PlayerCommand.SKILL_AERIAL_HEADER,
-                        PlayerCommand.SKILL_OVERHEAD_VOLLEY,
-                        PlayerCommand.BLOCK_SHOT,
-                    ) else 0.82
+                    threshold = (
+                        0.60
+                        if purpose
+                        in (
+                            PlayerCommand.SKILL_AERIAL_HEADER,
+                            PlayerCommand.SKILL_OVERHEAD_VOLLEY,
+                            PlayerCommand.BLOCK_SHOT,
+                        )
+                        else 0.82
+                    )
                     if utility < threshold:
                         continue
                     if purpose is PlayerCommand.SKILL_AERIAL_HEADER and not self.try_activate_player_skill(
@@ -2992,7 +3129,8 @@ class Match:
                             player.effective_stat(player.shot_accuracy)
                             + player.effective_stat(player.shot_power)
                             + player.effective_stat(player.shooting_technique)
-                        ) / 3.0,
+                        )
+                        / 3.0,
                         duration=0.92,
                     ):
                         continue
@@ -3020,8 +3158,10 @@ class Match:
                     player.heading_purpose = purpose
                     self.header_attempts += 1
                     count_key = (
-                        "SHOOT" if purpose in (PlayerCommand.SKILL_AERIAL_HEADER, PlayerCommand.SKILL_OVERHEAD_VOLLEY)
-                        else "BLOCK" if purpose is PlayerCommand.BLOCK_SHOT
+                        "SHOOT"
+                        if purpose in (PlayerCommand.SKILL_AERIAL_HEADER, PlayerCommand.SKILL_OVERHEAD_VOLLEY)
+                        else "BLOCK"
+                        if purpose is PlayerCommand.BLOCK_SHOT
                         else "INTERCEPT"
                     )
                     self.header_attempt_counts[count_key] += 1
@@ -3117,7 +3257,12 @@ class Match:
             player.start_heading_motion(True, destination)
         elif player.heading_motion != "DIVING":
             player.start_heading_motion(False, destination)
-        player.issue_action(PlayerCommand.SKILL_OVERHEAD_VOLLEY if bicycle else PlayerCommand.HEADER, player.pos, duration=0.48 if bicycle else 0.38, force=True)
+        player.issue_action(
+            PlayerCommand.SKILL_OVERHEAD_VOLLEY if bicycle else PlayerCommand.HEADER,
+            player.pos,
+            duration=0.48 if bicycle else 0.38,
+            force=True,
+        )
         player.use_technique(PlayerCommand.HEADER, duration=0.38)
         if target_player is not None:
             target_player.issue_action(PlayerCommand.RECEIVE_PASS, destination, duration=0.55, force=True)
@@ -3173,7 +3318,9 @@ class Match:
         if restart_type == "PENALTY_KICK":
             self.restart_taker = max(candidates, key=lambda player: player.penalty_kick_skill)
         else:
-            self.restart_taker = max(candidates, key=lambda player: player.free_kick_skill - player.pos.distance_to(spot) / 4000)
+            self.restart_taker = max(
+                candidates, key=lambda player: player.free_kick_skill - player.pos.distance_to(spot) / 4000
+            )
         self.restart_elapsed = 0.0
         self.configure_set_piece_positions(restart_type, victim.team, restart_spot, self.restart_taker)
         self.referee_target = offender.pos.lerp(victim.pos, 0.5)
@@ -3235,8 +3382,7 @@ class Match:
         if owner is None or owner.is_keeper:
             return
         opponents = [
-            player for player in (self.away.players if owner.team is self.home else self.home.players)
-            if not player.sent_off
+            player for player in (self.away.players if owner.team is self.home else self.home.players) if not player.sent_off
         ]
         opponents.sort(key=lambda player: player.pos.distance_squared_to(owner.pos))
         for defender_index, defender in enumerate(opponents):
@@ -3309,7 +3455,8 @@ class Match:
             killer_slide = False
             if use_slide and defender.skill_command is PlayerCommand.IDLE:
                 killer_execution = blended_judgment(
-                    defender.effective_stat(defender.steal_technique) * 0.55 + defender.effective_stat(defender.physical_play_quality) * 0.45,
+                    defender.effective_stat(defender.steal_technique) * 0.55
+                    + defender.effective_stat(defender.physical_play_quality) * 0.45,
                     defender.effective_intelligence,
                     0.70,
                 )
@@ -3357,12 +3504,7 @@ class Match:
                 PlayerCommand.SKILL_ENERGY_KEEP,
                 PlayerCommand.SKILL_ILLUSION_STEP,
             )
-            if (
-                not use_slide
-                and owner_is_dribbling
-                and distance < 21
-                and defender.skill_command is PlayerCommand.IDLE
-            ):
+            if not use_slide and owner_is_dribbling and distance < 21 and defender.skill_command is PlayerCommand.IDLE:
                 marking_execution = blended_judgment(
                     steal,
                     defender.effective_intelligence,
@@ -3419,19 +3561,17 @@ class Match:
         intelligence = player.effective_intelligence
         shooting_decision = blended_judgment(shooting, intelligence, 0.70)
         shot_limit = (
-            150 + shooting_decision * 112
+            150
+            + shooting_decision * 112
             + kick_power_output(player.effective_stat(player.shot_power)) * shooting_decision * 52
         )
         shot_situation = clamp(1.0 - distance_to_goal / max(1.0, shot_limit), 0.0, 1.0)
-        sliding_shot = (
-            distance_to_goal <= shot_limit
-            and self.try_activate_player_skill(
-                player,
-                SLIDE_FINISH,
-                0.42 + shot_situation * 0.58,
-                (shooting + player.effective_stat(player.shot_accuracy)) * 0.5,
-                duration=0.62,
-            )
+        sliding_shot = distance_to_goal <= shot_limit and self.try_activate_player_skill(
+            player,
+            SLIDE_FINISH,
+            0.42 + shot_situation * 0.58,
+            (shooting + player.effective_stat(player.shot_accuracy)) * 0.5,
+            duration=0.62,
         )
         if sliding_shot:
             if self.shoot(player):
@@ -3492,8 +3632,7 @@ class Match:
         lane = destination - owner.pos
         lane_length_sq = max(1.0, lane.length_squared())
         opponents = [
-            opponent for team in self.teams if team is not owner.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not owner.team for opponent in team.players if not opponent.sent_off
         ]
         interception_risk = 0.0
         lane_clearance = 180.0
@@ -3501,10 +3640,14 @@ class Match:
         for opponent in opponents:
             lane_fraction = clamp((opponent.pos - owner.pos).dot(lane) / lane_length_sq, 0.04, 0.96)
             intercept_point = owner.pos + lane * lane_fraction
-            opponent_speed = movement_speed(
-                PlayerCommand.DASH,
-                opponent.effective_stat(opponent.dash_speed),
-            ) * opponent.fatigue_factor * opponent.venue_factor
+            opponent_speed = (
+                movement_speed(
+                    PlayerCommand.DASH,
+                    opponent.effective_stat(opponent.dash_speed),
+                )
+                * opponent.fatigue_factor
+                * opponent.venue_factor
+            )
             opponent_time = opponent.pos.distance_to(intercept_point) / max(35.0, opponent_speed)
             ball_time = flight_time * lane_fraction
             timing_risk = clamp((ball_time + 0.20 - opponent_time) / 0.62, 0.0, 1.0)
@@ -3518,10 +3661,14 @@ class Match:
             )
             interception_risk = max(interception_risk, timing_risk * 0.68 + lane_risk * 0.32)
 
-        receiver_speed = movement_speed(
-            PlayerCommand.DASH,
-            candidate.effective_stat(candidate.dash_speed),
-        ) * candidate.fatigue_factor * candidate.venue_factor
+        receiver_speed = (
+            movement_speed(
+                PlayerCommand.DASH,
+                candidate.effective_stat(candidate.dash_speed),
+            )
+            * candidate.fatigue_factor
+            * candidate.venue_factor
+        )
         receiver_time = candidate.pos.distance_to(destination) / max(35.0, receiver_speed)
         receiver_margin = flight_time - receiver_time
         touchline_margin = min(
@@ -3544,7 +3691,9 @@ class Match:
         self._selected_pass_owner = owner
         self._selected_pass_target = None
         self._selected_pass_route = None
-        candidates = [player for player in owner.team.players if player is not owner and not player.is_keeper and not player.sent_off]
+        candidates = [
+            player for player in owner.team.players if player is not owner and not player.is_keeper and not player.sent_off
+        ]
         if not candidates:
             return None
         best_player = None
@@ -3586,16 +3735,15 @@ class Match:
                 score -= (60 - route.touchline_margin) * (0.24 + intelligence * 0.54)
             friendly_density = sum(
                 teammate is not candidate
-                and (
-                    teammate.pos.distance_to(route.destination) < 96
-                    or teammate.target.distance_to(route.destination) < 82
-                )
+                and (teammate.pos.distance_to(route.destination) < 96 or teammate.target.distance_to(route.destination) < 82)
                 for teammate in candidates
             )
             score -= friendly_density * (14 + intelligence * 38)
             if candidate.action_command in (
-                PlayerCommand.LOSE_MARK, PlayerCommand.DIAGONAL_RUN,
-                PlayerCommand.RUN_INTO_SPACE, PlayerCommand.CREATE_PASS_LANE,
+                PlayerCommand.LOSE_MARK,
+                PlayerCommand.DIAGONAL_RUN,
+                PlayerCommand.RUN_INTO_SPACE,
+                PlayerCommand.CREATE_PASS_LANE,
             ):
                 score += 10 + intelligence * 18
             continuation = self.receiver_continuation_value(
@@ -3620,14 +3768,12 @@ class Match:
 
     def choose_keeper_distribution_target(self, keeper: Player, prefer_long: bool = False) -> Player | None:
         candidates = [
-            player for player in keeper.team.players
-            if player is not keeper and not player.is_keeper and not player.sent_off
+            player for player in keeper.team.players if player is not keeper and not player.is_keeper and not player.sent_off
         ]
         if not candidates:
             return None
         opponents = [
-            player for team in self.teams if team is not keeper.team
-            for player in team.players if not player.sent_off
+            player for team in self.teams if team is not keeper.team for player in team.players if not player.sent_off
         ]
         passing = keeper.effective_stat(keeper.passing_technique)
         intelligence = keeper.effective_intelligence
@@ -3661,8 +3807,7 @@ class Match:
         if short_target is None and long_target is None:
             return self.clear_ball(keeper)
         opponents = [
-            player for team in self.teams if team is not keeper.team
-            for player in team.players if not player.sent_off
+            player for team in self.teams if team is not keeper.team for player in team.players if not player.sent_off
         ]
         nearest_pressure = min((keeper.pos.distance_to(player.pos) for player in opponents), default=999.0)
         passing = keeper.effective_stat(keeper.passing_technique)
@@ -3673,19 +3818,26 @@ class Match:
         long_distance = keeper.pos.distance_to(long_target.pos) if long_target is not None else 0.0
         utilities = {
             PlayerCommand.PASS: (
-                0.56 + passing * 0.34 + clamp((nearest_pressure - 90) / 320.0, 0.0, 0.25)
+                0.56
+                + passing * 0.34
+                + clamp((nearest_pressure - 90) / 320.0, 0.0, 0.25)
                 - clamp((short_distance - 250) / 320.0, 0.0, 0.22)
-                if short_target is not None else -2.0
+                if short_target is not None
+                else -2.0
             ),
             PlayerCommand.KEEPER_THROW: (
                 0.62 + passing * 0.22 + clamp((260 - short_distance) / 420.0, 0.0, 0.24)
-                if held_in_hands and short_target is not None else -2.0
+                if held_in_hands and short_target is not None
+                else -2.0
             ),
             PlayerCommand.KEEPER_PUNT: (
-                0.38 + kick_output * 0.34 + passing * 0.18
+                0.38
+                + kick_output * 0.34
+                + passing * 0.18
                 + clamp((long_distance - 280) / 650.0, 0.0, 0.28)
                 + clamp((120 - nearest_pressure) / 360.0, 0.0, 0.16)
-                if long_target is not None else -2.0
+                if long_target is not None
+                else -2.0
             ),
         }
         choice = choose_utility_action(utilities, keeper.effective_intelligence, self.rng)
@@ -3763,8 +3915,7 @@ class Match:
 
     def choose_no_look_target(self, owner: Player) -> Player | None:
         opponents = [
-            opponent for team in self.teams if team is not owner.team
-            for opponent in team.players if not opponent.sent_off
+            opponent for team in self.teams if team is not owner.team for opponent in team.players if not opponent.sent_off
         ]
         candidates = []
         intelligence = owner.effective_intelligence
@@ -3865,7 +4016,8 @@ class Match:
         )
         lane_clearance = (
             self.distance_to_pass_lane(closest_lane_opponent.pos, owner.pos, destination)
-            if closest_lane_opponent is not None else 180.0
+            if closest_lane_opponent is not None
+            else 180.0
         )
         congestion = 1.0 - clamp(lane_clearance / 105.0, 0.0, 1.0)
         original_lane = destination - owner.pos
@@ -3873,7 +4025,8 @@ class Match:
         if original_lane.length_squared() > 0.0001:
             lane_progress = clamp(
                 (closest_lane_opponent.pos - owner.pos).dot(original_lane) / original_lane.length_squared()
-                if closest_lane_opponent is not None else 0.5,
+                if closest_lane_opponent is not None
+                else 0.5,
                 0.0,
                 1.0,
             )
@@ -3939,9 +4092,7 @@ class Match:
         touchline_difficulty = clamp((72 - route.touchline_margin) / 72.0, 0.0, 1.0)
         receiver_difficulty = clamp(-route.receiver_margin / 0.75, 0.0, 1.0)
         reception_difficulty = clamp(
-            route.interception_risk * 0.48
-            + touchline_difficulty * 0.30
-            + receiver_difficulty * 0.34,
+            route.interception_risk * 0.48 + touchline_difficulty * 0.30 + receiver_difficulty * 0.34,
             0.0,
             1.0,
         )
@@ -3951,8 +4102,7 @@ class Match:
             1.0,
         )
         self.ball.pass_brake = clamp(
-            (long_factor * 0.20 + reception_difficulty * 0.72)
-            * friendly_quality * (0.28 + intelligence * 0.72),
+            (long_factor * 0.20 + reception_difficulty * 0.72) * friendly_quality * (0.28 + intelligence * 0.72),
             0.0,
             0.88,
         )
@@ -4027,9 +4177,7 @@ class Match:
             self.ball.vertical_speed *= 0.72
         if pass_type == "カーブパス":
             lane_midpoint = owner.pos.lerp(destination, 0.5)
-            curve_side = (
-                -1.0 if closest_lane_opponent is not None and closest_lane_opponent.pos.y > lane_midpoint.y else 1.0
-            )
+            curve_side = -1.0 if closest_lane_opponent is not None and closest_lane_opponent.pos.y > lane_midpoint.y else 1.0
             curve_error = self.rng.gauss(0, (1.0 - pass_accuracy) * 18 * owner.mistake_error_factor)
             self.ball.curve_acceleration = curve_side * clamp(18 + passing * 44 + curve_error, 8, 72)
         self.decision_timer = self.rng.uniform(0.35, 0.7)
@@ -4038,10 +4186,7 @@ class Match:
         """Occasionally turn a defensive corner clearance into a directed counter."""
         if self.corner_phase_timer <= 0.0 or owner.team is not self.corner_defending_team:
             return None
-        candidates = [
-            player for player in self.corner_counter_players
-            if not player.sent_off and player is not owner
-        ]
+        candidates = [player for player in self.corner_counter_players if not player.sent_off and player is not owner]
         if not candidates:
             return None
         intelligence = owner.effective_intelligence
@@ -4050,10 +4195,7 @@ class Match:
         if self.rng.random() >= clamp(0.24 + intelligence * 0.34 + passing * 0.18 + tactic_bonus, 0.24, 0.82):
             return None
 
-        opponents = [
-            player for team in self.teams if team is not owner.team
-            for player in team.players if not player.sent_off
-        ]
+        opponents = [player for team in self.teams if team is not owner.team for player in team.players if not player.sent_off]
         best: Player | None = None
         best_score = -9999.0
         for candidate in candidates:
@@ -4076,9 +4218,7 @@ class Match:
                 clamp(target.pos.y, FIELD.top + 45, FIELD.bottom - 45),
             )
         return Vec2(
-            owner.pos.x + owner.team.direction * (
-                245 + kick_power_output(owner.effective_stat(owner.pass_power)) * 180
-            ),
+            owner.pos.x + owner.team.direction * (245 + kick_power_output(owner.effective_stat(owner.pass_power)) * 180),
             clamp(FIELD.centery + self.rng.uniform(-250, 250), FIELD.top + 40, FIELD.bottom - 40),
         )
 
@@ -4114,8 +4254,7 @@ class Match:
             self.ball.vel = direction * (270 + kick_output * 120)
         self.ball.z = 7.0
         self.ball.vertical_speed = (
-            clamp(108 + kick_output * 55 + distance * 0.035, 118, 205)
-            if target is not None else 96 + kick_output * 40
+            clamp(108 + kick_output * 55 + distance * 0.035, 118, 205) if target is not None else 96 + kick_output * 40
         )
         self.ball.curve_acceleration = 0.0
         self.ball.curve_vector.update(0, 0)
@@ -4184,8 +4323,7 @@ class Match:
         distance_pressure = clamp((distance_to_goal - 120.0) / 680.0, 0.0, 1.0)
         post_chance = clamp(0.022 + (1.0 - execution) * 0.055 + shooting * 0.012, 0.025, 0.095)
         miss_chance = clamp(
-            0.028
-            + (1.0 - execution) * (0.34 + distance_pressure * 0.24) * owner.mistake_error_factor,
+            0.028 + (1.0 - execution) * (0.34 + distance_pressure * 0.24) * owner.mistake_error_factor,
             0.025,
             0.68,
         )
@@ -4372,18 +4510,23 @@ class Match:
             self.ball.knuckle_amplitude = 42 + shooting * 68
         owner.last_shot_type = shot_type
         self.ball.flight_type = shot_type
-        deception_bonus = 0.16 if active_skill in (
-            PlayerCommand.SKILL_CHANCE_SENSOR,
-            PlayerCommand.SKILL_WOBBLE_BALL,
-            PlayerCommand.SKILL_ARC_CURVE,
-            PlayerCommand.SKILL_MAGIC_PLACE_KICK,
-            PlayerCommand.SKILL_CARRY_SHOT,
-            PlayerCommand.SKILL_HALFWAY_CANNON,
-            PlayerCommand.SKILL_CANNON_MIDDLE,
-            PlayerCommand.SKILL_LAST_CHANCE_CANNON,
-            PlayerCommand.SKILL_DIRECT_VOLLEY,
-            PlayerCommand.SKILL_SET_AND_SHOOT,
-        ) else 0.0
+        deception_bonus = (
+            0.16
+            if active_skill
+            in (
+                PlayerCommand.SKILL_CHANCE_SENSOR,
+                PlayerCommand.SKILL_WOBBLE_BALL,
+                PlayerCommand.SKILL_ARC_CURVE,
+                PlayerCommand.SKILL_MAGIC_PLACE_KICK,
+                PlayerCommand.SKILL_CARRY_SHOT,
+                PlayerCommand.SKILL_HALFWAY_CANNON,
+                PlayerCommand.SKILL_CANNON_MIDDLE,
+                PlayerCommand.SKILL_LAST_CHANCE_CANNON,
+                PlayerCommand.SKILL_DIRECT_VOLLEY,
+                PlayerCommand.SKILL_SET_AND_SHOOT,
+            )
+            else 0.0
+        )
         if owner.shadow_striker_timer > 0.0:
             deception_bonus += 0.12
             owner.shadow_striker_timer = 0.0
@@ -4444,8 +4587,7 @@ class Match:
             return
 
         opponents = [
-            player for player in (self.away.players if owner.team is self.home else self.home.players)
-            if not player.sent_off
+            player for player in (self.away.players if owner.team is self.home else self.home.players) if not player.sent_off
         ]
         nearest_pressure = min(opponent.pos.distance_to(owner.pos) for opponent in opponents)
         if self.corner_phase_timer > 0.0 and owner.team is self.corner_defending_team:
@@ -4483,8 +4625,7 @@ class Match:
         intelligence = owner.effective_intelligence
         shooting_decision = blended_judgment(shooting, intelligence, 0.72)
         shoot_distance = (
-            settings["shoot_distance"] + shooting_decision * 70
-            + kick_power_output(shot_power) * shooting_decision * 46
+            settings["shoot_distance"] + shooting_decision * 70 + kick_power_output(shot_power) * shooting_decision * 46
         )
         remaining_match_time = MATCH_SECONDS - self.game_time
         if owner.skill_command is PlayerCommand.IDLE and remaining_match_time <= 55.0:
@@ -4517,8 +4658,14 @@ class Match:
         if owner.skill_command is PlayerCommand.IDLE:
             special_shots: dict[str, float] = {}
             if owner.has_skill(CARRY_SHOT) and distance_to_goal < shoot_distance + 58:
-                special_shots[CARRY_SHOT] = 0.34 + shooting_decision * 0.40 + clamp((shoot_distance + 58 - distance_to_goal) / 240.0, 0.0, 0.22)
-            if owner.has_skill(HALFWAY_CANNON) and shoot_distance + 70 < distance_to_goal < FIELD.width * 0.62 and centrality < 185:
+                special_shots[CARRY_SHOT] = (
+                    0.34 + shooting_decision * 0.40 + clamp((shoot_distance + 58 - distance_to_goal) / 240.0, 0.0, 0.22)
+                )
+            if (
+                owner.has_skill(HALFWAY_CANNON)
+                and shoot_distance + 70 < distance_to_goal < FIELD.width * 0.62
+                and centrality < 185
+            ):
                 long_setup = clamp(1.0 - abs(distance_to_goal - FIELD.width * 0.47) / 360.0, 0.0, 1.0)
                 special_shots[HALFWAY_CANNON] = 0.28 + long_setup * 0.38 + shooting_decision * 0.24
             if owner.has_skill(CANNON_MIDDLE) and 235 < distance_to_goal < 470 and centrality < 205:
@@ -4542,12 +4689,9 @@ class Match:
         if shot_available:
             range_quality = clamp(1.0 - distance_to_goal / max(1.0, shoot_distance), 0.0, 1.0)
             angle_quality = clamp(1.0 - centrality / 235.0, 0.0, 1.0)
-            shot_utility = (
-                0.25
-                + range_quality * 0.55
-                + angle_quality * 0.15
-                + shooting_decision * 0.13
-            ) * settings["shot_bias"]
+            shot_utility = (0.25 + range_quality * 0.55 + angle_quality * 0.15 + shooting_decision * 0.13) * settings[
+                "shot_bias"
+            ]
             if owner.shadow_striker_timer > 0.0:
                 shot_utility += 0.28
             lane_quality = self.shot_lane_quality(owner, opponents)
@@ -4570,7 +4714,8 @@ class Match:
             if route is None:
                 route = self.evaluate_pass_route(owner, target)
             opponents = [
-                player for player in (self.away.players if owner.team is self.home else self.home.players)
+                player
+                for player in (self.away.players if owner.team is self.home else self.home.players)
                 if not player.sent_off
             ]
             openness = min(opponent.pos.distance_to(target.pos) for opponent in opponents)
@@ -4783,8 +4928,7 @@ class Match:
         guardian_consider_range = 50 * PLAYER_VISUAL_SCALE
         if distance < guardian_consider_range and keeper.skill_command is PlayerCommand.IDLE:
             guardian_execution = blended_judgment(
-                keeper.effective_stat(keeper.goal_stopping) * 0.72
-                + keeper.effective_stat(keeper.jump_accuracy) * 0.28,
+                keeper.effective_stat(keeper.goal_stopping) * 0.72 + keeper.effective_stat(keeper.jump_accuracy) * 0.28,
                 keeper.effective_intelligence,
                 0.76,
             )
@@ -4840,7 +4984,8 @@ class Match:
         intelligence = taker.effective_intelligence
         decision = blended_judgment(skill, intelligence, 0.76)
         candidates = [
-            player for player in taker.team.players
+            player
+            for player in taker.team.players
             if player is not taker and not player.sent_off and taker.pos.distance_to(player.pos) <= maximum_distance
         ]
         best: Player | None = None
@@ -4889,10 +5034,7 @@ class Match:
         self.set_piece_targets[taker] = Vec2(self.restart_approach)
 
         if restart_type == "FREE_KICK":
-            wall_candidates = [
-                player for player in defending.players
-                if not player.is_keeper and not player.sent_off
-            ]
+            wall_candidates = [player for player in defending.players if not player.is_keeper and not player.sent_off]
             wall_candidates.sort(key=lambda player: player.pos.distance_squared_to(spot))
             wall_size = min(4, len(wall_candidates))
             offsets = self.centered_offsets(wall_size, 27.0)
@@ -4909,7 +5051,9 @@ class Match:
                 FIELD.centery,
             )
             waiting = [
-                player for team in self.teams for player in team.players
+                player
+                for team in self.teams
+                for player in team.players
                 if player is not taker and player is not defending.keeper and not player.sent_off
             ]
             offsets = self.centered_offsets(len(waiting), 38.0)
@@ -4981,25 +5125,28 @@ class Match:
         defend_amount = self.rng.randint(5, 9) if defending.tactic == "RANDOM" else defend_numbers.get(defending.tactic, 7)
 
         attack_candidates = [
-            player for player in attacking.players
+            player
+            for player in attacking.players
             if player is not self.restart_taker and not player.is_keeper and not player.sent_off
         ]
-        attack_candidates.sort(key=lambda player: (
-            {"FW": 0, "MF": 1, "DF": 2}.get(player.role, 3),
-            -(player.effective_stat(player.heading_judgment) + player.effective_stat(player.jump_height)),
-            -player.goal_poaching,
-        ))
+        attack_candidates.sort(
+            key=lambda player: (
+                {"FW": 0, "MF": 1, "DF": 2}.get(player.role, 3),
+                -(player.effective_stat(player.heading_judgment) + player.effective_stat(player.jump_height)),
+                -player.goal_poaching,
+            )
+        )
         attack_amount = min(attack_amount, len(attack_candidates))
         self.corner_attackers = attack_candidates[:attack_amount]
 
-        defend_candidates = [
-            player for player in defending.players if not player.is_keeper and not player.sent_off
-        ]
-        defend_candidates.sort(key=lambda player: (
-            {"DF": 0, "MF": 1, "FW": 2}.get(player.role, 3),
-            -(player.shot_blocking + player.effective_stat(player.heading_judgment)),
-            -player.interception,
-        ))
+        defend_candidates = [player for player in defending.players if not player.is_keeper and not player.sent_off]
+        defend_candidates.sort(
+            key=lambda player: (
+                {"DF": 0, "MF": 1, "FW": 2}.get(player.role, 3),
+                -(player.shot_blocking + player.effective_stat(player.heading_judgment)),
+                -player.interception,
+            )
+        )
         # With at least two available outfield players, one is always left outside
         # the box as a counter outlet instead of forcing all ten players back.
         maximum_box_defenders = max(0, len(defend_candidates) - (1 if len(defend_candidates) > 1 else 0))
@@ -5026,9 +5173,7 @@ class Match:
             )
 
         if not defending.keeper.sent_off:
-            self.set_piece_targets[defending.keeper] = Vec2(
-                goal_x - attacking.direction * 18, FIELD.centery
-            )
+            self.set_piece_targets[defending.keeper] = Vec2(goal_x - attacking.direction * 18, FIELD.centery)
 
         # Fast forwards and pass outlets stay around halfway, spread laterally so
         # a clearance can become a real counter rather than a blind hoof.
@@ -5041,9 +5186,7 @@ class Match:
 
         # The attacking side also leaves its non-selected players near halfway as
         # rest defence; a corner therefore never means eleven players in the box.
-        attacking_safety = [
-            player for player in attack_candidates if player not in self.corner_attackers
-        ]
+        attacking_safety = [player for player in attack_candidates if player not in self.corner_attackers]
         safety_offsets = self.centered_offsets(len(attacking_safety), 112.0)
         for index, player in enumerate(attacking_safety):
             self.set_piece_targets[player] = Vec2(
@@ -5065,7 +5208,9 @@ class Match:
         if restart_type == "GOAL_KICK":
             taker = team.keeper
         elif restart_type == "CORNER_KICK":
-            taker = min((player for player in active if not player.is_keeper), key=lambda player: player.pos.distance_squared_to(spot))
+            taker = min(
+                (player for player in active if not player.is_keeper), key=lambda player: player.pos.distance_squared_to(spot)
+            )
         elif restart_type == "PENALTY_KICK":
             taker = max(active, key=lambda player: player.penalty_kick_skill)
         else:
@@ -5147,20 +5292,15 @@ class Match:
             distance_to_goal = abs((FIELD.right if team.direction == 1 else FIELD.left) - taker.pos.x)
             direct_quality = clamp(1.0 - distance_to_goal / (300 + skill * 155), 0.0, 1.0)
             shot_execution = (
-                taker.effective_stat(taker.shot_accuracy)
-                + taker.effective_stat(taker.shooting_technique)
-                + skill
+                taker.effective_stat(taker.shot_accuracy) + taker.effective_stat(taker.shooting_technique) + skill
             ) / 3.0
-            if (
-                distance_to_goal <= 300 + skill * 155
-                and self.try_activate_player_skill(
-                    taker,
-                    MAGIC_PLACE_KICK,
-                    0.32 + direct_quality * 0.66,
-                    shot_execution,
-                    duration=taker.kick_contact_time + 0.68,
-                    force_decision=True,
-                )
+            if distance_to_goal <= 300 + skill * 155 and self.try_activate_player_skill(
+                taker,
+                MAGIC_PLACE_KICK,
+                0.32 + direct_quality * 0.66,
+                shot_execution,
+                duration=taker.kick_contact_time + 0.68,
+                force_decision=True,
             ):
                 kick_command = PlayerCommand.SHOOT
             else:
@@ -5173,9 +5313,7 @@ class Match:
         elif kind == "CORNER_KICK":
             skill = taker.effective_stat(taker.corner_kick_skill)
             corner_shooting = (
-                taker.effective_stat(taker.shot_accuracy)
-                + taker.effective_stat(taker.shooting_technique)
-                + skill
+                taker.effective_stat(taker.shot_accuracy) + taker.effective_stat(taker.shooting_technique) + skill
             ) / 3.0
             if self.try_activate_player_skill(
                 taker,
@@ -5199,14 +5337,21 @@ class Match:
         if kick_command is PlayerCommand.SHOOT:
             goal_x = FIELD.right + 8 if team.direction == 1 else FIELD.left - 8
             started = self.begin_kick(
-                taker, PlayerCommand.SHOOT, target_point=(goal_x, FIELD.centery),
-                set_piece_skill=skill, display_command=display_command,
+                taker,
+                PlayerCommand.SHOOT,
+                target_point=(goal_x, FIELD.centery),
+                set_piece_skill=skill,
+                display_command=display_command,
             )
         elif target is not None:
             pass_command = PlayerCommand.CROSS if kind == "CORNER_KICK" else PlayerCommand.PASS
             started = self.begin_kick(
-                taker, pass_command, target, target.pos,
-                set_piece_skill=skill, display_command=display_command,
+                taker,
+                pass_command,
+                target,
+                target.pos,
+                set_piece_skill=skill,
+                display_command=display_command,
             )
             target.issue_action(PlayerCommand.RECEIVE_PASS, target.pos, duration=taker.kick_contact_time + 0.55, force=True)
         if started:
@@ -5257,14 +5402,9 @@ class Match:
         for team in self.teams:
             for player in team.players:
                 if not player.sent_off:
-                    self.set_piece_targets[player] = Vec2(
-                        self.shape_position(player, team is receiving_team)
-                    )
+                    self.set_piece_targets[player] = Vec2(self.shape_position(player, team is receiving_team))
         self.set_piece_targets[self.thrower] = Vec2(inside)
-        receivers = [
-            player for player in receiving_team.players
-            if player is not self.thrower and not player.sent_off
-        ]
+        receivers = [player for player in receiving_team.players if player is not self.thrower and not player.sent_off]
         receivers.sort(key=lambda player: player.pos.distance_squared_to(self.throw_in_spot))
         inward_y = 1 if spot_y == FIELD.top else -1
         for index, player in enumerate(receivers[:3]):
@@ -5381,11 +5521,7 @@ class Match:
         below_bar = self.ball.z <= GOAL_HEIGHT
         crossed_right = self.ball.pos.x > FIELD.right
         crossed_left = self.ball.pos.x < FIELD.left
-        if (
-            self.ball.shot_outcome == SHOT_POST
-            and self.ball_is_shot()
-            and (crossed_right or crossed_left)
-        ):
+        if self.ball.shot_outcome == SHOT_POST and self.ball_is_shot() and (crossed_right or crossed_left):
             goal_line = FIELD.right if crossed_right else FIELD.left
             inward = -1.0 if crossed_right else 1.0
             post_side = 1.0 if self.ball.pos.y >= FIELD.centery else -1.0
@@ -5461,7 +5597,8 @@ class Match:
                     not player.is_keeper
                     and player.airborne
                     and player.technique_command is PlayerCommand.HEADER
-                    and player.heading_purpose in (
+                    and player.heading_purpose
+                    in (
                         PlayerCommand.SKILL_AERIAL_HEADER,
                         PlayerCommand.SKILL_OVERHEAD_VOLLEY,
                         PlayerCommand.INTERCEPT_PASS,
@@ -5492,12 +5629,23 @@ class Match:
                         0.72,
                     )
                     receiving_options: dict[str, float] = {}
-                    if player.has_skill(DIRECT_VOLLEY) and 6 <= self.ball.z <= 72 and incoming_speed > 72 and goal_distance < 390 and attacking_progress > 0.58:
+                    if (
+                        player.has_skill(DIRECT_VOLLEY)
+                        and 6 <= self.ball.z <= 72
+                        and incoming_speed > 72
+                        and goal_distance < 390
+                        and attacking_progress > 0.58
+                    ):
                         receiving_options[DIRECT_VOLLEY] = (
-                            0.30 + clamp((390 - goal_distance) / 430.0, 0.0, 0.36)
-                            + clamp(incoming_speed / 1000.0, 0.0, 0.18)
+                            0.30 + clamp((390 - goal_distance) / 430.0, 0.0, 0.36) + clamp(incoming_speed / 1000.0, 0.0, 0.18)
                         )
-                    if player.has_skill(SET_AND_SHOOT) and self.ball.z <= 34 and incoming_speed > 42 and goal_distance < 355 and attacking_progress > 0.60:
+                    if (
+                        player.has_skill(SET_AND_SHOOT)
+                        and self.ball.z <= 34
+                        and incoming_speed > 42
+                        and goal_distance < 355
+                        and attacking_progress > 0.60
+                    ):
                         receiving_options[SET_AND_SHOOT] = 0.36 + clamp((355 - goal_distance) / 420.0, 0.0, 0.40)
                     if receiving_options:
                         receiving_skill = choose_utility_action(
@@ -5520,7 +5668,9 @@ class Match:
                                 self.ball.z = max(8.0, incoming_height)
                             else:
                                 player.one_trap_shot_timer = 0.44
-                                player.issue_action(PlayerCommand.SKILL_SET_AND_SHOOT, self.ball.pos, duration=0.44, force=True)
+                                player.issue_action(
+                                    PlayerCommand.SKILL_SET_AND_SHOOT, self.ball.pos, duration=0.44, force=True
+                                )
                                 player.use_technique(PlayerCommand.TRAP, duration=0.30)
                                 self.decision_timer = 0.08
                             return
@@ -5532,7 +5682,9 @@ class Match:
                             player.effective_intelligence,
                             0.70,
                         )
-                        direct_situation = clamp(0.66 - incoming_speed / 1300.0 + self.ball.eye_contact_bonus * 0.34, 0.24, 0.78)
+                        direct_situation = clamp(
+                            0.66 - incoming_speed / 1300.0 + self.ball.eye_contact_bonus * 0.34, 0.24, 0.78
+                        )
                         if self.try_activate_player_skill(
                             player,
                             ONE_TOUCH_RELAY,
@@ -5541,7 +5693,9 @@ class Match:
                             duration=0.48,
                         ):
                             self.change_owner(player)
-                            player.issue_action(PlayerCommand.SKILL_ONE_TOUCH_RELAY, direct_target.pos, duration=0.42, force=True)
+                            player.issue_action(
+                                PlayerCommand.SKILL_ONE_TOUCH_RELAY, direct_target.pos, duration=0.42, force=True
+                            )
                             player.spend_stamina(PlayerCommand.PASS)
                             self._release_pass(player, direct_target)
                             self.ball.flight_type = "ワンタッチリレー"

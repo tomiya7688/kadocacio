@@ -28,7 +28,10 @@ class MatchReproCliTests(unittest.TestCase):
         self.record = create_input_record(
             {"id": "home", "name": "試験ホーム", "short": "試験H", "starters": [{}], "primary": [1, 2, 3]},
             {"id": "away", "name": "試験アウェー", "short": "試験A", "starters": [{}], "primary": [4, 5, 6]},
-            seed=0, max_steps=3, venue_mode="NEUTRAL", ai_rethink_multiplier=0.5,
+            seed=0,
+            max_steps=3,
+            venue_mode="NEUTRAL",
+            ai_rethink_multiplier=0.5,
         )
 
     # {
@@ -59,8 +62,7 @@ class MatchReproCliTests(unittest.TestCase):
             diagnostic = StringIO()
             with patch("scripts.tools.match_repro_check.compare_matches", side_effect=fail_after_reading_input):
                 with redirect_stderr(diagnostic), self.assertRaises(SystemExit) as raised:
-                    main(["--load-input", str(source), "--save-input", str(saved_input),
-                          "--save-report", str(saved_report)])
+                    main(["--load-input", str(source), "--save-input", str(saved_input), "--save-report", str(saved_report)])
             self.assertEqual(raised.exception.code, 2)
             self.assertIn("comparison failed", diagnostic.getvalue())
             self.assertTrue(saved_input.is_file())
@@ -74,8 +76,7 @@ class MatchReproCliTests(unittest.TestCase):
     # }
     def test_saves_mismatch_report_before_returning_failure(self):
         # 不一致を調査する出力を、失敗コードの判定より前に残す契約を守る。
-        report = {"same_state": False, "fulltime": True,
-                  "event_history": {"headless": [{"text": "得点"}], "rendered": []}}
+        report = {"same_state": False, "fulltime": True, "event_history": {"headless": [{"text": "得点"}], "rendered": []}}
         with TemporaryDirectory() as folder:
             source = Path(folder) / "source.json"
             destination = Path(folder) / "report.json"
@@ -86,10 +87,15 @@ class MatchReproCliTests(unittest.TestCase):
                     result = main(["--load-input", str(source), "--save-report", str(destination), "--allow-partial"])
             self.assertEqual(result, 1)
             self.assertTrue(compare.call_args.kwargs["include_events"])
-            self.assertEqual(json.loads(destination.read_text(encoding="utf-8")), {
-                "format": "kadocalcio.match-repro-report", "version": 1,
-                "input": self.record, "comparison": report,
-            })
+            self.assertEqual(
+                json.loads(destination.read_text(encoding="utf-8")),
+                {
+                    "format": "kadocalcio.match-repro-report",
+                    "version": 1,
+                    "input": self.record,
+                    "comparison": report,
+                },
+            )
             self.assertEqual(json.loads(output.getvalue()), {"same_state": False, "fulltime": True})
             self.assertIn("得点", destination.read_text(encoding="utf-8"))
             self.assertEqual(report["event_history"]["headless"], [{"text": "得点"}])
@@ -108,12 +114,16 @@ class MatchReproCliTests(unittest.TestCase):
             source.write_text(json.dumps(self.record), encoding="utf-8")
             original = b"existing result\r\n"
             existing.write_bytes(original)
-            cases = (("--save-input", existing, 0), ("--save-report", existing, 1),
-                     ("--save-input", Path(folder) / "missing" / "input.json", 0))
+            cases = (
+                ("--save-input", existing, 0),
+                ("--save-report", existing, 1),
+                ("--save-input", Path(folder) / "missing" / "input.json", 0),
+            )
             for flag, destination, comparisons in cases:
                 with self.subTest(flag=flag, destination=destination):
-                    with patch("scripts.tools.match_repro_check.compare_matches",
-                               return_value={"same_state": True, "fulltime": True}) as compare:
+                    with patch(
+                        "scripts.tools.match_repro_check.compare_matches", return_value={"same_state": True, "fulltime": True}
+                    ) as compare:
                         with redirect_stderr(StringIO()), self.assertRaises(SystemExit) as raised:
                             main(["--load-input", str(source), flag, str(destination)])
                     self.assertEqual(raised.exception.code, 2)
@@ -128,8 +138,14 @@ class MatchReproCliTests(unittest.TestCase):
     # }
     def test_rejects_all_saved_input_overrides_before_loading(self):
         # 競合の診断は実ファイルの状態に左右されないよう、読込より先に行う。
-        cases = (("--home", "home"), ("--away", "away"), ("--seed", "0"),
-                 ("--max-steps", "3"), ("--venue", "HOME"), ("--ai-rethink-multiplier", "1"))
+        cases = (
+            ("--home", "home"),
+            ("--away", "away"),
+            ("--seed", "0"),
+            ("--max-steps", "3"),
+            ("--venue", "HOME"),
+            ("--ai-rethink-multiplier", "1"),
+        )
         with TemporaryDirectory() as folder:
             missing = Path(folder) / "missing.json"
             for flag, value in cases:
@@ -151,16 +167,24 @@ class MatchReproCliTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             source = Path(folder) / "入力.json"
             source.write_text(json.dumps(self.record, ensure_ascii=False), encoding="utf-8-sig")
-            with patch("scripts.tools.match_repro_check.compare_matches",
-                       return_value={"same_state": True, "fulltime": True}) as compare:
+            with patch(
+                "scripts.tools.match_repro_check.compare_matches", return_value={"same_state": True, "fulltime": True}
+            ) as compare:
                 with redirect_stdout(StringIO()):
                     self.assertEqual(main(["--load-input", str(source), "--render-every", "7"]), 0)
             self.assertEqual(compare.call_args.args[0]["primary"], (1, 2, 3))
             self.assertEqual(compare.call_args.args[1]["name"], "試験アウェー")
-            self.assertEqual(compare.call_args.kwargs, {
-                "seed": 0, "max_steps": 3, "venue_mode": "NEUTRAL", "ai_rethink_multiplier": 0.5,
-                "render_every": 7, "include_events": False,
-            })
+            self.assertEqual(
+                compare.call_args.kwargs,
+                {
+                    "seed": 0,
+                    "max_steps": 3,
+                    "venue_mode": "NEUTRAL",
+                    "ai_rethink_multiplier": 0.5,
+                    "render_every": 7,
+                    "include_events": False,
+                },
+            )
 
 
 if __name__ == "__main__":

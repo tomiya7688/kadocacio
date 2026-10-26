@@ -120,10 +120,13 @@ class MatchEventHistoryTests(unittest.TestCase):
         match.simulation_elapsed = 12.5
         match.add_event("同じ表示文")
         match.add_event("同じ表示文")
-        self.assertEqual([event.to_payload() for event in match.event_history()[-2:]], [
-            {"sequence": 2, "game_time": 125.25, "simulation_elapsed": 12.5, "text": "同じ表示文"},
-            {"sequence": 3, "game_time": 125.25, "simulation_elapsed": 12.5, "text": "同じ表示文"},
-        ])
+        self.assertEqual(
+            [event.to_payload() for event in match.event_history()[-2:]],
+            [
+                {"sequence": 2, "game_time": 125.25, "simulation_elapsed": 12.5, "text": "同じ表示文"},
+                {"sequence": 3, "game_time": 125.25, "simulation_elapsed": 12.5, "text": "同じ表示文"},
+            ],
+        )
 
     # {
     #   責務: [test_obtained_history_does_not_grow_after_later_events: 取得済みの履歴と辞書が後続の追加から独立していることを確認する]

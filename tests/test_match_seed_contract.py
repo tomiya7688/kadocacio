@@ -70,11 +70,13 @@ class MatchSeedContractTests(unittest.TestCase):
             advance_match_fixed(second)
 
         self.assertEqual(first.rng.getstate(), second.rng.getstate())
-        self.assertEqual((first.game_time, first.home.score, first.away.score),
-                         (second.game_time, second.home.score, second.away.score))
+        self.assertEqual(
+            (first.game_time, first.home.score, first.away.score), (second.game_time, second.home.score, second.away.score)
+        )
         self.assertEqual(tuple(first.events), tuple(second.events))
-        self.assertEqual((first.ball.pos.x, first.ball.pos.y, first.ball.z),
-                         (second.ball.pos.x, second.ball.pos.y, second.ball.z))
+        self.assertEqual(
+            (first.ball.pos.x, first.ball.pos.y, first.ball.z), (second.ball.pos.x, second.ball.pos.y, second.ball.z)
+        )
         self.assertEqual(
             [(player.pos.x, player.pos.y, player.stamina) for team in first.teams for player in team.players],
             [(player.pos.x, player.pos.y, player.stamina) for team in second.teams for player in team.players],
@@ -138,12 +140,14 @@ class MatchSeedContractTests(unittest.TestCase):
         # 観戦側とヘッドレス側で同じ固定更新数を消費させる。
         for _ in range(80):
             advance_match_fixed(game.match)
-        headless = _run_headless_league_match({
-            "fixture": fixture,
-            "home_choice": self.home_choice,
-            "away_choice": self.away_choice,
-            "max_match_steps": 80,
-        })
+        headless = _run_headless_league_match(
+            {
+                "fixture": fixture,
+                "home_choice": self.home_choice,
+                "away_choice": self.away_choice,
+                "max_match_steps": 80,
+            }
+        )
         self.assertEqual(headless["engine_steps"], 80)
         self.assertEqual(
             {key: headless[key] for key in _match_output(game.match)},
@@ -172,8 +176,13 @@ class MatchSeedContractTests(unittest.TestCase):
             matches.append(match)
             return match
 
-        job = {"fixture": {"id": "worker-seed-contract"}, "home_choice": self.home_choice,
-               "away_choice": self.away_choice, "max_match_steps": 83, "ai_rethink_multiplier": 0.75}
+        job = {
+            "fixture": {"id": "worker-seed-contract"},
+            "home_choice": self.home_choice,
+            "away_choice": self.away_choice,
+            "max_match_steps": 83,
+            "ai_rethink_multiplier": 0.75,
+        }
         with patch("scripts.league.league_simulation_workers.Match", side_effect=construct_observed_match):
             headless = _run_headless_league_match(job)
             batch = _run_synchronized_match_batch([job], SimpleNamespace(value=-1.0), SimpleQueue(), Event())

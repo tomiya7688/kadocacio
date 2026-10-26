@@ -26,6 +26,7 @@ from scripts.match.match_engine import Match
 # }
 def match_state_payload(match: Match) -> dict:
     """Capture result-relevant state without exposing mutable game objects."""
+
     # {
     #   責務: [team_payload: チーム集計と出場選手の位置・体力・行動を比較用の値へ写す]
     #   処理: [1: 集計と戦術を取り出す; 2: 出場順に各選手の比較対象値を配列化する]
@@ -41,8 +42,13 @@ def match_state_payload(match: Match) -> dict:
             "tactic": team.tactic,
             "players": [
                 [
-                    player.number, player.pos.x, player.pos.y, player.z,
-                    player.stamina, player.action_command.value, player.sent_off,
+                    player.number,
+                    player.pos.x,
+                    player.pos.y,
+                    player.z,
+                    player.stamina,
+                    player.action_command.value,
+                    player.sent_off,
                 ]
                 for player in team.players
             ],
@@ -58,8 +64,13 @@ def match_state_payload(match: Match) -> dict:
         "home": team_payload(match.home),
         "away": team_payload(match.away),
         "ball": [
-            match.ball.pos.x, match.ball.pos.y, match.ball.vel.x, match.ball.vel.y,
-            match.ball.z, match.ball.vertical_speed, owner_id,
+            match.ball.pos.x,
+            match.ball.pos.y,
+            match.ball.vel.x,
+            match.ball.vel.y,
+            match.ball.z,
+            match.ball.vertical_speed,
+            owner_id,
         ],
         "events": list(match.events),
         "event_history": [event.to_payload() for event in match.event_history()],
@@ -84,13 +95,22 @@ def match_state_payload(match: Match) -> dict:
 #   戻り値: [tuple: 観測辞書・実行ステップ数。上限到達は完走を意味しない]
 # }
 def run_headless(
-    home_choice: dict, away_choice: dict, seed: int, max_steps: int,
-    *, venue_mode: str = "HOME", ai_rethink_multiplier: float = 1.0,
+    home_choice: dict,
+    away_choice: dict,
+    seed: int,
+    max_steps: int,
+    *,
+    venue_mode: str = "HOME",
+    ai_rethink_multiplier: float = 1.0,
 ) -> tuple[dict, int]:
     # 初期選手の抽選も再現対象なので、構築後にseedを設定し直さない。
     match = Match(
-        home_choice, away_choice, venue_mode, seed=seed,
-        ai_rethink_multiplier=ai_rethink_multiplier, record_events=True,
+        home_choice,
+        away_choice,
+        venue_mode,
+        seed=seed,
+        ai_rethink_multiplier=ai_rethink_multiplier,
+        record_events=True,
     )
     match.start_new()
     result = run_headless_match(match, SimulationLimits(max_steps=max_steps))
@@ -111,8 +131,14 @@ def run_headless(
 #   戻り値: [tuple: 観測辞書・実行ステップ数・描画フレーム数。実ウィンドウ操作E2Eの証明ではない]
 # }
 def run_rendered(
-    home_choice: dict, away_choice: dict, seed: int, max_steps: int, render_every: int,
-    *, venue_mode: str = "HOME", ai_rethink_multiplier: float = 1.0,
+    home_choice: dict,
+    away_choice: dict,
+    seed: int,
+    max_steps: int,
+    render_every: int,
+    *,
+    venue_mode: str = "HOME",
+    ai_rethink_multiplier: float = 1.0,
 ) -> tuple[dict, int, int]:
     # 指定済みのSDL設定は尊重し、比較時のGPU表示は明示的に止める。
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -125,8 +151,12 @@ def run_rendered(
     game = Game(team_choices=[home_choice, away_choice])
     try:
         match = Match(
-            home_choice, away_choice, venue_mode, seed=seed,
-            ai_rethink_multiplier=ai_rethink_multiplier, record_events=True,
+            home_choice,
+            away_choice,
+            venue_mode,
+            seed=seed,
+            ai_rethink_multiplier=ai_rethink_multiplier,
+            record_events=True,
         )
         match.start_new()
         game.match = match
@@ -197,8 +227,14 @@ def _first_event_difference(headless: list[dict], rendered: list[dict]) -> dict 
 #   戻り値: [dict: 一致・完走・差分の比較結果。途中一致を完走成功に置き換えない。不正な正数条件はValueError]
 # }
 def compare_matches(
-    home_choice: dict, away_choice: dict, *, seed: int, max_steps: int, render_every: int,
-    venue_mode: str = "HOME", ai_rethink_multiplier: float = 1.0,
+    home_choice: dict,
+    away_choice: dict,
+    *,
+    seed: int,
+    max_steps: int,
+    render_every: int,
+    venue_mode: str = "HOME",
+    ai_rethink_multiplier: float = 1.0,
     include_events: bool = False,
 ) -> dict:
     if max_steps < 1 or render_every < 1:
@@ -207,7 +243,12 @@ def compare_matches(
     match_settings = {"venue_mode": venue_mode, "ai_rethink_multiplier": ai_rethink_multiplier}
     headless, headless_steps = run_headless(home_choice, away_choice, seed, max_steps, **match_settings)
     rendered, rendered_steps, frames = run_rendered(
-        home_choice, away_choice, seed, max_steps, render_every, **match_settings,
+        home_choice,
+        away_choice,
+        seed,
+        max_steps,
+        render_every,
+        **match_settings,
     )
     # 同じ状態でも消費した物理ステップが違えば不一致として報告する。
     different_fields = [key for key in headless if headless[key] != rendered[key]]

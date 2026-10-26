@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.74
+
+PR #102全体の宣言説明とPython整形を回収
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/app/game_app.py`、`main_menu_view.py`、`rendering.py`、`team_select_view.py`、`ui_theme.py`、`scripts/match/match_engine.py`
+
+  起動・入力・描画と試合の専用乱数/記録の責務・処理を説明します。演算・描画の処理内容は変更しません。
+- `tests/test_main_menu.py`、`tests/test_main_menu_view.py`、`tests/test_team_select_view.py`、`tests/test_team_tuner_optimizer.py`
+
+  検証意図を記述し、チューナーの模擬クラスを独立状態とモックへ整理します。既存の全テスト名・全検証を保持し、seedと固定更新入力の検証を追加します。
+- PR差分に含まれるPython29ファイル、`doc/クラス一覧.md`、`doc/versions.md`
+
+  固定版Ruffで対象限定の整形を行い、試験クラスと履歴を更新します。担当外のチェックアウトは変更しません。
+
+---
+
 ver 0.7.73
 
 チューナーの比較seedと候補側集計の契約を説明・検証

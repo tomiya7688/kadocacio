@@ -91,14 +91,16 @@ def _run_evaluation_job(job: dict) -> dict:
     # ホーム側へ固定せず、指定した対象側から得失点・保持率・平均スタミナを求める。
     possession_total = target.possession + opponent.possession
     metrics = telemetry.team_metrics(target)
-    metrics.update({
-        "goals_for": float(target.score),
-        "goals_against": float(opponent.score),
-        "shots_for": float(target.shots),
-        "shots_against": float(opponent.shots),
-        "possession_share": target.possession / possession_total if possession_total else 0.5,
-        "remaining_stamina": mean(player.stamina_ratio for player in target.players),
-    })
+    metrics.update(
+        {
+            "goals_for": float(target.score),
+            "goals_against": float(opponent.score),
+            "shots_for": float(target.shots),
+            "shots_against": float(opponent.shots),
+            "possession_share": target.possession / possession_total if possession_total else 0.5,
+            "remaining_stamina": mean(player.stamina_ratio for player in target.players),
+        }
+    )
     # 実測時間や目標時刻での途中停止を、完走結果へ置き換えず呼出し元へ渡す。
     return {
         "value": job["value"],
@@ -117,10 +119,20 @@ def _run_evaluation_job(job: dict) -> dict:
 
 def _aggregate(rows: list[dict]) -> dict:
     numeric_keys = (
-        "goals_for", "goals_against", "shots_for", "shots_against", "possession_share",
-        "remaining_stamina", "action_diversity", "active_ratio",
-        "average_nearest_teammate_distance", "crowded_player_ratio", "average_team_width",
-        "average_distance_to_ball", "takeaways", "turnovers",
+        "goals_for",
+        "goals_against",
+        "shots_for",
+        "shots_against",
+        "possession_share",
+        "remaining_stamina",
+        "action_diversity",
+        "active_ratio",
+        "average_nearest_teammate_distance",
+        "crowded_player_ratio",
+        "average_team_width",
+        "average_distance_to_ball",
+        "takeaways",
+        "turnovers",
     )
     aggregated = {key: mean(float(row["metrics"].get(key, 0.0)) for row in rows) for key in numeric_keys}
     aggregated["completed_matches"] = sum(bool(row["simulation"]["fulltime"]) for row in rows)
@@ -148,12 +160,17 @@ def evaluate(args: argparse.Namespace) -> tuple[dict, Path, Path]:
     for value in values:
         variant = _with_parameter(target, parameter, value)
         for index, seed in enumerate(seeds):
-            jobs.append({
-                "target": variant, "opponent": opponent, "value": value, "seed": seed,
-                "target_is_home": index % 2 == 0,
-                "wall_time_limit": None if args.wall_seconds <= 0 else args.wall_seconds,
-                "target_game_time": target_game_time,
-            })
+            jobs.append(
+                {
+                    "target": variant,
+                    "opponent": opponent,
+                    "value": value,
+                    "seed": seed,
+                    "target_is_home": index % 2 == 0,
+                    "wall_time_limit": None if args.wall_seconds <= 0 else args.wall_seconds,
+                    "target_game_time": target_game_time,
+                }
+            )
     cpu_count = os.cpu_count() or 1
     configured_limit = load_performance_settings().cpu_limit_percent
     cpu_limit_percent = normalize_cpu_limit(args.cpu_limit if args.cpu_limit is not None else configured_limit)

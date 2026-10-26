@@ -118,7 +118,12 @@ class MatchReproCheckTests(unittest.TestCase):
         with patch("scripts.tools.match_repro_check.run_headless", return_value=(left, 20)):
             with patch("scripts.tools.match_repro_check.run_rendered", return_value=(right, 20, 3)):
                 report = compare_matches(
-                    self.home, self.away, seed=1, max_steps=20, render_every=10, include_events=True,
+                    self.home,
+                    self.away,
+                    seed=1,
+                    max_steps=20,
+                    render_every=10,
+                    include_events=True,
                 )
         self.assertEqual(report["first_event_difference"]["headless"], left["event_history"][0])
         self.assertIsNone(report["first_event_difference"]["rendered"])
@@ -136,10 +141,17 @@ class MatchReproCheckTests(unittest.TestCase):
         with patch("scripts.tools.match_repro_cli.discover_team_choices", return_value=[self.home, self.away]):
             with patch("scripts.tools.match_repro_check.compare_matches", return_value=report) as compare:
                 with redirect_stdout(StringIO()):
-                    result = main([
-                        "--home", str(self.home["id"]), "--away", self.away["name"],
-                        "--allow-partial", "--max-steps", "3",
-                    ])
+                    result = main(
+                        [
+                            "--home",
+                            str(self.home["id"]),
+                            "--away",
+                            self.away["name"],
+                            "--allow-partial",
+                            "--max-steps",
+                            "3",
+                        ]
+                    )
         self.assertEqual(result, 0)
         self.assertEqual(compare.call_args.kwargs["max_steps"], 3)
 

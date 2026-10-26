@@ -22,9 +22,16 @@ class AiEvaluationJobTests(unittest.TestCase):
     # }
     def job(self, target_is_home):
         # valueは評価条件のラベルであり、この窓口で能力を書き換える値ではない。
-        return {"target": {"name": "target"}, "opponent": {"name": "opponent"},
-                "target_is_home": target_is_home, "seed": 0, "value": 2500,
-                "wall_time_limit": 10.0, "target_game_time": 0.5, "cpu_duty_cycle": 0.6}
+        return {
+            "target": {"name": "target"},
+            "opponent": {"name": "opponent"},
+            "target_is_home": target_is_home,
+            "seed": 0,
+            "value": 2500,
+            "wall_time_limit": 10.0,
+            "target_game_time": 0.5,
+            "cpu_duty_cycle": 0.6,
+        }
 
     # {
     #   責務: [test_constructor_limits_and_target_metrics: 構築seed・演算条件・対象側の集計が正しく接続されることを確認する]
@@ -36,13 +43,22 @@ class AiEvaluationJobTests(unittest.TestCase):
         # 集計値に左右差を付け、ホームの値を常に返す退行を検出する。
         for at_home, possession, share in ((True, (45, 15), 0.75), (False, (45, 15), 0.25), (True, (0, 0), 0.5)):
             with self.subTest(at_home=at_home, possession=possession):
-                home = SimpleNamespace(score=2, shots=7, possession=possession[0],
-                                       players=[SimpleNamespace(stamina_ratio=0.8), SimpleNamespace(stamina_ratio=0.6)])
-                away = SimpleNamespace(score=1, shots=3, possession=possession[1],
-                                       players=[SimpleNamespace(stamina_ratio=0.3), SimpleNamespace(stamina_ratio=0.1)])
+                home = SimpleNamespace(
+                    score=2,
+                    shots=7,
+                    possession=possession[0],
+                    players=[SimpleNamespace(stamina_ratio=0.8), SimpleNamespace(stamina_ratio=0.6)],
+                )
+                away = SimpleNamespace(
+                    score=1,
+                    shots=3,
+                    possession=possession[1],
+                    players=[SimpleNamespace(stamina_ratio=0.3), SimpleNamespace(stamina_ratio=0.1)],
+                )
                 match = SimpleNamespace(home=home, away=away, state="READY")
-                result = SimpleNamespace(reason="target_game_time", steps=1, elapsed_seconds=0.25,
-                                         game_time=0.5, fulltime=False)
+                result = SimpleNamespace(
+                    reason="target_game_time", steps=1, elapsed_seconds=0.25, game_time=0.5, fulltime=False
+                )
                 job = self.job(at_home)
                 with (
                     patch("scripts.tools.ai_evaluator.Match", return_value=match) as construct,
@@ -56,9 +72,16 @@ class AiEvaluationJobTests(unittest.TestCase):
                 observe.assert_called_once_with(match)
                 target, opponent = (home, away) if at_home else (away, home)
                 observe.return_value.team_metrics.assert_called_once_with(target)
-                run.assert_called_once_with(match, SimulationLimits(
-                    wall_time_limit=10.0, target_game_time=0.5, sample_every_steps=18, cpu_duty_cycle=0.6,
-                ), observe.return_value)
+                run.assert_called_once_with(
+                    match,
+                    SimulationLimits(
+                        wall_time_limit=10.0,
+                        target_game_time=0.5,
+                        sample_every_steps=18,
+                        cpu_duty_cycle=0.6,
+                    ),
+                    observe.return_value,
+                )
                 self.assertEqual(match.state, "PLAYING")
                 self.assertEqual((row["seed"], row["value"], row["target_is_home"]), (0, 2500, at_home))
                 self.assertEqual(row["simulation"], vars(result))

@@ -38,7 +38,12 @@ def write_new_json(path: Path, payload: object) -> None:
 # }
 def write_reproduction_report(path: Path, record: dict, report: dict) -> None:
     # 入力と報告の形式を混同せず、inputだけを取り出して再実行できる形にする。
-    write_new_json(path, {
-        "format": "kadocalcio.match-repro-report", "version": 1,
-        "input": record, "comparison": report,
-    })
+    write_new_json(
+        path,
+        {
+            "format": "kadocalcio.match-repro-report",
+            "version": 1,
+            "input": record,
+            "comparison": report,
+        },
+    )

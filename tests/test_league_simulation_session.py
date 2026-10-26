@@ -77,10 +77,14 @@ class _FakeMatch:
         if self.state != "FULLTIME":
             raise RuntimeError("not finished")
         return MatchResult(
-            self.home.score, self.away.score,
-            self.home.shots, self.away.shots,
-            self.home.possession, self.away.possession,
-            tuple(self.goal_scorers), self.game_time,
+            self.home.score,
+            self.away.score,
+            self.home.shots,
+            self.away.shots,
+            self.home.possession,
+            self.away.possession,
+            tuple(self.goal_scorers),
+            self.game_time,
         )
 
 
@@ -104,14 +108,21 @@ class LeagueSimulationSessionTests(unittest.TestCase):
     # }
     def test_both_workers_pass_each_fixture_seed_to_constructor(self) -> None:
         # 名前が同じ対戦でも、fixture IDごとのseedを各構築へ渡す必要がある。
-        jobs = [{"fixture": {"id": fixture_id}, "home_choice": {"name": "home"},
-                 "away_choice": {"name": "away"}, "max_match_steps": 3}
-                for fixture_id in ("fixture-second", "fixture-first")]
+        jobs = [
+            {
+                "fixture": {"id": fixture_id},
+                "home_choice": {"name": "home"},
+                "away_choice": {"name": "away"},
+                "max_match_steps": 3,
+            }
+            for fixture_id in ("fixture-second", "fixture-first")
+        ]
         for mode in ("headless", "synchronized"):
             with self.subTest(mode=mode):
                 with patch("scripts.league.league_simulation_workers.Match", side_effect=_FakeMatch) as construct:
-                    with patch("scripts.league.league_simulation_workers.advance_match_fixed",
-                               side_effect=_advance_fake_match):
+                    with patch(
+                        "scripts.league.league_simulation_workers.advance_match_fixed", side_effect=_advance_fake_match
+                    ):
                         if mode == "headless":
                             results = [_run_headless_league_match(job) for job in jobs]
                         else:
@@ -153,10 +164,13 @@ class LeagueSimulationSessionTests(unittest.TestCase):
             }
             for index in range(batch_size)
         ]
-        with patch("scripts.league.league_simulation_workers.Match", _FakeMatch), patch(
-            "scripts.league.league_simulation_workers.advance_match_fixed",
-            side_effect=_advance_fake_match,
-        ) as advance:
+        with (
+            patch("scripts.league.league_simulation_workers.Match", _FakeMatch),
+            patch(
+                "scripts.league.league_simulation_workers.advance_match_fixed",
+                side_effect=_advance_fake_match,
+            ) as advance,
+        ):
             results = _run_synchronized_match_batch(
                 jobs,
                 _SharedValue(-1.0),

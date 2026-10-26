@@ -7,8 +7,19 @@ import pygame
 from scripts.app.game_app import Game
 
 
+# {
+#   責務: [MainMenuTests: 起動メニューのクリック・キー入力・設定モーダルの遷移契約を検査する]
+#   フィールド: []
+# }
 class MainMenuTests(unittest.TestCase):
+    # {
+    #   責務: [_game: 永続化や実ウィンドウを起動しない入力用アプリを組み立てる]
+    #   処理: [1: 必須の画面状態を用意する; 2: 遷移処理を記録用関数へ置き換える]
+    #   引数: [action: クリック対象の操作ID]
+    #   戻り値: [Game: 単一の模擬ボタンを持つ試験専用状態]
+    # }
     def _game(self, action: str) -> Game:
+        # Game.__init__によるデータ読込・SDLウィンドウ作成を避ける。
         game = Game.__new__(Game)
         game.match = SimpleNamespace(state="MAIN_MENU")
         game.main_menu_buttons = [(pygame.Rect(10, 10, 100, 40), action)]
@@ -22,7 +33,14 @@ class MainMenuTests(unittest.TestCase):
         game.open_league_screen = lambda: setattr(game, "route", "league_start")
         return game
 
+    # {
+    #   責務: [test_four_main_menu_routes_are_distinct: 編集・リーグ開始・試合準備の4遷移を区別する]
+    #   処理: [1: 各カードをクリックする; 2: 呼出し先またはTEAM_SELECT遷移を照合する]
+    #   引数: []
+    #   戻り値: [None: 別カードへの誤遷移は試験失敗]
+    # }
     def test_four_main_menu_routes_are_distinct(self) -> None:
+        # ファイル操作の代わりに、記録した遷移先を比較する。
         for action in ("team_editor", "league_editor", "league_start"):
             with self.subTest(action=action):
                 game = self._game(action)
@@ -33,7 +51,14 @@ class MainMenuTests(unittest.TestCase):
         match_game.handle_click((20, 20))
         self.assertEqual(match_game.match.state, "TEAM_SELECT")
 
+    # {
+    #   責務: [test_topmost_league_button_receives_click_when_controls_overlap: 重なったリーグ操作で最前面を選ぶことを確認する]
+    #   処理: [1: 同一矩形へ2操作を重ねる; 2: 後から描いた操作だけが呼ばれることを照合する]
+    #   引数: []
+    #   戻り値: [None: 背面ボタンが選ばれると試験失敗]
+    # }
     def test_topmost_league_button_receives_click_when_controls_overlap(self) -> None:
+        # 通常メニューよりリーグ画面を優先する条件も通す。
         game = self._game("match_test")
         game.league_screen_open = True
         shared = pygame.Rect(10, 10, 100, 40)
@@ -44,7 +69,14 @@ class MainMenuTests(unittest.TestCase):
 
         self.assertEqual(game.clicked_action, "back")
 
+    # {
+    #   責務: [test_legacy_title_routes_match_visible_cards_and_ignore_background: 旧TITLEでも描画カードだけが反応することを確認する]
+    #   処理: [1: 各操作の旧画面状態を作る; 2: 背景クリックとカードクリックを分けて照合する]
+    #   引数: []
+    #   戻り値: [None: 背景反応や旧状態での誤遷移は試験失敗]
+    # }
     def test_legacy_title_routes_match_visible_cards_and_ignore_background(self) -> None:
+        # TITLE互換を残しつつ、全画面を開始ボタンにしない。
         for action in ("team_editor", "league_editor", "league_start", "match_test"):
             with self.subTest(action=action):
                 game = self._game(action)
@@ -57,10 +89,21 @@ class MainMenuTests(unittest.TestCase):
                 else:
                     self.assertEqual(game.route, action)
 
+    # {
+    #   責務: [test_numeric_shortcuts_keep_existing_routes_on_both_menu_states: 両起動状態で1〜4キーの既存割当を確認する]
+    #   処理: [1: 画面状態と数字キーの組合せを実行する; 2: 操作先を照合する]
+    #   引数: []
+    #   戻り値: [None: 見た目順との混同によるショートカット変更は試験失敗]
+    # }
     def test_numeric_shortcuts_keep_existing_routes_on_both_menu_states(self) -> None:
+        # カード配置とは異なる既存の数字順を保つ。
         for state in ("MAIN_MENU", "TITLE"):
-            for key, action in ((pygame.K_1, "team_editor"), (pygame.K_2, "league_editor"),
-                                (pygame.K_3, "league_start"), (pygame.K_4, "match_test")):
+            for key, action in (
+                (pygame.K_1, "team_editor"),
+                (pygame.K_2, "league_editor"),
+                (pygame.K_3, "league_start"),
+                (pygame.K_4, "match_test"),
+            ):
                 with self.subTest(state=state, action=action):
                     game = self._game(action)
                     game.match.state = state
@@ -70,11 +113,17 @@ class MainMenuTests(unittest.TestCase):
                     else:
                         self.assertEqual(game.route, action)
 
+    # {
+    #   責務: [test_keyboard_focus_follows_visual_grid: 矢印・Tabの焦点移動と確定先を確認する]
+    #   処理: [1: 2列の矢印移動を照合する; 2: Shift有無のTab循環とEnter遷移を照合する]
+    #   引数: []
+    #   戻り値: [None: 焦点・循環・確定先が表示とずれると試験失敗]
+    # }
     def test_keyboard_focus_follows_visual_grid(self) -> None:
+        # キー状態はパッチで固定し、実キーボードに依存しない。
         game = self._game("league_start")
         game.main_menu_focus = 0
-        for key, expected in ((pygame.K_RIGHT, 1), (pygame.K_DOWN, 3),
-                              (pygame.K_LEFT, 2), (pygame.K_UP, 0)):
+        for key, expected in ((pygame.K_RIGHT, 1), (pygame.K_DOWN, 3), (pygame.K_LEFT, 2), (pygame.K_UP, 0)):
             game.handle_key(key)
             self.assertEqual(game.main_menu_focus, expected)
         with patch("pygame.key.get_mods", return_value=pygame.KMOD_SHIFT):
@@ -86,7 +135,14 @@ class MainMenuTests(unittest.TestCase):
         game.handle_key(pygame.K_RETURN)
         self.assertEqual(game.route, "league_start")
 
+    # {
+    #   責務: [test_settings_modal_blocks_menu_keys_at_handler_boundary: 設定表示中に背面メニューが動かないことを確認する]
+    #   処理: [1: モーダル表示中にメニューキーを送る; 2: 遷移・焦点の非変更とEscによる閉鎖を照合する]
+    #   引数: []
+    #   戻り値: [None: 背面入力の透過やEsc閉鎖の欠落は試験失敗]
+    # }
     def test_settings_modal_blocks_menu_keys_at_handler_boundary(self) -> None:
+        # 入力入口で遮断し、個別カードの分岐に依存させない。
         game = self._game("team_editor")
         game.settings_open = True
         for key in (pygame.K_1, pygame.K_RETURN, pygame.K_RIGHT, pygame.K_TAB):

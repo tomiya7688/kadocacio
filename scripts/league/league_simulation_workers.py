@@ -53,10 +53,14 @@ def _run_headless_league_match(job: dict) -> dict:
     # 初期選手値の抽選も対象なので、構築後のrng.seed()ではなくseed引数を使う。
     fixture = job["fixture"]
     seed = league_fixture_seed(
-        fixture.get("id"), job["home_choice"].get("name"), job["away_choice"].get("name"),
+        fixture.get("id"),
+        job["home_choice"].get("name"),
+        job["away_choice"].get("name"),
     )
     match = Match(
-        job["home_choice"], job["away_choice"], "HOME",
+        job["home_choice"],
+        job["away_choice"],
+        "HOME",
         ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
         seed=seed,
     )
@@ -81,23 +85,28 @@ def _run_headless_league_match(job: dict) -> dict:
                 telemetry.sample()
         cpu_limiter.throttle()
         if progress_queue is not None and match.game_time >= next_report:
-            progress_queue.put({
+            progress_queue.put(
+                {
+                    "fixture_id": fixture["id"],
+                    "minute": min(90, int(match.game_time // 60)),
+                    "home_score": match.home.score,
+                    "away_score": match.away.score,
+                    "state": match.state,
+                }
+            )
+            next_report += 60.0
+    # 上限終了の調査にも使えるよう、最終通知と結果へ実際の状態を残す。
+    if progress_queue is not None:
+        progress_queue.put(
+            {
                 "fixture_id": fixture["id"],
+                "game_time": min(5400.0, match.game_time),
                 "minute": min(90, int(match.game_time // 60)),
                 "home_score": match.home.score,
                 "away_score": match.away.score,
                 "state": match.state,
-            })
-            next_report += 60.0
-    # 上限終了の調査にも使えるよう、最終通知と結果へ実際の状態を残す。
-    if progress_queue is not None:
-        progress_queue.put({
-            "fixture_id": fixture["id"],
-            "game_time": min(5400.0, match.game_time),
-            "minute": min(90, int(match.game_time // 60)),
-            "home_score": match.home.score, "away_score": match.away.score,
-            "state": match.state,
-        })
+            }
+        )
     result = {
         "fixture_id": fixture["id"],
         **_match_output(match),
@@ -144,27 +153,32 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
     for job in jobs:
         fixture = job["fixture"]
         seed = league_fixture_seed(
-            fixture.get("id"), job["home_choice"].get("name"), job["away_choice"].get("name"),
+            fixture.get("id"),
+            job["home_choice"].get("name"),
+            job["away_choice"].get("name"),
         )
         match = Match(
-            job["home_choice"], job["away_choice"], "HOME",
+            job["home_choice"],
+            job["away_choice"],
+            "HOME",
             ai_rethink_multiplier=float(job.get("ai_rethink_multiplier", 1.0)),
             seed=seed,
         )
         match.start_new()
-        contexts.append({
-            "fixture": fixture,
-            "match": match,
-            "steps": 0,
-            "maximum_steps": max(1, int(job.get("max_match_steps", MAX_FULL_MATCH_STEPS))),
-            "next_report": 0.0,
-            "simulation_mode": str(job.get("simulation_mode", "PRECISE")),
-        })
+        contexts.append(
+            {
+                "fixture": fixture,
+                "match": match,
+                "steps": 0,
+                "maximum_steps": max(1, int(job.get("max_match_steps", MAX_FULL_MATCH_STEPS))),
+                "next_report": 0.0,
+                "simulation_mode": str(job.get("simulation_mode", "PRECISE")),
+            }
+        )
 
     # 比較するのは試合時計でなく演算経過で、再開準備による時計停止を各試合へ閉じる。
     while not cancel_event.is_set() and any(
-        context["match"].state != "FULLTIME" and context["steps"] < context["maximum_steps"]
-        for context in contexts
+        context["match"].state != "FULLTIME" and context["steps"] < context["maximum_steps"] for context in contexts
     ):
         requested_elapsed = float(sync_clock.value)
         finish_without_pacing = requested_elapsed < 0.0
@@ -180,11 +194,7 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
             # Larger chunks improve cache locality and avoid repeatedly reading
             # the manager-backed clock for every twenty fixed physics steps.
             # The Match engine still receives the exact same 0.05 second steps.
-            step_budget = (
-                SYNCED_FAST_FINISH_STEP_BUDGET
-                if finish_without_pacing
-                else SYNCED_LIVE_STEP_BUDGET
-            )
+            step_budget = SYNCED_FAST_FINISH_STEP_BUDGET if finish_without_pacing else SYNCED_LIVE_STEP_BUDGET
             while (
                 match.simulation_elapsed + 0.001 < target_elapsed
                 and step_budget > 0
@@ -197,22 +207,20 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
                 progressed = True
                 cpu_limiter.throttle()
             if match.game_time >= context["next_report"] or match.state == "FULLTIME":
-                progress_queue.put({
-                    "fixture_id": context["fixture"]["id"],
-                    "game_time": min(5400.0, match.game_time),
-                    "minute": min(90, int(match.game_time // 60)),
-                    "home_score": match.home.score,
-                    "away_score": match.away.score,
-                    "state": match.state,
-                })
+                progress_queue.put(
+                    {
+                        "fixture_id": context["fixture"]["id"],
+                        "game_time": min(5400.0, match.game_time),
+                        "minute": min(90, int(match.game_time // 60)),
+                        "home_score": match.home.score,
+                        "away_score": match.away.score,
+                        "state": match.state,
+                    }
+                )
                 # Sending two Manager queue messages per real-time second is
                 # useful during a watched game, but it can flood the IPC queue
                 # when dozens of lagging games are released to full speed.
-                report_interval = (
-                    SYNCED_FAST_FINISH_REPORT_INTERVAL
-                    if finish_without_pacing
-                    else SYNCED_LIVE_REPORT_INTERVAL
-                )
+                report_interval = SYNCED_FAST_FINISH_REPORT_INTERVAL if finish_without_pacing else SYNCED_LIVE_REPORT_INTERVAL
                 context["next_report"] = match.game_time + report_interval
         if not progressed:
             # 共有目標に追いついた時だけ短く待ち、進められない状態でCPUを占有しない。
@@ -225,23 +233,29 @@ def _run_synchronized_match_batch(jobs: list[dict], sync_clock, progress_queue, 
     for context in contexts:
         fixture = context["fixture"]
         match = context["match"]
-        progress_queue.put({
-            "fixture_id": fixture["id"],
-            "game_time": min(5400.0, match.game_time),
-            "minute": min(90, int(match.game_time // 60)),
-            "home_score": match.home.score,
-            "away_score": match.away.score,
-            "state": match.state,
-        })
-        results.append({
-            "fixture_id": fixture["id"], **_match_output(match), "engine_steps": context["steps"],
-            "simulation_mode": str(context.get("simulation_mode", "PRECISE")),
-            "fulltime": match.state == "FULLTIME",
-            "finish_reason": "fulltime" if match.state == "FULLTIME" else "step_limit",
-            "simulation_elapsed": match.simulation_elapsed,
-            "restart_type": str(getattr(match, "restart_type", "")),
-            "restart_elapsed": float(getattr(match, "restart_elapsed", 0.0)),
-        })
+        progress_queue.put(
+            {
+                "fixture_id": fixture["id"],
+                "game_time": min(5400.0, match.game_time),
+                "minute": min(90, int(match.game_time // 60)),
+                "home_score": match.home.score,
+                "away_score": match.away.score,
+                "state": match.state,
+            }
+        )
+        results.append(
+            {
+                "fixture_id": fixture["id"],
+                **_match_output(match),
+                "engine_steps": context["steps"],
+                "simulation_mode": str(context.get("simulation_mode", "PRECISE")),
+                "fulltime": match.state == "FULLTIME",
+                "finish_reason": "fulltime" if match.state == "FULLTIME" else "step_limit",
+                "simulation_elapsed": match.simulation_elapsed,
+                "restart_type": str(getattr(match, "restart_type", "")),
+                "restart_elapsed": float(getattr(match, "restart_elapsed", 0.0)),
+            }
+        )
     return results
 
 

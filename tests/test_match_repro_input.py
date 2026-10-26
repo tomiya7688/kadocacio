@@ -45,8 +45,12 @@ class MatchReproInputTests(unittest.TestCase):
     def record(self):
         # 共有チームを直接変更せず、毎回新しい記録を返す。
         return create_input_record(
-            self.home, self.away, seed=29, max_steps=45,
-            venue_mode="AWAY", ai_rethink_multiplier=0.75,
+            self.home,
+            self.away,
+            seed=29,
+            max_steps=45,
+            venue_mode="AWAY",
+            ai_rethink_multiplier=0.75,
         )
 
     # {
@@ -87,10 +91,24 @@ class MatchReproInputTests(unittest.TestCase):
             path = Path(folder) / "試合条件.json"
             output = StringIO()
             with redirect_stdout(output):
-                self.assertEqual(main([
-                    "--save-input", str(path), "--max-steps", "25", "--seed", "0",
-                    "--venue", "AWAY", "--ai-rethink-multiplier", "0.75", "--allow-partial",
-                ]), 0)
+                self.assertEqual(
+                    main(
+                        [
+                            "--save-input",
+                            str(path),
+                            "--max-steps",
+                            "25",
+                            "--seed",
+                            "0",
+                            "--venue",
+                            "AWAY",
+                            "--ai-rethink-multiplier",
+                            "0.75",
+                            "--allow-partial",
+                        ]
+                    ),
+                    0,
+                )
             first_report = json.loads(output.getvalue())
             output = StringIO()
             # 読込時に現在のteamsへ戻る退行を、探索呼出しそのもので検出する。
@@ -161,9 +179,15 @@ class MatchReproInputTests(unittest.TestCase):
     # }
     def test_rejects_incompatible_envelope(self):
         # boolの版番号や将来の操作列を、既知のv1として読み飛ばさせない。
-        for record in (None, {}, {**self.record(), "version": 2}, {**self.record(), "version": True},
-                       {**self.record(), "commands": [{"step": 0, "command": "unknown"}]},
-                       {**self.record(), "teams": []}, {**self.record(), "settings": []}):
+        for record in (
+            None,
+            {},
+            {**self.record(), "version": 2},
+            {**self.record(), "version": True},
+            {**self.record(), "commands": [{"step": 0, "command": "unknown"}]},
+            {**self.record(), "teams": []},
+            {**self.record(), "settings": []},
+        ):
             with self.subTest(record=record), self.assertRaises(ValueError):
                 restore_input_record(record)
 
@@ -176,13 +200,21 @@ class MatchReproInputTests(unittest.TestCase):
     def test_rejects_invalid_settings(self):
         # 巨大整数も通常の不正入力であり、float変換の内部例外へ漏らさない。
         invalid = (
-            ("seed", True), ("seed", "1"), ("max_steps", 0), ("max_steps", 1.5),
-            ("fixed_physics_dt", 0.1), ("venue_mode", "unknown"),
-            ("ai_rethink_multiplier", None), ("ai_rethink_multiplier", True),
-            ("ai_rethink_multiplier", float("nan")), ("ai_rethink_multiplier", 0.4),
+            ("seed", True),
+            ("seed", "1"),
+            ("max_steps", 0),
+            ("max_steps", 1.5),
+            ("fixed_physics_dt", 0.1),
+            ("venue_mode", "unknown"),
+            ("ai_rethink_multiplier", None),
+            ("ai_rethink_multiplier", True),
+            ("ai_rethink_multiplier", float("nan")),
+            ("ai_rethink_multiplier", 0.4),
             ("ai_rethink_multiplier", 3.1),
-            ("ai_rethink_multiplier", 10**400), ("ai_rethink_multiplier", -(10**400)),
-            ("ai_rethink_multiplier", float("inf")), ("ai_rethink_multiplier", -float("inf")),
+            ("ai_rethink_multiplier", 10**400),
+            ("ai_rethink_multiplier", -(10**400)),
+            ("ai_rethink_multiplier", float("inf")),
+            ("ai_rethink_multiplier", -float("inf")),
         )
         for key, value in invalid:
             record = self.record()
@@ -203,8 +235,15 @@ class MatchReproInputTests(unittest.TestCase):
             record["teams"][side] = None
             with self.subTest(side=side), self.assertRaises(ValueError):
                 restore_input_record(record)
-        for key, value in (("id", ""), ("name", 1), ("short", None), ("starters", []),
-                           ("primary", [1, 2]), ("secondary", "blue"), ("primary", [0, -1, 256])):
+        for key, value in (
+            ("id", ""),
+            ("name", 1),
+            ("short", None),
+            ("starters", []),
+            ("primary", [1, 2]),
+            ("secondary", "blue"),
+            ("primary", [0, -1, 256]),
+        ):
             record = self.record()
             record["teams"]["home"][key] = value
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):

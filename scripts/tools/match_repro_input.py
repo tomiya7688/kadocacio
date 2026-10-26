@@ -20,13 +20,19 @@ INPUT_VERSION = 1
 def create_input_record(home: dict, away: dict, **settings) -> dict:
     """Detach normalized inputs without rounding player or manager values."""
     # 小数を丸めずに保存し、tuple等はJSONで扱える配列へ揃える。
-    record = json.loads(json.dumps({
-        "format": INPUT_FORMAT,
-        "version": INPUT_VERSION,
-        "settings": {"fixed_physics_dt": FIXED_PHYSICS_DT, **settings},
-        "teams": {"home": home, "away": away},
-        "commands": [],
-    }, ensure_ascii=False, allow_nan=False))
+    record = json.loads(
+        json.dumps(
+            {
+                "format": INPUT_FORMAT,
+                "version": INPUT_VERSION,
+                "settings": {"fixed_physics_dt": FIXED_PHYSICS_DT, **settings},
+                "teams": {"home": home, "away": away},
+                "commands": [],
+            },
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    )
     # 記録できても再実行できない条件を返さないよう、公開復元経路で検証する。
     restore_input_record(record)
     return record
@@ -112,6 +118,16 @@ def restore_input_record(record: object) -> tuple[dict, dict, dict]:
     away = _restore_team(teams.get("away"), "away")
     # 固定ステップや未知の追加キーをMatchの任意キーワードへ流さない。
     settings = copy["settings"]
-    return home, away, {key: settings[key] for key in (
-        "seed", "max_steps", "venue_mode", "ai_rethink_multiplier",
-    )}
+    return (
+        home,
+        away,
+        {
+            key: settings[key]
+            for key in (
+                "seed",
+                "max_steps",
+                "venue_mode",
+                "ai_rethink_multiplier",
+            )
+        },
+    )

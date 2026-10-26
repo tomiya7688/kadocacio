@@ -72,7 +72,8 @@ def resolve_input(args: argparse.Namespace) -> object:
     home = choose_team(choices, args.home, 0)
     away = choose_team(choices, args.away, 1)
     return create_input_record(
-        home, away,
+        home,
+        away,
         seed=12345 if args.seed is None else args.seed,
         max_steps=MAX_FULL_MATCH_STEPS if args.max_steps is None else args.max_steps,
         venue_mode=args.venue or "HOME",
@@ -138,7 +139,11 @@ class MatchReproductionCli:
         if args.save_input:
             write_new_json(args.save_input, record)
         report = self._compare(
-            home, away, render_every=args.render_every, include_events=args.save_report is not None, **settings,
+            home,
+            away,
+            render_every=args.render_every,
+            include_events=args.save_report is not None,
+            **settings,
         )
         # 不一致や未完走も調査できるよう、終了判定より前に結果保存を依頼する。
         if args.save_report:
