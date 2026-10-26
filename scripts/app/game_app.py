@@ -187,7 +187,7 @@ class Game(RendererMixin):
         self.other_matches_close_button = pygame.Rect(0, 0, 0, 0)
         self.other_matches_scroll_track = pygame.Rect(0, 0, 0, 0)
         self.other_matches_scroll_thumb = pygame.Rect(0, 0, 0, 0)
-        # 既定の対戦候補を選び、試合はメニュー表示用の未開始状態へ置く。
+        # 既定の対戦候補の選択番号を決める。
         self.home_choice_index = next(
             (index for index, choice in enumerate(self.team_choices) if "夕張kadoka" in choice["name"]),
             0,
@@ -582,7 +582,7 @@ class Game(RendererMixin):
         self.active_league_fixture_id = str(fixture["id"])
         self.league_match_finalized = False
         self.league_screen_open = False
-        # 裏試合と同じ式を構築前から使い、初期選手の抽選も再現する。
+        # 裏試合と同じseed式をMatch構築時に渡し、初期選手の抽選も同条件にする。
         self.match = Match(
             home_choice,
             away_choice,
@@ -1466,7 +1466,7 @@ class Game(RendererMixin):
         if key == pygame.K_F11:
             self.toggle_fullscreen()
             return
-        # 専用画面が入力を引き取った後は、試合の操作へ落とさない。
+        # 以下の専用画面は入力を受け付けたら戻り、試合の操作へ進ませない。
         if self.league_screen_open:
             if key == pygame.K_ESCAPE:
                 if self.league_save_select_open:
@@ -1595,7 +1595,7 @@ class Game(RendererMixin):
                     )
                     self.league_schedule_scroll = round(max(0, min(travel, thumb_center)) / travel * maximum)
             return
-        # 共通設定と起動カードは、専用の前面画面がない時だけ受け付ける。
+        # 前面の専用画面がなければ、共通設定ボタンを判定する。
         if self.settings_button.collidepoint(pos):
             self.open_settings()
             return

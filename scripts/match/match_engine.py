@@ -207,7 +207,7 @@ def offside_position_active(
 
 # {
 #   責務: [Match: 一試合の専用乱数・選手/ボール状態・固定更新のルールと再開を管理する]
-#   フィールド: [seed・rng: 構築前から使う試合専用の乱数条件; home・away・teams・ball: 試合内の可変状態;
+#   フィールド: [seed: 乱数の再現条件; rng: チーム生成前に用意する試合専用乱数器; home・away・teams・ball: 試合内の可変状態;
 #     state・game_time・simulation_elapsed: 進行状態・プレー時計・再開準備を含む演算時計;
 #     restart_*・pending_kick・各cooldown: 再開と予約行動の状態; events: 最新8件の表示ログ;
 #     _event_history: 有効時だけ保持する全ログ; 各counts・goal_scorers: 試合内の集計]
@@ -384,7 +384,7 @@ class Match:
         )
 
     # {
-    #   責務: [start_new: 現在の両チームで試合内状態と集計を開始状態へ戻す]
+    #   責務: [start_new: 現在の両チームで試合の進行状態と集計をリセットする]
     #   処理: [1: 得点・両時計・ログ・各集計を初期化する; 2: 選手と監督の試合状態を戻す; 3: キックオフを記録し配置する]
     #   引数: []
     #   戻り値: [None: PLAYINGへ入り、試合内状態を更新する。rngは再seedしないため再現比較には新しいMatchを構築する]

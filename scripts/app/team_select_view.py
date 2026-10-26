@@ -55,7 +55,7 @@ class TeamSelectView:
         game.text("VS", 23, MUTED, (WIDTH // 2, 320), center=True, bold=True)
         if home["id"] == away["id"]:
             game.text("同チーム対戦：AWAY側は青ユニフォーム", 14, ACCENT, (48, 516))
-        # 同チームの注意を含め、対戦条件と遷移操作を表示する。
+        # 会場・開始操作とフッターを描く。
         self._venue_controls(game, home, away)
         self._footer(game)
 
@@ -89,12 +89,12 @@ class TeamSelectView:
 
     # {
     #   責務: [draw_card: 一方のチーム情報と切替操作をカード内へ配置する]
-    #   処理: [1: 色と名前・監督を描く; 2: 編成プレビューと詳細を委譲する; 3: 前後切替とキー案内を登録する]
+    #   処理: [1: 色と名前・監督を描く; 2: 編成プレビューと詳細を委譲する; 3: 前後切替ボタンを登録し、キー案内を描く]
     #   引数: [game: アプリ; rect: カード領域; choice: 読込済みチーム; side: home/awayの操作ID接頭辞; index: 選択番号]
     #   戻り値: [None: screenとteam_select_buttonsを更新する。choiceは変更しない]
     # }
     def draw_card(self, game: Game, rect: pygame.Rect, choice: dict, side: str, index: int) -> None:
-        # 強調色以外の表示文字は、カード幅を超えないよう省略する。
+        # カードの背景・枠線・チーム色を描く。
         pygame.draw.rect(game.screen, SURFACE, rect, border_radius=14)
         pygame.draw.rect(game.screen, BORDER, rect, 1, border_radius=14)
         pygame.draw.rect(game.screen, choice["primary"], (rect.x + 24, rect.y + 22, 6, 18), border_radius=3)
@@ -119,12 +119,12 @@ class TeamSelectView:
 
     # {
     #   責務: [_details: 選手数・戦術・監督能力・ホーム会場を表示する]
-    #   処理: [1: 編成と戦術を描く; 2: 監督がいれば能力値を編集スケールへ戻す; 3: 会場を表示する]
+    #   処理: [1: 編成と戦術を描く; 2: 監督がいれば能力値を編集用スケールへ戻す; 3: 会場を表示する]
     #   引数: [game: 描画機能; choice: 正規化済みのチーム情報; rect: カード領域]
     #   戻り値: [None: screenへ描画する。監督不在時は能力欄をダッシュで示す]
     # }
     def _details(self, game: Game, choice: dict, rect: pygame.Rect) -> None:
-        # 忠実さは0..100表示、監督能力は能力スケールの正本で逆変換する。
+        # tactical_discipline（戦術への忠実さ）は0..100、監督能力は編集用スケールで表示する。
         x, y, width = rect.x + 244, rect.y + 124, 280
         discipline = round(choice.get("tactical_discipline", 0.5) * 100)
         self._label(

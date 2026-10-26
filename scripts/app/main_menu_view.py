@@ -43,9 +43,10 @@ class MainMenuView:
     #   戻り値: [None: screen・main_menu_buttons・設定ボタン領域を更新する。画面遷移や保存はしない]
     # }
     def draw(self, game: Game) -> None:
-        # 画面ごとの当たり判定を表示と同時に作り直す。
+        # 起動メニューの背景と見出しを描く。
         game.screen.fill(BACKGROUND)
         self._header(game)
+        # 入力領域をこのフレームの表示配置へ揃える。
         game.main_menu_buttons = self.buttons()
         mouse = game.logical_mouse_pos()
         focus = getattr(game, "main_menu_focus", 0)
@@ -81,7 +82,7 @@ class MainMenuView:
     # }
     @staticmethod
     def _header(game: Game) -> None:
-        # 窓サイズではなく固定の論理幅へ揃える。
+        # 固定の論理画面座標へタイトルと見出しを配置する。
         pygame.draw.rect(game.screen, ACCENT, (48, 38, 6, 62), border_radius=3)
         game.text("KADOCALCIO", 14, ACCENT, (72, 34), bold=True)
         game.text("カドカルチョ", 38, TEXT, (70, 57), bold=True)
