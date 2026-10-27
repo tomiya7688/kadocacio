@@ -275,6 +275,35 @@ class PythonFormatterTests(unittest.TestCase):
         self.assertEqual(source, original)
 
     # {
+    #   責務: [test_ci_jobs_install_shared_development_requirements: Python試験を実行するCIの開発依存導入を確認する]
+    #   処理: [1: 管理対象の3ワークフローを読む; 2: 共通の開発依存ファイルを導入する行を照合する]
+    #   引数: []
+    #   戻り値: [None: Ruff等の試験依存の導入漏れは試験失敗。ネットワーク接続やインストールは行わない]
+    # }
+    def test_ci_jobs_install_shared_development_requirements(self):
+        # 管理下のinstall記法を固定し、実行環境に偶然Ruffがある場合も導入漏れを検出する。
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        for name in ("python-app.yml", "windows-smoke.yml", "branch-coverage.yml"):
+            with self.subTest(workflow=name):
+                source = (workflows / name).read_text(encoding="utf-8")
+                self.assertIn("python -m pip install -r requirements-dev.txt", source)
+
+    # {
+    #   責務: [test_formatter_inputs_trigger_filtered_test_jobs: 整形設定と開発依存の変更で対象CIが起動することを確認する]
+    #   処理: [1: パス制限付きの2ワークフローを読む; 2: pushとPRの両方に各入力が登録されているか照合する]
+    #   引数: []
+    #   戻り値: [None: formatter入力だけの変更で試験が省略される設定は試験失敗]
+    # }
+    def test_formatter_inputs_trigger_filtered_test_jobs(self):
+        # フィルターを持たない通常CIは対象外とし、既存のpush/PR両設定を検査する。
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        for name in ("windows-smoke.yml", "branch-coverage.yml"):
+            with self.subTest(workflow=name):
+                source = (workflows / name).read_text(encoding="utf-8")
+                self.assertEqual(source.count('      - "requirements-dev.txt"'), 2)
+                self.assertEqual(source.count('      - "ruff.toml"'), 2)
+
+    # {
     #   責務: [test_windows_git_layouts_find_bundled_bash: 標準・mingw64配置とusr/binの実在確認を検査する]
     #   処理: [1: 模擬配置を作る; 2: 3種類のGit位置から同梱Bashを照合する; 3: 不在を説明付きで拒否する]
     #   引数: []
@@ -283,7 +312,8 @@ class PythonFormatterTests(unittest.TestCase):
     def test_windows_git_layouts_find_bundled_bash(self):
         # Windows以外でも配置解決だけを試験できるよう、通常ファイルを使う。
         with tempfile.TemporaryDirectory(prefix="kadocalcio-bash-layout-") as directory:
-            root = Path(directory)
+            # WindowsのTEMPが8.3短縮名でも、探索器と同じ正規化済みの実体パスで比較する。
+            root = Path(directory).resolve()
             bash = root / "usr/bin/bash.exe"
             bash.parent.mkdir(parents=True)
             bash.touch()

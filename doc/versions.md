@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.75
+
+CIの開発依存導入とWindowsの短縮パス比較を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/branch-coverage.yml`、`.github/workflows/windows-smoke.yml`
+
+  共通の開発依存を導入し、開発依存・整形設定だけの変更でも必要な試験を実行します。
+- `tests/test_python_formatter.py`
+
+  CIの依存導入と起動条件を回帰検査し、Git同梱Bashの探索結果を正規化済みの一時パスと比較します。試験の削除や基準緩和は行いません。
+- `doc/versions.md`
+
+  提出後に判明したCI失敗の修正を記録します。ゲーム演算やチームデータは変更しません。
+
+---
+
 ver 0.7.74
 
 PR #102全体の宣言説明とPython整形を回収
