@@ -138,7 +138,9 @@ class PythonFormatterTests(unittest.TestCase):
             original = 'def sample( value ):\n    return { "値":value }\n'
             path.write_text(original, encoding="utf-8")
             original_bytes = path.read_bytes()
-            self.assertEqual(self.run_formatter(path, check=True).returncode, 1)
+            result = self.run_formatter(path, check=True)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertNotIn("No module named", result.stderr)
             self.assertEqual(path.read_bytes(), original_bytes)
             # 整形後はAST一致・check成功・再実行で内容不変を要求する。
             self.assertEqual(self.run_formatter(path).returncode, 0)

@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.76
+
+PRレビューで判明したCI認証設定とクラス一覧の不足を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`
+
+  検証ジョブのチェックアウト後に認証情報を残さず、PRのコードからGit認証に利用できないようにします。
+- `tests/test_python_formatter.py`
+
+  不整形を検出した場合の終了コードと、formatter未導入の診断を区別します。
+- `doc/クラス一覧.md`、`doc/versions.md`
+
+  再現性・seed・試合ログを検査する五つの試験クラスの役割と、レビュー修正を記録します。
+
+---
+
 ver 0.7.75
 
 CIの開発依存導入とWindowsの短縮パス比較を修正
