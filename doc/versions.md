@@ -22,6 +22,25 @@ ver num.num.num
 
 ---
 
+ver 0.7.79
+
+診断JSONの日本語パスを文字コードに依存せず保持
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  診断JSONをASCII表現にし、日本語パスの復元と通常の子プロセス起動を検査します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  診断出力の文字コードに依存しない契約とレビュー修正を記録します。
+
+---
+
 ver 0.7.78
 
 CIのOS信頼ストアに残る既知ルートを除去

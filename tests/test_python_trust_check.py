@@ -133,6 +133,20 @@ class PythonTrustCheckTests(unittest.TestCase):
         self.assertFalse(json.loads(output.getvalue())["ok"])
 
     # {
+    #   責務: [test_cli_json_preserves_unicode_without_locale_dependency: 日本語を失わず出力コードページへの依存を除く]
+    #   処理: [1: 日本語パスの診断を出力する; 2: ASCIIだけで表現されJSON再読込で復元されることを確認する]
+    #   引数: []
+    #   戻り値: [None: Windowsの文字コードによるデータ損失や不正JSONは試験失敗]
+    # }
+    def test_cli_json_preserves_unicode_without_locale_dependency(self):
+        report = {"ok": True, "executable": "E:/日本語/python.exe"}
+        output = io.StringIO()
+        with patch.object(PythonTrustCheck, "collect_report", return_value=report), redirect_stdout(output):
+            self.assertEqual(trust_check_main([]), 0)
+        self.assertTrue(output.getvalue().isascii())
+        self.assertEqual(json.loads(output.getvalue()), report)
+
+    # {
     #   責務: [test_frozen_runtime_does_not_require_installer: 配布物にpipを要求せず実certifiは検査する]
     #   処理: [1: 配布実行属性で検査器を作る; 2: インストーラーを参照せずCA失敗を集約する]
     #   引数: []
@@ -176,7 +190,7 @@ class PythonTrustCheckTests(unittest.TestCase):
         self.assertEqual(diagnostic.exception.code, 0)
         with tempfile.TemporaryDirectory(prefix="kadocalcio-trust-cli-") as directory:
             result = subprocess.run(
-                [sys.executable, "-X", "utf8", str(root / "main.py"), "--check-python-trust"],
+                [sys.executable, str(root / "main.py"), "--check-python-trust"],
                 cwd=directory,
                 capture_output=True,
                 text=True,
@@ -192,7 +206,7 @@ class PythonTrustCheckTests(unittest.TestCase):
             self.assertFalse((Path(directory) / "user_data").exists())
             # 診断の引数ミスで通常のゲーム起動へ流れない。
             invalid = subprocess.run(
-                [sys.executable, "-X", "utf8", str(root / "main.py"), "--check-python-trust", "--unknown"],
+                [sys.executable, str(root / "main.py"), "--check-python-trust", "--unknown"],
                 cwd=directory,
                 capture_output=True,
                 text=True,

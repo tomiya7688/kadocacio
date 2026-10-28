@@ -146,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
     # 保存先を暗黙に作らず、利用者が必要なら標準出力をログへ保存する。
     argparse.ArgumentParser(description=__doc__).parse_args(argv)
     report = PythonTrustCheck().collect_report()
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    # ASCII表現のJSONなら日本語パスも保持し、Windowsの出力コードページに依存しない。
+    print(json.dumps(report, ensure_ascii=True, indent=2))
     return 0 if report["ok"] else 1
 
 
