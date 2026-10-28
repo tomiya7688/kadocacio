@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.86
+
+Windows Pythonアーカイブを直接照合
+
+追加したファイル
+
+- `.github/windows-python.json`
+
+  Python本体の配布URLとSHA-256を固定します。
+
+変更したファイル
+
+- `.github/workflows/windows-smoke.yml`
+
+  アーカイブの一致・格納先・種別を確認してから展開し、完了レポートのokも検証します。
+
+- `doc/Python実行環境.md`、`doc/Python証明書対応.md`、`doc/versions.md`
+
+  ハッシュの照合対象、一時領域とシェルの扱い、試験の終了判定と到達点を明記します。
+
+---
+
 ver 0.7.85
 
 Windows配布ビルドを修正版Pythonへ更新
