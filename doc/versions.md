@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.84
+
+不正なCAの後も全証明書を診断
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  ファイル単位のエラーを集約して走査を継続し、不正PEMと読取不能の後も対象ルートを検出する回帰試験を追加します。
+
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  個別エラーの診断方法と今回の修正を記録します。
+
+---
+
 ver 0.7.83
 
 Linux検証を修正版Pythonへ更新

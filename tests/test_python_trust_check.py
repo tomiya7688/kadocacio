@@ -143,6 +143,38 @@ class PythonTrustCheckTests(unittest.TestCase):
                     self.assertFalse(checker.system_store_report()["ok"])
 
     # {
+    #   責務: [test_bad_capath_files_do_not_hide_later_removed_roots: 不正CAや読取失敗の後も対象ルートを診断に残す]
+    #   処理: [1: 不正PEM・読取不能・対象ルートの順にファイルを準備する; 2: エラーと後続の照合結果を確認する]
+    #   引数: []
+    #   戻り値: [None: 走査の中断・エラー欠落・対象ルートの欠落は試験失敗]
+    # }
+    def test_bad_capath_files_do_not_hide_later_removed_roots(self):
+        import certifi
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=certifi.where())
+        certificate = context.get_ca_certs(binary_form=True)[0]
+        checker = PythonTrustCheck()
+        with tempfile.TemporaryDirectory(prefix="kadocalcio-capath-errors-") as directory:
+            invalid, missing, target = (Path(directory) / f"{number:08x}.0" for number in (1, 2, 3))
+            invalid.write_text("invalid PEM", encoding="ascii")
+            target.write_text(ssl.DER_cert_to_PEM_cert(certificate), encoding="ascii")
+            paths = ssl.DefaultVerifyPaths(None, directory, "KADOCALCIO_TEST_CA_FILE", "", "KADOCALCIO_TEST_CA_DIR", directory)
+            # 列挙後に消えたファイルも再現し、ディレクトリの列挙順に依存させない。
+            with (
+                patch.object(Path, "iterdir", return_value=iter((invalid, missing, target))),
+                patch.object(checker, "REMOVED_ROOT_SHA256", hashlib.sha256(certificate).hexdigest()),
+            ):
+                report = checker.capath_report(paths)
+            self.assertFalse(report["ok"])
+            item = report["directories"][0]
+            self.assertEqual(item["removed_root_files"], [str(target)])
+            self.assertEqual(item["checked_files"], 1)
+            self.assertEqual(len(item["errors"]), 2)
+            self.assertIn(str(invalid), item["errors"][0])
+            self.assertIn(str(missing), item["errors"][1])
+
+    # {
     #   責務: [test_pem_fingerprints_do_not_depend_on_ca_filter: CA一覧から除外される証明書も実DERで照合する]
     #   処理: [1: 実PEMと空のCA一覧を準備する; 2: 対象一致を拒否し非対象の有効ファイルを認める]
     #   引数: []

@@ -121,9 +121,9 @@ class PythonTrustCheck:
 
     # {
     #   責務: [capath_report: TLS接続時に遅延読込されるハッシュ名CAを検査する]
-    #   処理: [1: 既定または環境指定のCAディレクトリを列挙する; 2: 全ハッシュ名ファイルを解析する]
+    #   処理: [1: 既定または環境指定のCAディレクトリを列挙する; 2: ファイル単位の失敗を記録し全ハッシュ名CAを解析する]
     #   引数: [paths: 実行中OpenSSLが示す既定パスと環境変数名]
-    #   戻り値: [dict: ディレクトリ・検査数・対象ファイルと合否。列挙不能や不正CAは失敗]
+    #   戻り値: [dict: ディレクトリ・解析成功数・対象ファイル・個別エラーと合否。列挙不能や不正CAは失敗]
     # }
     def capath_report(self, paths: ssl.DefaultVerifyPaths) -> dict:
         explicit = paths.openssl_capath_env in os.environ
@@ -140,7 +140,13 @@ class PythonTrustCheck:
                     # OpenSSLのハッシュ名だけを対象にし、CRLやサブディレクトリはCAと混同しない。
                     if not re.fullmatch(r"[0-9a-fA-F]{8}\.[0-9]+", entry.name):
                         continue
-                    report = self.ca_file_report(entry)
+                    try:
+                        report = self.ca_file_report(entry)
+                    except (OSError, ValueError) as error:
+                        # 壊れたCAだけを記録し、後続の対象ルートも必ず検査する。
+                        item["ok"] = False
+                        item.setdefault("errors", []).append(f"{entry}: {type(error).__name__}: {error}")
+                        continue
                     item["checked_files"] += 1
                     item["ok"] = item["ok"] and report["ok"]
                     if report["removed_root_present"]:
