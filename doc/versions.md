@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.80
+
+遅延読込CAディレクトリの見落としを防止
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  capathのハッシュ名CAファイルも解析し、列挙不能や対象残存を失敗にします。診断失敗時は試験メッセージに実JSONを表示します。
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`
+
+  OSのCA更新後にハッシュ名リンクも再生成し、古い遅延読込パスを残さないようにします。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  遅延CAの検査範囲とレビュー修正を記録します。
+
+---
+
 ver 0.7.79
 
 診断JSONの文字コード依存とPython互換CIの依存不足を修正

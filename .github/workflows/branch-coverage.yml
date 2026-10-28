@@ -59,7 +59,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --only-upgrade --yes ca-certificates
-          sudo update-ca-certificates
+          sudo update-ca-certificates --fresh
 
       - name: Install dependencies
         run: |

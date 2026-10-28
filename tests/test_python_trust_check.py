@@ -3,7 +3,9 @@
 import hashlib
 import io
 import json
+import os
 import runpy
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -98,6 +100,47 @@ class PythonTrustCheckTests(unittest.TestCase):
             self.assertFalse(PythonTrustCheck().bundle_report("certifi", "2026.10.19")["ok"])
 
     # {
+    #   責務: [test_lazy_capath_cannot_hide_a_removed_root: 読込済みCAが正常でも遅延CAの対象残存と列挙失敗を拒否する]
+    #   処理: [1: 別の実証明書をハッシュ名ファイルへ置く; 2: 未読込の対象CAと読取失敗を検出する]
+    #   引数: []
+    #   戻り値: [None: SSLContextの既存一覧だけによる誤合格や列挙不能の合格は試験失敗]
+    # }
+    def test_lazy_capath_cannot_hide_a_removed_root(self):
+        import certifi
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=certifi.where())
+        first, second = context.get_ca_certs(binary_form=True)[:2]
+        loaded = Mock()
+        loaded.get_ca_certs.return_value = [first]
+        checker = PythonTrustCheck()
+        with tempfile.TemporaryDirectory(prefix="kadocalcio-capath-") as directory:
+            paths = ssl.DefaultVerifyPaths(None, directory, "KADOCALCIO_TEST_CA_FILE", "", "KADOCALCIO_TEST_CA_DIR", directory)
+            entry = Path(directory) / "1234abcd.0"
+            # PEM外の日本語コメントも含め、実SSLで解析可能な証明書を使う。
+            entry.write_text("# 日本語コメント\n" + ssl.DER_cert_to_PEM_cert(second), encoding="utf-8")
+            with (
+                patch.object(checker, "REMOVED_ROOT_SHA256", hashlib.sha256(second).hexdigest()),
+                patch("scripts.tools.python_trust_check.ssl.create_default_context", return_value=loaded),
+                patch("scripts.tools.python_trust_check.ssl.get_default_verify_paths", return_value=paths),
+            ):
+                report = checker.system_store_report()
+                self.assertFalse(report["removed_root_present"])
+                self.assertFalse(report["ok"])
+                self.assertEqual(report["capath"]["directories"][0]["removed_root_files"], [str(entry)])
+                # インデックス外のファイルは対象外で、正常な遅延CAは合格できる。
+                (Path(directory) / "unhashed.pem").write_text("not an indexed CA", encoding="ascii")
+                entry.write_text(ssl.DER_cert_to_PEM_cert(first), encoding="ascii")
+                self.assertTrue(checker.system_store_report()["ok"])
+                # 明示パスの不在・空要素は、既定ディレクトリ不在の適用外扱いに混ぜない。
+                with patch.dict(os.environ, {paths.openssl_capath_env: str(Path(directory) / "missing")}):
+                    self.assertFalse(checker.system_store_report()["ok"])
+                with patch.dict(os.environ, {paths.openssl_capath_env: directory + os.pathsep}):
+                    self.assertFalse(checker.system_store_report()["ok"])
+                with patch.object(Path, "iterdir", side_effect=PermissionError("unreadable CA directory")):
+                    self.assertFalse(checker.system_store_report()["ok"])
+
+    # {
     #   責務: [test_installed_optional_tool_must_be_current: 任意ツールも存在するなら旧版を拒否する]
     #   処理: [1: 不在の任意ツールを適用外とする; 2: 存在する旧版を拒否する]
     #   引数: []
@@ -120,7 +163,6 @@ class PythonTrustCheckTests(unittest.TestCase):
     #   戻り値: [None: ストア未確認や診断失敗の誤合格は試験失敗]
     # }
     def test_store_and_cli_failures_stay_failures(self):
-        import ssl
 
         with patch(
             "scripts.tools.python_trust_check.ssl.create_default_context", side_effect=ssl.SSLError("unreadable store")
@@ -175,7 +217,8 @@ class PythonTrustCheckTests(unittest.TestCase):
         # 集約の実成功経路も確認し、サブプロセスだけに検証を閉じ込めない。
         output = io.StringIO()
         with redirect_stdout(output):
-            self.assertEqual(trust_check_main([]), 0)
+            status = trust_check_main([])
+        self.assertEqual(status, 0, output.getvalue())
         self.assertTrue(json.loads(output.getvalue())["checks"]["pip_certifi"]["ok"])
         # 保存先はcwdではなく実行時ルートなので、初期化関数自体の呼出しを拒否する。
         with (

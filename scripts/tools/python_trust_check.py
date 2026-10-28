@@ -7,6 +7,7 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
+import os
 import re
 import ssl
 import sys
@@ -57,6 +58,25 @@ class PythonTrustCheck:
         return {"ca_count": len(certificates), "removed_root_present": affected, "ok": bool(certificates) and not affected}
 
     # {
+    #   責務: [ca_file_report: 同じ読込データから証明書とファイルSHAを確認する]
+    #   処理: [1: 実ファイルと全PEMブロックを読み込む; 2: SSL解析と既知ルートの照合を行う]
+    #   引数: [path: 検査するCAファイルまたはハッシュ名リンク]
+    #   戻り値: [dict: 実パス・SHA・CA数と合否。不完全なPEMや読込失敗は例外]
+    # }
+    def ca_file_report(self, path: Path) -> dict:
+        bundle = Path(path).resolve()
+        bundle_bytes = bundle.read_bytes()
+        # PEM外の国際化コメントを許し、途中で壊れた証明書は黙って省略しない。
+        blocks = re.findall(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", bundle_bytes, re.DOTALL)
+        if not blocks or len(blocks) != bundle_bytes.count(b"-----BEGIN CERTIFICATE-----"):
+            raise ValueError(f"Incomplete or missing certificate PEM: {bundle}")
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cadata=b"\n".join(blocks).decode("ascii"))
+        result = self.ca_summary(context)
+        result.update(path=str(bundle), sha256=hashlib.sha256(bundle_bytes).hexdigest())
+        return result
+
+    # {
     #   責務: [bundle_report: 指定パッケージの実バージョンと実CAファイルを検査する]
     #   処理: [1: 使用モジュールと実パスを解決する; 2: CAを読み込み照合する]
     #   引数: [module_name: certifiまたはpip内のcertifi; minimum: 必須のCA配布版]
@@ -67,13 +87,8 @@ class PythonTrustCheck:
         try:
             module = importlib.import_module(module_name)
             version = getattr(module, "__version__", "unknown")
-            bundle = Path(module.where()).resolve()
-            bundle_bytes = bundle.read_bytes()
-            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            # 解析したCAと記録するSHAが別の読込時点にならないよう、一度だけ読む。
-            context.load_verify_locations(cadata=bundle_bytes.decode("ascii"))
-            result = self.ca_summary(context)
-            result.update(version=version, minimum=minimum, path=str(bundle), sha256=hashlib.sha256(bundle_bytes).hexdigest())
+            result = self.ca_file_report(Path(module.where()))
+            result.update(version=version, minimum=minimum)
             result["ok"] = result["ok"] and self.version_is_supported(version, minimum)
             return result
         except (ImportError, OSError, ValueError, TypeError) as error:
@@ -95,6 +110,40 @@ class PythonTrustCheck:
         return {"version": version, "minimum": minimum, "ok": self.version_is_supported(version, minimum)}
 
     # {
+    #   責務: [capath_report: TLS接続時に遅延読込されるハッシュ名CAを検査する]
+    #   処理: [1: 既定または環境指定のCAディレクトリを列挙する; 2: 全ハッシュ名ファイルを解析する]
+    #   引数: [paths: 実行中OpenSSLが示す既定パスと環境変数名]
+    #   戻り値: [dict: ディレクトリ・検査数・対象ファイルと合否。列挙不能や不正CAは失敗]
+    # }
+    def capath_report(self, paths: ssl.DefaultVerifyPaths) -> dict:
+        explicit = paths.openssl_capath_env in os.environ
+        specification = os.environ.get(paths.openssl_capath_env, paths.openssl_capath)
+        directories = []
+        # Windowsの存在しない既定capathは適用外。明示した不在パスは未確認として拒否する。
+        for directory in specification.split(os.pathsep) if specification else []:
+            item = {"path": directory, "checked_files": 0, "removed_root_files": [], "ok": True}
+            directories.append(item)
+            try:
+                if not directory:
+                    raise ValueError("Empty CA directory component")
+                for entry in Path(directory).iterdir():
+                    # OpenSSLのハッシュ名だけを対象にし、CRLやサブディレクトリはCAと混同しない。
+                    if not re.fullmatch(r"[0-9a-fA-F]{8}\.[0-9]+", entry.name):
+                        continue
+                    report = self.ca_file_report(entry)
+                    item["checked_files"] += 1
+                    item["ok"] = item["ok"] and report["ok"]
+                    if report["removed_root_present"]:
+                        item["removed_root_files"].append(str(entry))
+            except FileNotFoundError as error:
+                # デフォルト自体が不在の場合だけ適用外で、壊れたハッシュリンクは拒否する。
+                absent_default = not explicit and item["checked_files"] == 0 and not Path(directory).exists()
+                item.update(ok=item["ok"] and absent_default, status="not_present" if absent_default else str(error))
+            except (OSError, ValueError) as error:
+                item.update(ok=False, error=f"{type(error).__name__}: {error}")
+        return {"directories": directories, "ok": all(item["ok"] for item in directories)}
+
+    # {
     #   責務: [system_store_report: Pythonの既定TLSコンテキストの信頼アンカーを観測する]
     #   処理: [1: 既定の検証コンテキストを構築する; 2: 実CAと既定パスを記録する]
     #   引数: []
@@ -104,7 +153,10 @@ class PythonTrustCheck:
         # WindowsのROOTを編集せず、利用中PythonのSSLContextだけを読む。
         try:
             result = self.ca_summary(ssl.create_default_context())
-            result["default_verify_paths"] = ssl.get_default_verify_paths()._asdict()
+            paths = ssl.get_default_verify_paths()
+            result["default_verify_paths"] = paths._asdict()
+            result["capath"] = self.capath_report(paths)
+            result["ok"] = result["ok"] and result["capath"]["ok"]
             return result
         except (OSError, ValueError) as error:
             return {"ok": False, "error": f"{type(error).__name__}: {error}"}
