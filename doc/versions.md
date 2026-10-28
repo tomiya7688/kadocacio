@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.85
+
+Windows配布ビルドを修正版Pythonへ更新
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/windows-smoke.yml`
+
+  ハッシュ固定したuvで版ファイルと同じPythonを隔離導入し、実exeの版と同梱ライセンスを確認します。ネイティブコマンドの失敗を伝播します。
+
+- `doc/Python実行環境.md`、`doc/Python証明書対応.md`、`doc/versions.md`
+
+  既存venvを保持する検証手順、uv CLIの扱いと残件を記録します。
+
+---
+
 ver 0.7.84
 
 不正なCAの後も全証明書を診断

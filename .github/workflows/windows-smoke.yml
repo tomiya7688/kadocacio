@@ -10,6 +10,7 @@ on:
       - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
+      - ".python-version"
       - "static_analysis/**"
       - "assets/**"
       - "teams/**"
@@ -27,6 +28,7 @@ on:
       - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
+      - ".python-version"
       - "static_analysis/**"
       - "assets/**"
       - "teams/**"
@@ -49,6 +51,7 @@ env:
   SDL_AUDIODRIVER: dummy
   PYGAME_HIDE_SUPPORT_PROMPT: "1"
   PYTHONUNBUFFERED: "1"
+  UV_NO_CONFIG: "1"
 
 jobs:
   windows-smoke:
@@ -57,15 +60,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+          persist-credentials: false
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.13.6"
+          checksum: "a2a8820d5eea32f08ef467ef3b7f66883a9b076d5737a2fc2fbb5f458d1bb50f"
+          enable-cache: false
+          cache-local-path: ${{ runner.temp }}/kadocacio-uv-cache
+
+      - name: Create patched Windows Python environment
+        shell: pwsh
+        run: |
+          # Keep the managed runtime inside this disposable runner, without registry or user-bin changes.
+          $env:UV_PYTHON_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'kadocacio-python'
+          $version = (Get-Content -LiteralPath .python-version -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Expected an exact Python version' }
+          uv python install --no-bin --no-registry $version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv venv --managed-python --python $version .venv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\.venv\Scripts\python.exe -c "import sys; assert sys.version.split()[0] == sys.argv[1]; print(sys.version)" $version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Resolve-Path -LiteralPath .venv/Scripts).Path | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Remove compromised root from ephemeral runner
         shell: pwsh
@@ -85,11 +104,11 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         run: |
-          python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+          uv pip install --python .venv/Scripts/python.exe --no-deps --require-hashes -r requirements-bootstrap.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m scripts.tools.python_trust_check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7"
+          python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7" --cache-dir (Join-Path $env:RUNNER_TEMP 'kadocacio-pip-cache')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip check
 
@@ -104,6 +123,9 @@ jobs:
       - name: Build Windows distribution
         shell: pwsh
         run: |
+          # Preserve the license supplied by the managed Python distribution.
+          $pythonLicense = (& python -c "import sys; from pathlib import Path; print(Path(sys.base_prefix) / 'LICENSE.txt')").Trim()
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $pythonLicense -PathType Leaf)) { throw 'Python license is missing' }
           python -m PyInstaller `
             --noconfirm `
             --clean `
@@ -115,6 +137,7 @@ jobs:
             --exclude-module upd_commander_checker `
             --hidden-import certifi `
             --collect-data certifi `
+            --add-data "${pythonLicense}:licenses/python" `
             --add-data "assets:assets" `
             --add-data "teams:teams" `
             --add-data "teameditor_templete:teameditor_templete" `
@@ -122,13 +145,20 @@ jobs:
             --add-data "leagues.json:." `
             --add-data "league_state.json:." `
             main.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m scripts.tools.distribution_layout stage dist/Kadocacio
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path -LiteralPath dist/Kadocacio/_internal/licenses/python/LICENSE.txt -PathType Leaf)) { throw 'Bundled Python license is missing' }
 
       - name: Inspect bundled Python trust
         shell: pwsh
         run: |
-          & .\dist\Kadocacio\Kadocacio.exe --check-python-trust
+          $json = (& .\dist\Kadocacio\Kadocacio.exe --check-python-trust) | Out-String
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $json
+          $report = $json | ConvertFrom-Json
+          $expected = (Get-Content -LiteralPath .python-version -Raw).Trim()
+          if ($report.python -ne $expected -or $report.frozen -ne $true) { throw 'Unexpected bundled Python runtime' }
 
       - name: Validate distribution input/output layout
         shell: pwsh
