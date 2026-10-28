@@ -22,6 +22,25 @@ ver num.num.num
 
 ---
 
+ver 0.7.78
+
+CIのOS信頼ストアに残る既知ルートを除去
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`、`.github/workflows/windows-smoke.yml`
+
+  Ubuntuはca-certificatesを更新し、一時Windows runnerは実DERが一致する既知ルートのみ除去します。診断前にOS側も対処し、PowerShellのネイティブコマンド失敗も確実にCIへ伝えます。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  実際に検出したOS信頼ストアの残件とCI側の対処を記録します。診断の合格基準は変更しません。
+
+---
+
 ver 0.7.77
 
 Python証明書対応の固定ハッシュ更新と実CAの診断を追加

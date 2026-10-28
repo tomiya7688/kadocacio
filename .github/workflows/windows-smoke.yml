@@ -67,12 +67,30 @@ jobs:
             requirements.txt
             requirements-dev.txt
 
+      - name: Remove compromised root from ephemeral runner
+        shell: pwsh
+        run: |
+          # Only this disposable CI runner is modified; match exact public-certificate DER.
+          $fingerprint = (& python -c "from scripts.tools.python_trust_check import PythonTrustCheck; print(PythonTrustCheck.REMOVED_ROOT_SHA256)").Trim()
+          if ($LASTEXITCODE -ne 0 -or $fingerprint -notmatch '^[a-f0-9]{64}$') { throw 'Invalid removed-root fingerprint' }
+          foreach ($store in @('Cert:\LocalMachine\Root', 'Cert:\LocalMachine\CA', 'Cert:\CurrentUser\Root', 'Cert:\CurrentUser\CA')) {
+            foreach ($certificate in Get-ChildItem -LiteralPath $store -ErrorAction Stop) {
+              $actual = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
+              if ($actual -eq $fingerprint) {
+                Remove-Item -LiteralPath $certificate.PSPath -ErrorAction Stop
+              }
+            }
+          }
+
       - name: Install dependencies
         shell: pwsh
         run: |
           python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m scripts.tools.python_trust_check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip check
 
       - name: Run Windows-sensitive tests

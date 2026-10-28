@@ -55,6 +55,12 @@ jobs:
             requirements.txt
             requirements-dev.txt
 
+      - name: Update system CA certificates
+        run: |
+          sudo apt-get update
+          sudo apt-get install --only-upgrade --yes ca-certificates
+          sudo update-ca-certificates
+
       - name: Install dependencies
         run: |
           python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
