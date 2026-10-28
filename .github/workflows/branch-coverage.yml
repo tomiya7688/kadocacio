@@ -10,6 +10,7 @@ on:
       - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
+      - ".python-version"
       - ".coveragerc"
       - ".github/workflows/branch-coverage.yml"
   push:
@@ -21,6 +22,7 @@ on:
       - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
+      - ".python-version"
       - ".coveragerc"
       - ".github/workflows/branch-coverage.yml"
   workflow_dispatch:
@@ -45,11 +47,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Set up Python 3.10
+      - name: Set up primary Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version-file: ".python-version"
           cache: pip
           cache-dependency-path: |
             requirements.txt

@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.83
+
+Linux検証を修正版Pythonへ更新
+
+追加したファイル
+
+- `.python-version`、`doc/Python実行環境.md`
+
+  Linux主検証の版を3.13.18に固定し、更新手順とWindows配布の残件を記録します。
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`
+
+  主検証と分岐検査は版ファイルを使用し、互換検査は3.11.18と3.12.16に固定します。チェックアウト時の認証情報保持を無効にし、既存の試験と閾値を維持します。
+
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  ランタイム更新の実施範囲と確認先を案内します。
+
+---
+
 ver 0.7.82
 
 明示された空のCAディレクトリ設定を拒否
