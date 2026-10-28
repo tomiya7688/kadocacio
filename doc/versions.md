@@ -24,7 +24,7 @@ ver num.num.num
 
 ver 0.7.79
 
-診断JSONの日本語パスを文字コードに依存せず保持
+診断JSONの文字コード依存とPython互換CIの依存不足を修正
 
 追加したファイル
 
@@ -35,6 +35,9 @@ ver 0.7.79
 - `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
 
   診断JSONをASCII表現にし、日本語パスの復元と通常の子プロセス起動を検査します。
+- `.github/workflows/python-compat.yml`、`tests/test_python_formatter.py`
+
+  互換CIも共通の開発依存を導入し、Ruffの導入漏れを回帰検査します。
 - `doc/Python証明書対応.md`、`doc/versions.md`
 
   診断出力の文字コードに依存しない契約とレビュー修正を記録します。

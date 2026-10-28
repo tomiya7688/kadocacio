@@ -278,14 +278,14 @@ class PythonFormatterTests(unittest.TestCase):
 
     # {
     #   責務: [test_ci_jobs_install_shared_development_requirements: Python試験を実行するCIの開発依存導入を確認する]
-    #   処理: [1: 管理対象の3ワークフローを読む; 2: 共通の開発依存ファイルを導入する行を照合する]
+    #   処理: [1: 管理対象の4ワークフローを読む; 2: 共通の開発依存ファイルを導入する行を照合する]
     #   引数: []
     #   戻り値: [None: Ruff等の試験依存の導入漏れは試験失敗。ネットワーク接続やインストールは行わない]
     # }
     def test_ci_jobs_install_shared_development_requirements(self):
         # 管理下のinstall記法を固定し、実行環境に偶然Ruffがある場合も導入漏れを検出する。
         workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
-        for name in ("python-app.yml", "windows-smoke.yml", "branch-coverage.yml"):
+        for name in ("python-app.yml", "windows-smoke.yml", "branch-coverage.yml", "python-compat.yml"):
             with self.subTest(workflow=name):
                 source = (workflows / name).read_text(encoding="utf-8")
                 self.assertIn("python -m pip install -r requirements-dev.txt", source)

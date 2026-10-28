@@ -6,6 +6,7 @@ on:
     paths:
       - "**/*.py"
       - "requirements.txt"
+      - "requirements-dev.txt"
       - "requirements-bootstrap.txt"
       - ".github/workflows/python-compat.yml"
   workflow_dispatch:
@@ -41,6 +42,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-bootstrap.txt
 
       - name: Update system CA certificates
         run: |
@@ -52,8 +57,7 @@ jobs:
         run: |
           python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
           python -m scripts.tools.python_trust_check
-          python -m pip install pytest
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: Verify dependency consistency
         run: python -m pip check
