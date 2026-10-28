@@ -141,6 +141,34 @@ class PythonTrustCheckTests(unittest.TestCase):
                     self.assertFalse(checker.system_store_report()["ok"])
 
     # {
+    #   責務: [test_pem_fingerprints_do_not_depend_on_ca_filter: CA一覧から除外される証明書も実DERで照合する]
+    #   処理: [1: 実PEMと空のCA一覧を準備する; 2: 対象一致を拒否し非対象の有効ファイルを認める]
+    #   引数: []
+    #   戻り値: [None: 空ファイルとの混同・CA属性による対象見逃し・certifiの空CA許容は試験失敗]
+    # }
+    def test_pem_fingerprints_do_not_depend_on_ca_filter(self):
+        import certifi
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=certifi.where())
+        certificate = context.get_ca_certs(binary_form=True)[0]
+        filtered = Mock()
+        filtered.get_ca_certs.return_value = []
+        checker = PythonTrustCheck()
+        with tempfile.TemporaryDirectory(prefix="kadocalcio-ca-filter-") as directory:
+            entry = Path(directory) / "1234abcd.0"
+            entry.write_text(ssl.DER_cert_to_PEM_cert(certificate), encoding="ascii")
+            with patch("scripts.tools.python_trust_check.ssl.SSLContext", return_value=filtered):
+                with patch.object(checker, "REMOVED_ROOT_SHA256", hashlib.sha256(certificate).hexdigest()):
+                    self.assertFalse(checker.ca_file_report(entry)["ok"])
+                report = checker.ca_file_report(entry)
+                self.assertTrue(report["ok"])
+                self.assertEqual((report["ca_count"], report["certificate_count"]), (0, 1))
+                module = SimpleNamespace(__version__="2026.10.23", where=Mock(return_value=entry))
+                with patch("scripts.tools.python_trust_check.importlib.import_module", return_value=module):
+                    self.assertFalse(checker.bundle_report("certifi", "2026.10.19")["ok"])
+
+    # {
     #   責務: [test_installed_optional_tool_must_be_current: 任意ツールも存在するなら旧版を拒否する]
     #   処理: [1: 不在の任意ツールを適用外とする; 2: 存在する旧版を拒否する]
     #   引数: []

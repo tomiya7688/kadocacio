@@ -22,6 +22,25 @@ ver num.num.num
 
 ---
 
+ver 0.7.81
+
+CA属性による遅延証明書の誤判定を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  読込可能な全PEM証明書のDERを照合し、CA一覧から除かれる証明書を空ファイルと混同しません。certifiの空CA拒否は維持します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  Linuxの実検査で判明した分類差と、検査方法を記録します。
+
+---
+
 ver 0.7.80
 
 遅延読込CAディレクトリの見落としを防止

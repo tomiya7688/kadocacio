@@ -72,9 +72,19 @@ class PythonTrustCheck:
             raise ValueError(f"Incomplete or missing certificate PEM: {bundle}")
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         context.load_verify_locations(cadata=b"\n".join(blocks).decode("ascii"))
-        result = self.ca_summary(context)
-        result.update(path=str(bundle), sha256=hashlib.sha256(bundle_bytes).hexdigest())
-        return result
+        # get_ca_certsはCA属性を持たない証明書を除くため、照合は全PEMのDERで行う。
+        affected = any(
+            hashlib.sha256(ssl.PEM_cert_to_DER_cert(block.decode("ascii"))).hexdigest() == self.REMOVED_ROOT_SHA256
+            for block in blocks
+        )
+        return {
+            "ca_count": len(context.get_ca_certs(binary_form=True)),
+            "certificate_count": len(blocks),
+            "removed_root_present": affected,
+            "ok": not affected,
+            "path": str(bundle),
+            "sha256": hashlib.sha256(bundle_bytes).hexdigest(),
+        }
 
     # {
     #   責務: [bundle_report: 指定パッケージの実バージョンと実CAファイルを検査する]
@@ -89,7 +99,7 @@ class PythonTrustCheck:
             version = getattr(module, "__version__", "unknown")
             result = self.ca_file_report(Path(module.where()))
             result.update(version=version, minimum=minimum)
-            result["ok"] = result["ok"] and self.version_is_supported(version, minimum)
+            result["ok"] = result["ok"] and bool(result["ca_count"]) and self.version_is_supported(version, minimum)
             return result
         except (ImportError, OSError, ValueError, TypeError) as error:
             # 読めないCAや未導入を、安全だったという結果へ置き換えない。

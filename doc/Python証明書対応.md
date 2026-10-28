@@ -25,6 +25,7 @@ python -m pip check
 開発者は、検査するPythonで `python -m scripts.tools.python_trust_check` を実行してください。
 アプリは実行Python、OpenSSL、pip・certifiの版、実CAパス・SHA-256・CA数、既知の除去ルートの有無をJSONで返します。
 OpenSSLが遅延読込するcapathのハッシュ名CAファイルも確認し、列挙不能・読取失敗・対象ルート残存を失敗にします。
+ファイル内の全証明書をDERで照合するため、OpenSSLのCA一覧に含まれない証明書も見落としません。certifi自体にはCAの存在も要求します。
 JSONはASCII表現で出力し、日本語パスもJSONの再読込で復元できます。Windowsの出力コードページには依存しません。
 未導入、不正CA、必要版未満、既知ルート残存は終了コード1です。結果を保存する場合は標準出力をログへ転送してください。
 uvとsigstoreは存在する場合のみ版を確認し、検査のための新規導入は行いません。
