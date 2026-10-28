@@ -1,11 +1,14 @@
 """旧版・不正CA・配布形態と、実エントリーポイントの診断を検査する。"""
 
 import hashlib
+import io
 import json
+import runpy
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -76,6 +79,25 @@ class PythonTrustCheckTests(unittest.TestCase):
                 self.assertFalse(checker.bundle_report("certifi", "2026.10.19")["ok"])
 
     # {
+    #   責務: [test_valid_bundle_still_requires_supported_version: 実CAの一致とCA配布版の下限を両方確認する]
+    #   処理: [1: インストール済みCAを実SSLで読む; 2: 同じCAでも旧版メタデータなら拒否する]
+    #   引数: []
+    #   戻り値: [None: CAの存在だけによる旧版の誤合格やファイルSHAの誤記録は試験失敗]
+    # }
+    def test_valid_bundle_still_requires_supported_version(self):
+        import certifi
+
+        # 実データを利用し、SSLContextの解析成功経路も検証する。
+        bundle = Path(certifi.where()).resolve()
+        module = SimpleNamespace(__version__="2026.10.23", where=Mock(return_value=bundle))
+        with patch("scripts.tools.python_trust_check.importlib.import_module", return_value=module):
+            report = PythonTrustCheck().bundle_report("certifi", "2026.10.19")
+            self.assertTrue(report["ok"])
+            self.assertEqual(report["sha256"], hashlib.sha256(bundle.read_bytes()).hexdigest())
+            module.__version__ = "2026.10.18"
+            self.assertFalse(PythonTrustCheck().bundle_report("certifi", "2026.10.19")["ok"])
+
+    # {
     #   責務: [test_installed_optional_tool_must_be_current: 任意ツールも存在するなら旧版を拒否する]
     #   処理: [1: 不在の任意ツールを適用外とする; 2: 存在する旧版を拒否する]
     #   引数: []
@@ -98,9 +120,7 @@ class PythonTrustCheckTests(unittest.TestCase):
     #   戻り値: [None: ストア未確認や診断失敗の誤合格は試験失敗]
     # }
     def test_store_and_cli_failures_stay_failures(self):
-        import io
         import ssl
-        from contextlib import redirect_stdout
 
         with patch(
             "scripts.tools.python_trust_check.ssl.create_default_context", side_effect=ssl.SSLError("unreadable store")
@@ -138,9 +158,25 @@ class PythonTrustCheckTests(unittest.TestCase):
     # }
     def test_real_entrypoint_reports_without_gui(self):
         root = Path(__file__).resolve().parents[1]
+        # 集約の実成功経路も確認し、サブプロセスだけに検証を閉じ込めない。
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(trust_check_main([]), 0)
+        self.assertTrue(json.loads(output.getvalue())["checks"]["pip_certifi"]["ok"])
+        # 保存先はcwdではなく実行時ルートなので、初期化関数自体の呼出しを拒否する。
+        with (
+            patch(
+                "scripts.core.paths.ensure_user_data_layout", side_effect=AssertionError("unexpected user-data initialization")
+            ),
+            patch.object(sys, "argv", [str(root / "main.py"), "--check-python-trust"]),
+            redirect_stdout(io.StringIO()),
+            self.assertRaises(SystemExit) as diagnostic,
+        ):
+            runpy.run_path(str(root / "main.py"), run_name="__main__")
+        self.assertEqual(diagnostic.exception.code, 0)
         with tempfile.TemporaryDirectory(prefix="kadocalcio-trust-cli-") as directory:
             result = subprocess.run(
-                [sys.executable, str(root / "main.py"), "--check-python-trust"],
+                [sys.executable, "-X", "utf8", str(root / "main.py"), "--check-python-trust"],
                 cwd=directory,
                 capture_output=True,
                 text=True,
@@ -156,10 +192,12 @@ class PythonTrustCheckTests(unittest.TestCase):
             self.assertFalse((Path(directory) / "user_data").exists())
             # 診断の引数ミスで通常のゲーム起動へ流れない。
             invalid = subprocess.run(
-                [sys.executable, str(root / "main.py"), "--check-python-trust", "--unknown"],
+                [sys.executable, "-X", "utf8", str(root / "main.py"), "--check-python-trust", "--unknown"],
                 cwd=directory,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=30,
             )
             self.assertEqual(invalid.returncode, 2, invalid.stderr)
+            self.assertFalse((Path(directory) / "user_data").exists())
