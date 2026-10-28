@@ -32,34 +32,39 @@ Python公式の3.13.18はソースのみで、Windowsインストーラーを提
 開発者がローカルで検証する場合も、既存venvを削除せず、Eドライブの未使用フォルダーを指定してください。新しいPowerShellウィンドウを開き、Gitルートで次を実行してください。同じ保存先が既にある場合は別名に変え、検証後はそのPowerShellを閉じて環境変数を戻してください。照合するハッシュは圧縮アーカイブの値であり、`python.exe` 単体の値ではありません。
 
 ```powershell
-$runtimeRoot = 'E:/tools/kadocacio-python-validation'
-New-Item -ItemType Directory -Path $runtimeRoot -ErrorAction Stop | Out-Null
-$temporary = Join-Path $runtimeRoot 'tmp'
-New-Item -ItemType Directory -Path $temporary -ErrorAction Stop | Out-Null
-$env:TEMP = $temporary
-$env:TMP = $temporary
-$version = (Get-Content .python-version -Raw).Trim()
-$runtime = Get-Content .github/windows-python.json -Raw | ConvertFrom-Json
-if ($runtime.version -ne $version) { throw 'Python archive version mismatch' }
-$archive = Join-Path $temporary 'python.tar.gz'
-Invoke-WebRequest -Uri $runtime.url -OutFile $archive -ErrorAction Stop
-$actual = (Get-FileHash $archive -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-if ($actual -cne $runtime.sha256) { throw 'Python archive checksum mismatch' }
-& "$env:SystemRoot/System32/tar.exe" -xzf $archive -C $runtimeRoot
-if ($LASTEXITCODE -ne 0) { throw 'Python extraction failed' }
-$basePython = Join-Path $runtimeRoot 'python/python.exe'
-& $basePython -m venv (Join-Path $runtimeRoot 'venv')
-if ($LASTEXITCODE -ne 0) { throw 'venv creation failed' }
-$python = Join-Path $runtimeRoot 'venv/Scripts/python.exe'
-& $python -m pip --isolated --cache-dir (Join-Path $runtimeRoot 'pip-cache') install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
-if ($LASTEXITCODE -ne 0) { throw 'Bootstrap failed' }
-& $python -m pip install -r requirements-dev.txt --cache-dir (Join-Path $runtimeRoot 'pip-cache')
-if ($LASTEXITCODE -ne 0) { throw 'Dependency install failed' }
-& $python -m scripts.tools.python_trust_check
-if ($LASTEXITCODE -ne 0) { throw 'Trust check failed' }
-& $python -m pytest -q
-if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+& {
+    $ErrorActionPreference = 'Stop'
+    $runtimeRoot = 'E:/tools/kadocacio-python-validation'
+    New-Item -ItemType Directory -Path $runtimeRoot -ErrorAction Stop | Out-Null
+    $temporary = Join-Path $runtimeRoot 'tmp'
+    New-Item -ItemType Directory -Path $temporary -ErrorAction Stop | Out-Null
+    $env:TEMP = $temporary
+    $env:TMP = $temporary
+    $version = (Get-Content .python-version -Raw).Trim()
+    $runtime = Get-Content .github/windows-python.json -Raw | ConvertFrom-Json
+    if ($runtime.version -ne $version) { throw 'Python archive version mismatch' }
+    $archive = Join-Path $temporary 'python.tar.gz'
+    Invoke-WebRequest -Uri $runtime.url -OutFile $archive -ErrorAction Stop
+    $actual = (Get-FileHash $archive -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    if ($actual -cne $runtime.sha256) { throw 'Python archive checksum mismatch' }
+    & "$env:SystemRoot/System32/tar.exe" -xzf $archive -C $runtimeRoot
+    if ($LASTEXITCODE -ne 0) { throw 'Python extraction failed' }
+    $basePython = Join-Path $runtimeRoot 'python/python.exe'
+    & $basePython -m venv (Join-Path $runtimeRoot 'venv')
+    if ($LASTEXITCODE -ne 0) { throw 'venv creation failed' }
+    $python = Join-Path $runtimeRoot 'venv/Scripts/python.exe'
+    & $python -m pip --isolated --cache-dir (Join-Path $runtimeRoot 'pip-cache') install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+    if ($LASTEXITCODE -ne 0) { throw 'Bootstrap failed' }
+    & $python -m pip --isolated install -r requirements-dev.txt --cache-dir (Join-Path $runtimeRoot 'pip-cache')
+    if ($LASTEXITCODE -ne 0) { throw 'Dependency install failed' }
+    & $python -m scripts.tools.python_trust_check
+    if ($LASTEXITCODE -ne 0) { throw 'Trust check failed' }
+    & $python -m pytest -q
+    if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+}
 ```
+
+開発者は `& {` から最後の `}` までをまとめて実行してください。失敗するとブロック内の後続処理は止まります。ローカル例は固定ハッシュの照合を行う簡略手順で、CIの格納パス・種別検査は含みません。
 
 この例の到達点は実行環境の導入とソースの試験です。配布exeはWindows CIでビルドし、`Kadocacio.exe --check-python-trust` のJSONで `python`・`frozen`・`ok` を確認してください。ビルドに使ったPythonの `LICENSE.txt` は `_internal/licenses/python/` へ同梱します。
 

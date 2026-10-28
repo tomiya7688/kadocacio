@@ -22,6 +22,22 @@ ver num.num.num
 
 ---
 
+ver 0.7.87
+
+Windows導入手順の失敗時に後続処理を停止
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `doc/Python実行環境.md`、`doc/versions.md`
+
+  PowerShell例を一つの実行ブロックにまとめ、開発依存のpipも隔離設定で導入します。
+
+---
+
 ver 0.7.86
 
 Windows Pythonアーカイブを直接照合
