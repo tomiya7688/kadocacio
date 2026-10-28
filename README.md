@@ -50,14 +50,13 @@
 
 ## 起動方法
 
-Windowsでは `run_game.bat` をダブルクリックしてください。
+Windowsでは初回に[修正版Pythonの並行配置手順](doc/Python実行環境.md)で `runtime/venv/` を用意してから、`run_game.bat` をダブルクリックしてください。既存venvは残します。要求版が違うPythonでは起動しません。
 
 コマンドから起動する場合：
 
 ```text
-py -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
-py -m pip install -r requirements.txt
-py main.py
+run_game.bat
+run_game.bat --check-python-trust
 ```
 
 Pythonの証明書更新と実CAの診断は[Python証明書対応](doc/Python証明書対応.md)を参照してください。既存venvも更新対象です。

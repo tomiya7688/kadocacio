@@ -19,7 +19,7 @@ python -m pip check
 python -m pytest -q
 ```
 
-`.python-version` はCIの選択に使用します。`run_game.bat` が既存venvやOSのPythonを更新する処理は追加していません。venv内のpip更新だけで、Python本体が更新されたとは扱わないでください。
+`.python-version` はCIとゲーム起動の要求版です。`run_game.bat` は既存venvやOSのPythonを更新しません。venv内のpip更新だけで、Python本体が更新されたとは扱わないでください。
 
 GitHubでは主検証・分岐検査・Python互換ジョブのログから、実Python版と全試験の結果を確認してください。証明書の診断成功だけを、全チェーン・失効確認やゲームの互換試験の成功へ読み替えないでください。
 
@@ -29,12 +29,12 @@ CI設定を変更する開発者は、固定版Prettier 3.6.2で対象ファイ�
 
 Python公式の3.13.18はソースのみで、Windowsインストーラーを提供していません。Windows CIではAstralのpython-build-standaloneを使用します。配布URLと圧縮アーカイブのSHA-256は `.github/windows-python.json` で固定し、展開・実行前に照合します。CIは格納パスとファイル種別も確認し、通常のGILを使うPython版が `.python-version` と一致することを確認します。
 
-開発者がローカルで検証する場合も、既存venvを削除せず、Eドライブの未使用フォルダーを指定してください。新しいPowerShellウィンドウを開き、Gitルートで次を実行してください。同じ保存先が既にある場合は別名に変え、検証後はそのPowerShellを閉じて環境変数を戻してください。照合するハッシュは圧縮アーカイブの値であり、`python.exe` 単体の値ではありません。
+開発者は既存venvを削除せず、Eドライブ上のGitルートで新しいPowerShellを開いてください。Cドライブの容量を保つため、Python本体・依存・一時ファイルはEへ置きます。次の手順は未使用の `runtime/` にPython本体と `runtime/venv/` を用意します。`runtime/` が既にある場合は、例の `$runtimeRoot` を別の未使用のEフォルダーへ書き換えてください。成功・失敗のどちらの場合も、そのPowerShellを閉じて環境変数を戻してください。照合するハッシュは圧縮アーカイブの値であり、`python.exe` 単体の値ではありません。
 
 ```powershell
 & {
     $ErrorActionPreference = 'Stop'
-    $runtimeRoot = 'E:/tools/kadocacio-python-validation'
+    $runtimeRoot = Join-Path (Get-Location) 'runtime'
     New-Item -ItemType Directory -Path $runtimeRoot -ErrorAction Stop | Out-Null
     $temporary = Join-Path $runtimeRoot 'tmp'
     New-Item -ItemType Directory -Path $temporary -ErrorAction Stop | Out-Null
@@ -68,7 +68,15 @@ Python公式の3.13.18はソースのみで、Windowsインストーラーを提
 
 この例の到達点は実行環境の導入とソースの試験です。配布exeはWindows CIでビルドし、`Kadocacio.exe --check-python-trust` のJSONで `python`・`frozen`・`ok` を確認してください。ビルドに使ったPythonの `LICENSE.txt` は `_internal/licenses/python/` へ同梱します。
 
-CIもPythonを一時領域へ導入し、既存venv、ユーザーのbin、Pythonのレジストリ登録を変更しません。Python版を更新する開発者は、WindowsアーカイブのURL・SHA-256・配布版も更新し、全試験と実exeの確認を再実行してください。
+## ソース版ゲームの起動
+
+導入後は `run_game.bat` を実行してください。起動スクリプトは `KADOCACIO_PYTHON` で明示したvenvの実行ファイル、`runtime/venv/Scripts/python.exe`、旧配置の `.venv/Scripts/python.exe` の順に選択します。選択先が存在しない、要求版と違う、通常GIL版ではない、venvではない場合は、依存導入やゲーム起動より前に失敗します。明示した指定が不正でも、別Pythonへ黙って切り替えません。
+
+別の未使用フォルダーへ導入した場合は、新しいPowerShellで `$env:KADOCACIO_PYTHON = 'E:/導入先/venv/Scripts/python.exe'` を設定してから `./run_game.bat` を実行してください。実行ファイルのパスだけを指定し、引数や外側の引用符は値へ含めないでください。`./run_game.bat --check-python-trust` で、同じ起動経路の実PythonとCAをGUIを開かず確認できます。
+
+この変更ではOSの既定Pythonや `py` を呼びません。旧venvは保持しますが、要求版に合わない旧環境ではゲームを開始しません。開発ツールの他のbatは今回の切替対象外です。CI中は `CI` の設定でエラー時のキー待ちを省略します。
+
+CIはPythonを一時領域へ導入し、既存venv、ユーザーのbin、Pythonのレジストリ登録を変更しません。Python版を更新する開発者は、WindowsアーカイブのURL・SHA-256・配布版も更新し、全試験と実exeの確認を再実行してください。
 
 Issue #155は継続します。既存ローカルvenvや他のPython環境の更新、全チェーン・失効・別環境の確認、署名（#156）は残件です。Ruffの構文対象 `py310` は参照コードの構文互換性を保つ指定であり、3.10のセキュリティサポートを表すものではありません。
 

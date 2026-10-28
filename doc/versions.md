@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.88
+
+ゲーム起動のPython選択と要求版を検査
+
+追加したファイル
+
+- `tests/test_game_launcher.py`
+
+  実cmdで並行環境・明示指定・要求版の拒否・引数伝達を確認します。
+
+変更したファイル
+
+- `run_game.bat`
+
+  検証済みvenvを優先し、ベース環境や異なる版を拒否します。診断引数と負の異常終了も伝達します。
+
+- `.gitignore`、`.github/workflows/windows-smoke.yml`、`README.md`、`doc/Python実行環境.md`、`doc/versions.md`
+
+  Windows試験と、旧venvを残して導入・起動する手順を整えます。
+
+---
+
 ver 0.7.87
 
 Windows導入手順の失敗時に後続処理を停止
