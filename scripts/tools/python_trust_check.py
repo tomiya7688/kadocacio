@@ -129,8 +129,8 @@ class PythonTrustCheck:
         explicit = paths.openssl_capath_env in os.environ
         specification = os.environ.get(paths.openssl_capath_env, paths.openssl_capath)
         directories = []
-        # Windowsの存在しない既定capathは適用外。明示した不在パスは未確認として拒否する。
-        for directory in specification.split(os.pathsep) if specification else []:
+        # Windowsの存在しない既定capathは適用外。明示した空文字や不在パスは拒否する。
+        for directory in specification.split(os.pathsep) if explicit or specification else []:
             item = {"path": directory, "checked_files": 0, "removed_root_files": [], "ok": True}
             directories.append(item)
             try:

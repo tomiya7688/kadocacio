@@ -137,6 +137,8 @@ class PythonTrustCheckTests(unittest.TestCase):
                     self.assertFalse(checker.system_store_report()["ok"])
                 with patch.dict(os.environ, {paths.openssl_capath_env: directory + os.pathsep}):
                     self.assertFalse(checker.system_store_report()["ok"])
+                with patch.dict(os.environ, {paths.openssl_capath_env: ""}):
+                    self.assertFalse(checker.system_store_report()["ok"])
                 with patch.object(Path, "iterdir", side_effect=PermissionError("unreadable CA directory")):
                     self.assertFalse(checker.system_store_report()["ok"])
 

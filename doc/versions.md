@@ -22,6 +22,25 @@ ver num.num.num
 
 ---
 
+ver 0.7.82
+
+明示された空のCAディレクトリ設定を拒否
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  SSL_CERT_DIR自体が空文字の場合にもパス検査を行い、空設定を成功としない回帰試験を追加します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  明示的な空パスの拒否条件と変更内容を記録します。
+
+---
+
 ver 0.7.81
 
 CA属性による遅延証明書の誤判定を修正
