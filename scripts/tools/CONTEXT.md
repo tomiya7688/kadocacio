@@ -55,6 +55,7 @@ Forbidden / avoid:
 - `migrate_stat_scale.py`
 - `migrate_team_ids.py`
 - `migrate_team_metadata.py`
+- `python_trust_check.py`
 - `reseed_k_league_teams.py`
 
 ## Child packages

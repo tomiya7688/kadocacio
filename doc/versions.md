@@ -22,6 +22,39 @@ ver num.num.num
 
 ---
 
+ver 0.7.77
+
+Python証明書対応の固定ハッシュ更新と実CAの診断を追加
+
+追加したファイル
+
+- `requirements-bootstrap.txt`
+
+  公式のpip・certifiをSHA-256で固定し、古い環境の更新に使います。
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  現在の版・実CA・既知の除去ルートを読取専用で検査し、誤合格とGUI混入を回帰検査します。
+- `doc/Python証明書対応.md`
+
+  背景、更新・診断の実行方法、配布物の検査と未確認範囲を説明します。
+
+変更したファイル
+
+- `main.py`、`run_game.bat`、`requirements.txt`
+
+  GUIを起動しない配布物診断、既存venvの更新とcertifiの下限を追加します。
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/windows-smoke.yml`、`.github/workflows/python-compat.yml`
+
+  依存導入前に固定ハッシュで更新し、Windowsでは再ビルドした実行ファイルのCAも検査します。
+- `README.md`、`doc/クラス一覧.md`、`doc/versions.md`
+
+  安全な初期セットアップ、診断の入口、追加クラスと変更履歴を記録します。
+- `scripts/tools/CONTEXT.md`
+
+  生成器で診断モジュールの索引を更新します。
+
+---
+
 ver 0.7.76
 
 PRレビューで判明したCI認証設定とクラス一覧の不足を修正

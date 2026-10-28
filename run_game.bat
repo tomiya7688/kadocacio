@@ -9,6 +9,14 @@ if not exist ".venv\Scripts\python.exe" (
   if errorlevel 1 goto :setup_error
 )
 
+.venv\Scripts\python.exe -m scripts.tools.python_trust_check >nul 2>nul
+if errorlevel 1 (
+  .venv\Scripts\python.exe -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+  if errorlevel 1 goto :setup_error
+  .venv\Scripts\python.exe -m scripts.tools.python_trust_check
+  if errorlevel 1 goto :setup_error
+)
+
 .venv\Scripts\python.exe -c "import pygame" >nul 2>nul
 if errorlevel 1 (
   .venv\Scripts\python.exe -m pip install -r requirements.txt

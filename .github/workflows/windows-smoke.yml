@@ -7,6 +7,7 @@ on:
       - "**/*.py"
       - "**/*.bat"
       - "requirements.txt"
+      - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
       - "static_analysis/**"
@@ -23,6 +24,7 @@ on:
       - "**/*.py"
       - "**/*.bat"
       - "requirements.txt"
+      - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
       - "ruff.toml"
       - "static_analysis/**"
@@ -68,7 +70,8 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
+          python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+          python -m scripts.tools.python_trust_check
           python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7"
           python -m pip check
 
@@ -92,6 +95,8 @@ jobs:
             --distpath dist `
             --workpath build/pyinstaller `
             --exclude-module upd_commander_checker `
+            --hidden-import certifi `
+            --collect-data certifi `
             --add-data "assets:assets" `
             --add-data "teams:teams" `
             --add-data "teameditor_templete:teameditor_templete" `
@@ -100,6 +105,12 @@ jobs:
             --add-data "league_state.json:." `
             main.py
           python -m scripts.tools.distribution_layout stage dist/Kadocacio
+
+      - name: Inspect bundled Python trust
+        shell: pwsh
+        run: |
+          & .\dist\Kadocacio\Kadocacio.exe --check-python-trust
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate distribution input/output layout
         shell: pwsh

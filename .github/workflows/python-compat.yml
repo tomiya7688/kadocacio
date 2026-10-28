@@ -6,6 +6,7 @@ on:
     paths:
       - "**/*.py"
       - "requirements.txt"
+      - "requirements-bootstrap.txt"
       - ".github/workflows/python-compat.yml"
   workflow_dispatch:
 
@@ -43,7 +44,8 @@ jobs:
 
       - name: Install runtime and test dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+          python -m scripts.tools.python_trust_check
           python -m pip install pytest
           python -m pip install -r requirements.txt
 

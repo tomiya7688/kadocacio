@@ -55,9 +55,12 @@ Windowsでは `run_game.bat` をダブルクリックしてください。
 コマンドから起動する場合：
 
 ```text
+py -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
 py -m pip install -r requirements.txt
 py main.py
 ```
+
+Pythonの証明書更新と実CAの診断は[Python証明書対応](doc/Python証明書対応.md)を参照してください。既存venvも更新対象です。
 
 ## ファイル構成
 
