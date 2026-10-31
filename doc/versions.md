@@ -22,6 +22,729 @@ ver num.num.num
 
 ---
 
+ver 0.7.90
+
+AI評価batを検証済みPythonへ接続
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `run_ai_evaluator.bat`
+
+  要求版・通常GIL・venv・証明書診断を確認し、引数と異常終了を伝達します。自動実行では終了待機を省略できます。
+
+- `tests/test_game_launcher.py`、`README.md`、`doc/versions.md`
+
+  実cmd回帰試験をAI評価入口へ広げ、準備と起動方法を更新します。
+
+---
+
+ver 0.7.89
+
+静的検査batを検証済みPythonへ接続
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `run_static_analysis.bat`
+
+  明示指定・並行runtime・旧venvの順で選択し、要求版・通常GIL・証明書診断の失敗時は停止します。
+
+- `tests/test_game_launcher.py`、`README.md`、`doc/versions.md`
+
+  両batの実cmd回帰試験と、静的検査の実行手順を更新します。
+
+---
+
+ver 0.7.88
+
+ゲーム起動のPython選択と要求版を検査
+
+追加したファイル
+
+- `tests/test_game_launcher.py`
+
+  実cmdで並行環境・明示指定・要求版の拒否・引数伝達を確認します。
+
+変更したファイル
+
+- `run_game.bat`
+
+  検証済みvenvを優先し、ベース環境や異なる版を拒否します。診断引数と負の異常終了も伝達します。
+
+- `.gitignore`、`.github/workflows/windows-smoke.yml`、`README.md`、`doc/Python実行環境.md`、`doc/versions.md`
+
+  Windows試験と、旧venvを残して導入・起動する手順を整えます。
+
+---
+
+ver 0.7.87
+
+Windows導入手順の失敗時に後続処理を停止
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `doc/Python実行環境.md`、`doc/versions.md`
+
+  PowerShell例を一つの実行ブロックにまとめ、開発依存のpipも隔離設定で導入します。
+
+---
+
+ver 0.7.86
+
+Windows Pythonアーカイブを直接照合
+
+追加したファイル
+
+- `.github/windows-python.json`
+
+  Python本体の配布URLとSHA-256を固定します。
+
+変更したファイル
+
+- `.github/workflows/windows-smoke.yml`
+
+  アーカイブの一致・格納先・種別を確認してから展開し、完了レポートのokも検証します。
+
+- `doc/Python実行環境.md`、`doc/Python証明書対応.md`、`doc/versions.md`
+
+  ハッシュの照合対象、一時領域とシェルの扱い、試験の終了判定と到達点を明記します。
+
+---
+
+ver 0.7.85
+
+Windows配布ビルドを修正版Pythonへ更新
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/windows-smoke.yml`
+
+  ハッシュ固定したuvで版ファイルと同じPythonを隔離導入し、実exeの版と同梱ライセンスを確認します。ネイティブコマンドの失敗を伝播します。
+
+- `doc/Python実行環境.md`、`doc/Python証明書対応.md`、`doc/versions.md`
+
+  既存venvを保持する検証手順、uv CLIの扱いと残件を記録します。
+
+---
+
+ver 0.7.84
+
+不正なCAの後も全証明書を診断
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  ファイル単位のエラーを集約して走査を継続し、不正PEMと読取不能の後も対象ルートを検出する回帰試験を追加します。
+
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  個別エラーの診断方法と今回の修正を記録します。
+
+---
+
+ver 0.7.83
+
+Linux検証を修正版Pythonへ更新
+
+追加したファイル
+
+- `.python-version`、`doc/Python実行環境.md`
+
+  Linux主検証の版を3.13.18に固定し、更新手順とWindows配布の残件を記録します。
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`
+
+  主検証と分岐検査は版ファイルを使用し、互換検査は3.11.18と3.12.16に固定します。チェックアウト時の認証情報保持を無効にし、既存の試験と閾値を維持します。
+
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  ランタイム更新の実施範囲と確認先を案内します。
+
+---
+
+ver 0.7.82
+
+明示された空のCAディレクトリ設定を拒否
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  SSL_CERT_DIR自体が空文字の場合にもパス検査を行い、空設定を成功としない回帰試験を追加します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  明示的な空パスの拒否条件と変更内容を記録します。
+
+---
+
+ver 0.7.81
+
+CA属性による遅延証明書の誤判定を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  読込可能な全PEM証明書のDERを照合し、CA一覧から除かれる証明書を空ファイルと混同しません。certifiの空CA拒否は維持します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  Linuxの実検査で判明した分類差と、検査方法を記録します。
+
+---
+
+ver 0.7.80
+
+遅延読込CAディレクトリの見落としを防止
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  capathのハッシュ名CAファイルも解析し、列挙不能や対象残存を失敗にします。診断失敗時は試験メッセージに実JSONを表示します。
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`
+
+  OSのCA更新後にハッシュ名リンクも再生成し、古い遅延読込パスを残さないようにします。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  遅延CAの検査範囲とレビュー修正を記録します。
+
+---
+
+ver 0.7.79
+
+診断JSONの文字コード依存とPython互換CIの依存不足を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  診断JSONをASCII表現にし、日本語パスの復元と通常の子プロセス起動を検査します。
+- `.github/workflows/python-compat.yml`、`tests/test_python_formatter.py`
+
+  互換CIも共通の開発依存を導入し、Ruffの導入漏れを回帰検査します。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  診断出力の文字コードに依存しない契約とレビュー修正を記録します。
+
+---
+
+ver 0.7.78
+
+CIのOS信頼ストアに残る既知ルートを除去
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/python-compat.yml`、`.github/workflows/windows-smoke.yml`
+
+  Ubuntuはca-certificatesを更新し、一時Windows runnerは実DERが一致する既知ルートのみ除去します。診断前にOS側も対処し、PowerShellのネイティブコマンド失敗も確実にCIへ伝えます。
+- `doc/Python証明書対応.md`、`doc/versions.md`
+
+  実際に検出したOS信頼ストアの残件とCI側の対処を記録します。診断の合格基準は変更しません。
+
+---
+
+ver 0.7.77
+
+Python証明書対応の固定ハッシュ更新と実CAの診断を追加
+
+追加したファイル
+
+- `requirements-bootstrap.txt`
+
+  公式のpip・certifiをSHA-256で固定し、古い環境の更新に使います。
+- `scripts/tools/python_trust_check.py`、`tests/test_python_trust_check.py`
+
+  現在の版・実CA・既知の除去ルートを読取専用で検査し、誤合格とGUI混入を回帰検査します。
+- `doc/Python証明書対応.md`
+
+  背景、更新・診断の実行方法、配布物の検査と未確認範囲を説明します。
+
+変更したファイル
+
+- `main.py`、`run_game.bat`、`requirements.txt`
+
+  GUIを起動しない配布物診断、既存venvの更新とcertifiの下限を追加します。
+- `.github/workflows/python-app.yml`、`.github/workflows/branch-coverage.yml`、`.github/workflows/windows-smoke.yml`、`.github/workflows/python-compat.yml`
+
+  依存導入前に固定ハッシュで更新し、Windowsでは再ビルドした実行ファイルのCAも検査します。
+- `README.md`、`doc/クラス一覧.md`、`doc/versions.md`
+
+  安全な初期セットアップ、診断の入口、追加クラスと変更履歴を記録します。
+- `scripts/tools/CONTEXT.md`
+
+  生成器で診断モジュールの索引を更新します。
+
+---
+
+ver 0.7.76
+
+PRレビューで判明したCI認証設定とクラス一覧の不足を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/python-app.yml`
+
+  検証ジョブのチェックアウト後に認証情報を残さず、PRのコードからGit認証に利用できないようにします。
+- `tests/test_python_formatter.py`
+
+  不整形を検出した場合の終了コードと、formatter未導入の診断を区別します。
+- `doc/クラス一覧.md`、`doc/versions.md`
+
+  再現性・seed・試合ログを検査する五つの試験クラスの役割と、レビュー修正を記録します。
+
+---
+
+ver 0.7.75
+
+CIの開発依存導入とWindowsの短縮パス比較を修正
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `.github/workflows/branch-coverage.yml`、`.github/workflows/windows-smoke.yml`
+
+  共通の開発依存を導入し、開発依存・整形設定だけの変更でも必要な試験を実行します。
+- `tests/test_python_formatter.py`
+
+  CIの依存導入と起動条件を回帰検査し、Git同梱Bashの探索結果を正規化済みの一時パスと比較します。試験の削除や基準緩和は行いません。
+- `doc/versions.md`
+
+  提出後に判明したCI失敗の修正を記録します。ゲーム演算やチームデータは変更しません。
+
+---
+
+ver 0.7.74
+
+PR #102全体の宣言説明とPython整形を回収
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `scripts/app/game_app.py`、`scripts/app/main_menu_view.py`、`scripts/app/rendering.py`、`scripts/app/team_select_view.py`、`scripts/app/ui_theme.py`、`scripts/match/match_engine.py`
+
+  起動・入力・描画と試合の専用乱数/記録の責務・処理を説明します。演算・描画の処理内容は変更しません。
+- `tests/test_main_menu.py`、`tests/test_main_menu_view.py`、`tests/test_team_select_view.py`、`tests/test_team_tuner_optimizer.py`
+
+  検証意図を記述し、チューナーの模擬クラスを独立状態とモックへ整理します。既存の全テスト名・全検証を保持し、seedと固定更新入力の検証を追加します。
+- PR差分に含まれるPython29ファイル、`doc/クラス一覧.md`、`doc/versions.md`
+
+  固定版Ruffで対象限定の整形を行い、既存試験クラスの一覧への記載漏れと履歴を更新します。レビューで指摘されたコメントの対象・位置も明確にします。担当外のチェックアウトは変更しません。
+
+---
+
+ver 0.7.73
+
+チューナーの比較seedと候補側集計の契約を説明・検証
+
+追加したファイル
+
+- `tests/test_team_tuner_seed_contract.py`
+
+  構築seed・巡回更新・候補側集計と逐次/並列経路の配線を隔離して確認します。
+
+変更したファイル
+
+- `scripts/team/team_tuner.py`
+
+  seedと試行状態の責務・処理コメントを追加し、固定版formatterで整形します。計算処理は変更しません。
+- `doc/試合再現性.md`、`doc/クラス一覧.md`、`doc/versions.md`
+
+  比較条件と試験の範囲・限界、追加クラスと変更履歴を記録します。
+
+---
+
+ver 0.7.72
+
+変更Pythonだけを整形・確認する固定版formatterを導入
+
+追加したファイル
+
+- ruff.toml、tests/test_python_formatter.py、doc/Python整形.md
+
+  固定設定と実CLIによる非更新・構文木一致・除外の試験、実行方法を追加します。
+
+変更したファイル
+
+- requirements-dev.txt、.github/workflows/python-app.yml
+
+  Ruff 0.16.8を固定し、既存CIへ変更Pythonの非更新確認を追加します。
+
+- README.md、doc/クラス一覧.md
+
+  開発者向けの整形入口と試験クラスの役割を説明します。試合計算は変更しません。
+
+ver 0.7.71
+
+AI評価の構築seed・対象側の集計・部分終了を検査
+
+追加したファイル
+
+- tests/test_ai_evaluator_job.py
+
+  模擬試合の配線と短い実Matchの繰り返しを分けて検査します。
+
+変更したファイル
+
+- scripts/tools/ai_evaluator.py
+
+  指定seed・ホーム／アウェーの集計対象と終了情報を説明します。計算は変更しません。
+
+- doc/試合再現性.md、doc/クラス一覧.md
+
+  AI評価のseed方式・実時間上限の注意・検証方法と試験クラスの役割を説明します。
+
+ver 0.7.70
+
+リーグ裏試合の構築時seedと実行経路間の整合性を検査
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/league/league_simulation_workers.py
+
+  単独・同期バッチのseed、固定更新、ペース解除、進捗と終了状態を説明します。実行処理は変更しません。
+
+- tests/test_league_simulation_session.py
+
+  模擬試合の責務を説明し、両ワーカーが各対戦seedを構築時に渡すことを検査します。
+
+- tests/test_match_seed_contract.py
+
+  単独・同期バッチで実Matchの状態・乱数指紋と共通結果が短区間で一致することを検査します。
+
+- doc/試合再現性.md
+
+  裏試合のseed・時計・終了状態と検証の境界を説明します。
+
+ver 0.7.69
+
+全イベント記録の順序・時計・独立性を説明し回帰試験を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/match/match_log_event.py
+
+  記録値の責務・通番・二つの時計・辞書の独立性を説明します。実行処理は変更しません。
+
+- tests/test_match_event_history.py
+
+  既存試験の意図を説明し、重複文面・取得済み履歴・再開準備中の時計を検査します。
+
+- doc/試合再現性.md
+
+  表示ログと全件記録の違い、再開始時の契約、開発者の検証方法を説明します。
+
+ver 0.7.68
+
+再現性検査CLIの指揮とJSON入出力を比較処理から分離
+
+追加したファイル
+
+- scripts/tools/match_repro_cli.py
+
+  引数・入力選択と比較・保存の呼出し順、CLI診断を担当します。
+
+- scripts/tools/match_repro_files.py
+
+  BOM付きUTF-8の読込と既存ファイルを保護する新規保存を担当します。
+
+- tests/test_match_repro_cli.py
+
+  分割前後で保存順・不一致報告・出力保護・入力条件が変わらないことを検査します。
+
+変更したファイル
+
+- scripts/tools/match_repro_check.py
+
+  比較処理を維持し、既存CLI入口から専用の指揮クラスへ委譲します。
+
+- tests/test_match_repro_check.py、tests/test_match_repro_input.py
+
+  チーム探索のモック接続先を移動先へ合わせ、既存の検査条件を維持します。
+
+- scripts/tools/CONTEXT.md
+
+  生成器から新しいCLI・入出力モジュールの所在を反映します。
+
+- doc/クラス一覧.md、doc/試合再現性.md
+
+  CLIの責務と担当の地図・開発者の確認方法を説明します。
+
+ver 0.7.67
+
+PR #102の再現入力検証を安全化しseed・比較手順を説明
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/core/match_seed.py、scripts/tools/match_repro_check.py
+
+  既存seed式と描画有無の固定更新比較・差分診断・保存条件を説明します。
+
+- scripts/tools/match_repro_input.py
+
+  巨大な整数倍率でOverflowErrorが漏れる問題を修正し、入力復元と互換条件を説明します。
+
+- tests/test_match_seed_contract.py、tests/test_match_repro_check.py、tests/test_match_repro_input.py
+
+  試験の目的と未検証の境界を記し、不正倍率と有効な両端値の回帰試験を追加します。
+
+- doc/試合再現性.md、doc/versions.md
+
+  入力エラーの診断と今回の修正範囲を記録します。
+
+---
+
+ver 0.7.22
+
+対戦設定画面を開始メニューと統一し、長い名前のはみ出しと描画中のファイル走査を解消
+
+追加したファイル
+
+- scripts/app/team_select_view.py
+
+  対戦カード・フォーメーション・会場・開始操作を描画専用クラスへ分離。
+
+- scripts/app/ui_theme.py
+
+  入口画面の共通配色と、文字サイズを保って長い名前を省略する関数。
+
+- tests/test_team_select_view.py
+
+  長文、同チーム、監督なし、全会場、各操作、描画中の走査禁止を検証。
+
+変更したファイル
+
+- scripts/app/rendering.py / scripts/app/game_app.py
+
+  対戦設定を専用ビューへ委譲し、JSONの毎フレーム走査を廃止。既存操作と試合計算は維持。
+
+- scripts/app/main_menu_view.py
+
+  共通テーマから配色を取得して対戦設定と統一。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  描画クラスと共通テーマの地図・役割・変更履歴を更新。能力値とセーブ形式は変更なし。
+
+---
+
+ver 0.7.21
+
+開始メニューの情報階層と可読性を整理し、描画分離とキーボード操作を追加
+
+追加したファイル
+
+- scripts/app/main_menu_view.py
+
+  リーグ進行を主役に、試合テストと編集ツールを分類する描画専用クラス。
+
+- tests/test_main_menu_view.py
+
+  カードの非重複、文字の領域内配置、フォーカス表示の安定性を検証。
+
+変更したファイル
+
+- scripts/app/game_app.py
+
+  クリックとキーの遷移を共通化し、Tab・矢印・Enter操作を追加。旧TITLEの誤開始を修正し、設定中の入力遮断をハンドラーでも保証。
+
+- scripts/app/rendering.py
+
+  開始メニューの描画を専用ビューへ委譲。毎フレームの影・ベール用Surface生成を廃止。
+
+- tests/test_main_menu.py
+
+  旧TITLE、既存数字ショートカット、フォーカス移動、設定中の入力遮断を回帰検証。
+
+- scripts/app/CONTEXT.md / doc/クラス一覧.md / doc/versions.md
+
+  生成地図、クラスの役割、変更履歴を更新。試合演算・能力値・セーブ形式の変更なし。
+
+---
+
+ver 0.7.20
+
+試合ログの全履歴を比較して序盤の差分も検出し、調査用JSONへ保存
+
+追加したファイル
+
+- scripts/match/match_log_event.py
+
+  ログ一件の発生順・試合時計・演算経過・文面を不変値として保持。
+
+- tests/test_match_event_history.py
+
+  8件を超える履歴、順序・時計・初期化・不変性と試合状態への非干渉を検証。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/tools/match_repro_check.py
+
+  既定オフの全ログ記録、全履歴比較、最初の不一致表示と詳細JSON出力を追加。
+
+- tests/test_match_repro_check.py / tests/test_match_repro_input.py
+
+  序盤の差分・末尾の欠落と、詳細レポートの保存・既存ファイル保護を検証。
+
+- scripts/tools/context_docs.py / scripts/match/CONTEXT.md / doc/クラス一覧.md
+
+  ログ観測用クラスの役割と参照先を登録。
+
+- doc/試合再現性.md / doc/試合エンジン境界.md / doc/versions.md
+
+  観測契約、レポート形式、記録対象と残作業を明文化。
+
+---
+
+ver 0.7.19
+
+チーム編集後も同じ入力で比較できる試合条件JSONの保存・再実行を追加
+
+追加したファイル
+
+- scripts/tools/match_repro_input.py
+
+  チーム能力を丸めず複製し、seed・計算条件とともにバージョン付き入力として検証・復元。
+
+- tests/test_match_repro_input.py
+
+  保存後の能力変更、チーム探索なしの再実行、不正入力・条件上書きの拒否を検証。
+
+変更したファイル
+
+- scripts/tools/match_repro_check.py / scripts/app/game_app.py
+
+  入力JSONの保存・読込と会場・AI判断頻度指定を追加し、描画側へ保存済みチームを注入。
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md / doc/versions.md
+
+  入力形式、使用方法、再現範囲と未対応の外部操作を記録。
+
+---
+
+ver 0.7.18
+
+ヘッドレス試合とPygame描画試合の再現性を比較する開発者ツールを追加
+
+追加したファイル
+
+- scripts/tools/match_repro_check.py
+
+  同じseedの両試合を固定ステップで進め、状態差をJSONで報告。
+
+- tests/test_match_repro_check.py
+
+  実際のPygame描画による状態一致に加え、端数フレーム・不一致報告・CLIの正常系と異常系を検証。
+
+変更したファイル
+
+- scripts/tools/CONTEXT.md / doc/試合再現性.md
+
+  開発者ツールの入口、実行方法、比較対象と残作業を記録。
+
+- doc/versions.md
+
+  Issue #36の描画あり・なし比較を記録。
+
+---
+
+ver 0.7.17
+
+試合開始前からseedを注入してリーグ観戦・裏試合の再現性を揃える
+
+追加したファイル
+
+- scripts/core/match_seed.py
+
+  リーグ試合の既存seed算出規則を共通化。
+
+- tests/test_match_seed_contract.py / doc/試合再現性.md
+
+  初期状態と固定ステップの再現性を検証し、契約と残作業を明文化。
+
+変更したファイル
+
+- scripts/match/match_engine.py / scripts/app/game_app.py / scripts/league/league_simulation_workers.py
+
+  乱数を試合生成時に注入し、観戦・裏試合に共通のfixture seedを使用。
+
+- scripts/tools/ai_evaluator.py / scripts/team/team_tuner.py
+
+  評価・チューニング時の試合生成にもseedを注入。
+
+- tests/test_league_simulation_session.py / tests/test_team_tuner_optimizer.py
+
+  テスト用試合を新しい生成契約へ合わせる。
+
+- scripts/core/CONTEXT.md / doc/versions.md
+
+  新しいseedモジュールとIssue #36の段階的な変更を記録。
+
+---
+
 ver 0.7.16
 
 試合中スコアボードの状態を不変Snapshotから表示

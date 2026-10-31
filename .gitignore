@@ -1,4 +1,6 @@
 .venv/
+# Verified side-by-side Python, dependency cache and temporary files
+/runtime/
 __pycache__/
 *.py[cod]
 .pytest_cache/

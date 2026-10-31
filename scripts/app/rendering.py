@@ -19,16 +19,43 @@ from scripts.league.league_live_view import (
 from scripts.match.match_engine import Match
 from scripts.match.player_commands import PlayerCommand
 from scripts.team.team_rating import compact_entity_grade_text
-from scripts.core.stat_scale import denormalize_player_stat
 from scripts.core.settings import (
-    AWAY_BLUE, CENTER_CIRCLE_RADIUS, CREAM, FIELD, GOAL_AREA_DEPTH, GOAL_AREA_WIDTH,
-    GOAL_DEPTH, GOAL_HALF_HEIGHT, GOAL_HEIGHT, GOLD, HEIGHT, HOME_DARK, HOME_RED, INK,
-    LINE, MUTED, PANEL, PAPER, PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH,
-    PENALTY_SPOT_DISTANCE, PITCH_1, PITCH_2, PLAYER_VISUAL_SCALE, SPEED_OPTIONS,
-    TACTICS, TEAMS_DIR, WIDTH, clamp, darken_color,
+    AWAY_BLUE,
+    CENTER_CIRCLE_RADIUS,
+    CREAM,
+    FIELD,
+    GOAL_AREA_DEPTH,
+    GOAL_AREA_WIDTH,
+    GOAL_DEPTH,
+    GOAL_HALF_HEIGHT,
+    GOAL_HEIGHT,
+    GOLD,
+    HEIGHT,
+    HOME_DARK,
+    HOME_RED,
+    INK,
+    LINE,
+    MUTED,
+    PANEL,
+    PAPER,
+    PENALTY_AREA_DEPTH,
+    PENALTY_AREA_WIDTH,
+    PENALTY_SPOT_DISTANCE,
+    PITCH_1,
+    PITCH_2,
+    PLAYER_VISUAL_SCALE,
+    SPEED_OPTIONS,
+    TACTICS,
+    WIDTH,
+    clamp,
 )
 
 
+# {
+#   責務: [RendererMixin: Gameの画面状態をPygameの投影・描画へ接続する互換窓口を提供する]
+#   フィールド: [screen・fonts・text_surface_cache: Gameが所有する描画先とキャッシュ;
+#     各view・camera_*・各buttons: Game側から渡される画面描画と入力領域。Mixin自体では初期化しない]
+# }
 class RendererMixin(LeagueRendererMixin):
     """Pygame projection and drawing methods used by Game."""
 
@@ -160,7 +187,12 @@ class RendererMixin(LeagueRendererMixin):
         pygame.draw.rect(self.screen, panel_color, league_panel, border_radius=13)
         pygame.draw.rect(self.screen, panel_border, league_panel, 1, border_radius=13)
         self.text("リーグ戦の裏試合", 14, (230, 235, 238), (league_panel.left + 18, league_panel.top + 13), bold=True)
-        self.text("ボール・衝突・時計は全モード共通。戦術AIの再判断頻度を変更", 10, (143, 157, 169), (league_panel.left + 162, league_panel.top + 17))
+        self.text(
+            "ボール・衝突・時計は全モード共通。戦術AIの再判断頻度を変更",
+            10,
+            (143, 157, 169),
+            (league_panel.left + 162, league_panel.top + 17),
+        )
         mode = str(getattr(self, "league_simulation_mode", "PRECISE"))
         mode_descriptions = {
             "ULTRA_PRECISE": "高頻度更新 / 最高負荷",
@@ -179,7 +211,12 @@ class RendererMixin(LeagueRendererMixin):
                 active=key == mode,
                 subtitle=mode_descriptions[key],
             )
-        self.text("設定変更は次に開始する裏試合から反映されます", 9, (126, 143, 156), (league_panel.left + 18, league_panel.bottom - 27))
+        self.text(
+            "設定変更は次に開始する裏試合から反映されます",
+            9,
+            (126, 143, 156),
+            (league_panel.left + 18, league_panel.bottom - 27),
+        )
 
         display_panel = pygame.Rect(card.left + 28, card.top + 428, card.width - 56, 100)
         pygame.draw.rect(self.screen, panel_color, display_panel, border_radius=13)
@@ -195,7 +232,9 @@ class RendererMixin(LeagueRendererMixin):
         display_gap = 9
         display_width = (display_panel.width - 36 - display_gap * 2) // 3
         for index, (label, action, active, subtitle) in enumerate(display_specs):
-            rect = pygame.Rect(display_panel.left + 18 + index * (display_width + display_gap), display_panel.top + 48, display_width, 38)
+            rect = pygame.Rect(
+                display_panel.left + 18 + index * (display_width + display_gap), display_panel.top + 48, display_width, 38
+            )
             button(rect, label, action, active=active, subtitle=subtitle)
 
         backend = f"演算 {getattr(self, 'compute_backend_name', 'CPU')} / 描画 {getattr(self, 'render_backend_name', 'CPU (Surface)')}"
@@ -350,16 +389,24 @@ class RendererMixin(LeagueRendererMixin):
         self.world_line(frame, front_top, front_bottom, 4)
         self.world_line(net, front_top, (back_x, FIELD.centery - GOAL_HALF_HEIGHT, GOAL_HEIGHT), 2)
         self.world_line(net, front_bottom, (back_x, FIELD.centery + GOAL_HALF_HEIGHT, GOAL_HEIGHT), 2)
-        self.world_line(net, (back_x, FIELD.centery - GOAL_HALF_HEIGHT, GOAL_HEIGHT), (back_x, FIELD.centery - GOAL_HALF_HEIGHT, 0), 2)
-        self.world_line(net, (back_x, FIELD.centery + GOAL_HALF_HEIGHT, GOAL_HEIGHT), (back_x, FIELD.centery + GOAL_HALF_HEIGHT, 0), 2)
+        self.world_line(
+            net, (back_x, FIELD.centery - GOAL_HALF_HEIGHT, GOAL_HEIGHT), (back_x, FIELD.centery - GOAL_HALF_HEIGHT, 0), 2
+        )
+        self.world_line(
+            net, (back_x, FIELD.centery + GOAL_HALF_HEIGHT, GOAL_HEIGHT), (back_x, FIELD.centery + GOAL_HALF_HEIGHT, 0), 2
+        )
         for step in range(1, 6):
             y = FIELD.centery - GOAL_HALF_HEIGHT + step * GOAL_HALF_HEIGHT * 2 / 6
             self.world_line(net, (goal_x, y, 0), (back_x, y, 0), 1)
             self.world_line(net, (back_x, y, 0), (back_x, y, GOAL_HEIGHT), 1)
         for step in range(1, 4):
             z = step * GOAL_HEIGHT / 4
-            self.world_line(net, (goal_x, FIELD.centery - GOAL_HALF_HEIGHT, z), (back_x, FIELD.centery - GOAL_HALF_HEIGHT, z), 1)
-            self.world_line(net, (goal_x, FIELD.centery + GOAL_HALF_HEIGHT, z), (back_x, FIELD.centery + GOAL_HALF_HEIGHT, z), 1)
+            self.world_line(
+                net, (goal_x, FIELD.centery - GOAL_HALF_HEIGHT, z), (back_x, FIELD.centery - GOAL_HALF_HEIGHT, z), 1
+            )
+            self.world_line(
+                net, (goal_x, FIELD.centery + GOAL_HALF_HEIGHT, z), (back_x, FIELD.centery + GOAL_HALF_HEIGHT, z), 1
+            )
 
     def draw_pitch(self) -> None:
         self.draw_stadium()
@@ -473,13 +520,23 @@ class RendererMixin(LeagueRendererMixin):
         pygame.draw.rect(self.screen, INK, head, 1)
         if size >= 7:
             pygame.draw.rect(self.screen, (91, 58, 42), (head.left + 1, head.top + 1, head.width - 2, max(2, size // 5)))
-            pygame.draw.line(self.screen, (252, 211, 169), (head.left + 2, head.top + max(2, size // 4)), (head.right - 2, head.top + max(2, size // 4)), 1)
+            pygame.draw.line(
+                self.screen,
+                (252, 211, 169),
+                (head.left + 2, head.top + max(2, size // 4)),
+                (head.right - 2, head.top + max(2, size // 4)),
+                1,
+            )
         eye_height = max(2, size // 3)
         eye_y = head.centery - eye_height // 2
         eye_offset = max(2, size // 5)
         eye_width = max(1, size // 10)
-        pygame.draw.line(self.screen, INK, (head.centerx - eye_offset, eye_y), (head.centerx - eye_offset, eye_y + eye_height), eye_width)
-        pygame.draw.line(self.screen, INK, (head.centerx + eye_offset, eye_y), (head.centerx + eye_offset, eye_y + eye_height), eye_width)
+        pygame.draw.line(
+            self.screen, INK, (head.centerx - eye_offset, eye_y), (head.centerx - eye_offset, eye_y + eye_height), eye_width
+        )
+        pygame.draw.line(
+            self.screen, INK, (head.centerx + eye_offset, eye_y), (head.centerx + eye_offset, eye_y + eye_height), eye_width
+        )
 
     def draw_horizontal_player(self, player: Player, scale: float) -> None:
         diving_pose = player.diving_header_active or player.heading_motion == "FALLEN"
@@ -516,12 +573,18 @@ class RendererMixin(LeagueRendererMixin):
         foot_left, _ = self.project_player_point(player, *foot_left_world, body_z + 1)
         foot_right, _ = self.project_player_point(player, *foot_right_world, body_z + 1 + kick_lift)
         self.draw_block_limb(
-            hip_left, foot_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.secondary, player.team.uniform["左脚"],
+            hip_left,
+            foot_left,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary,
+            player.team.uniform["左脚"],
         )
         self.draw_block_limb(
-            hip_right, foot_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.secondary, player.team.uniform["右脚"],
+            hip_right,
+            foot_right,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary,
+            player.team.uniform["右脚"],
         )
 
         arm_left_world = shoulder_center + side * 19 + direction * (5 if diving_pose else 0)
@@ -529,19 +592,27 @@ class RendererMixin(LeagueRendererMixin):
         arm_left, _ = self.project_player_point(player, *arm_left_world, body_z + 5)
         arm_right, _ = self.project_player_point(player, *arm_right_world, body_z + 5)
         self.draw_block_limb(
-            shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.primary, player.team.uniform["左腕"],
+            shoulder_left,
+            arm_left,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary,
+            player.team.uniform["左腕"],
         )
         self.draw_block_limb(
-            shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.primary, player.team.uniform["右腕"],
+            shoulder_right,
+            arm_right,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary,
+            player.team.uniform["右腕"],
         )
 
         head, head_depth = self.project_player_point(player, *head_world, body_z + 10)
         head_size = max(5, round(14 * PLAYER_VISUAL_SCALE * self.focal_length / head_depth))
         self.draw_square_head(head, head_size)
         chest = (shoulder_left + shoulder_right + hip_left + hip_right) / 4
-        number = self.font(max(6, min(10, round(10 * scale * PLAYER_VISUAL_SCALE))), True).render(str(player.number), True, CREAM)
+        number = self.font(max(6, min(10, round(10 * scale * PLAYER_VISUAL_SCALE))), True).render(
+            str(player.number), True, CREAM
+        )
         self.screen.blit(number, number.get_rect(center=chest))
         self.draw_player_label(player, body_z + 6)
 
@@ -604,12 +675,18 @@ class RendererMixin(LeagueRendererMixin):
         left_hip, _ = self.project_player_point(player, *left_hip_world, base_z + 17)
         right_hip, _ = self.project_player_point(player, *right_hip_world, base_z + 17)
         self.draw_block_limb(
-            left_hip, left_foot, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.secondary, player.team.uniform["左脚"],
+            left_hip,
+            left_foot,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary,
+            player.team.uniform["左脚"],
         )
         self.draw_block_limb(
-            right_hip, right_foot, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.secondary, player.team.uniform["右脚"],
+            right_hip,
+            right_foot,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.secondary,
+            player.team.uniform["右脚"],
         )
 
         body_center = pygame.Vector2(player.pos) + forward * body_lean + header_shift
@@ -632,12 +709,18 @@ class RendererMixin(LeagueRendererMixin):
         shoulder_left, _ = self.project_player_point(player, *upper_left, base_z + 32)
         shoulder_right, _ = self.project_player_point(player, *upper_right, base_z + 32)
         self.draw_block_limb(
-            shoulder_left, arm_left, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.primary, player.team.uniform["左腕"],
+            shoulder_left,
+            arm_left,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary,
+            player.team.uniform["左腕"],
         )
         self.draw_block_limb(
-            shoulder_right, arm_right, max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
-            player.team.primary, player.team.uniform["右腕"],
+            shoulder_right,
+            arm_right,
+            max(1, round(5 * scale * PLAYER_VISUAL_SCALE)),
+            player.team.primary,
+            player.team.uniform["右腕"],
         )
 
         head_world = pygame.Vector2(player.pos) + forward * body_lean * 1.2 + header_shift * 1.35
@@ -727,7 +810,11 @@ class RendererMixin(LeagueRendererMixin):
         x = PANEL.left + 18
         team_title = self.match.home.name.replace("_", " ")
         self.text(team_title, 18, INK, (x, PANEL.top + 18), bold=True)
-        manager_label = f"{self.match.home.short_name}　監督 {self.match.home.manager}" if self.match.home.manager else self.match.home.short_name
+        manager_label = (
+            f"{self.match.home.short_name}　監督 {self.match.home.manager}"
+            if self.match.home.manager
+            else self.match.home.short_name
+        )
         self.text(manager_label, 12, MUTED, (x, PANEL.top + 48))
         self.text(self.match.venue_name, 10, MUTED, (PANEL.right - 18, PANEL.top + 50), right=True)
         speed_label_y = PANEL.top + 82
@@ -762,7 +849,7 @@ class RendererMixin(LeagueRendererMixin):
             home_bar = pygame.Rect(bar.x, bar.y, round(bar.width * home_share), bar.height)
             pygame.draw.rect(self.screen, self.match.home.primary, home_bar, border_radius=6)
         self.text(f"支配率  {round(home_share * 100)}%", 12, INK, (x, divider_y + 115), bold=True)
-        self.text(f"{round((1-home_share) * 100)}%", 12, INK, (PANEL.right - 18, divider_y + 115), bold=True, right=True)
+        self.text(f"{round((1 - home_share) * 100)}%", 12, INK, (PANEL.right - 18, divider_y + 115), bold=True, right=True)
 
         log_y = divider_y + 148
         self.text("MATCH LOG", 15, INK, (x, log_y), bold=True)
@@ -811,7 +898,8 @@ class RendererMixin(LeagueRendererMixin):
         self.text("選手一覧・試合中パラメーター", 23, INK, (modal.left + 28, modal.top + 19), bold=True)
         subtitle = (
             "キ:キック　速:スピード　ス:スタミナ　技:テクニック　跳:ジャンプ　メ:メンタル　知:知性　守/攻:裏能力"
-            if self.player_list_rank_mode else "試合を進行しながら現在値をリアルタイム表示中"
+            if self.player_list_rank_mode
+            else "試合を進行しながら現在値をリアルタイム表示中"
         )
         self.text(subtitle, 10 if self.player_list_rank_mode else 12, MUTED, (modal.left + 30, modal.top + 53))
         self.player_list_close_button = pygame.Rect(modal.right - 142, modal.top + 18, 112, 34)
@@ -819,7 +907,9 @@ class RendererMixin(LeagueRendererMixin):
         pygame.draw.rect(self.screen, (183, 180, 168), self.player_list_close_button, 2, border_radius=7)
         self.text("P / TAB　閉じる", 12, INK, self.player_list_close_button.center, bold=True, center=True)
         self.player_list_rank_button = pygame.Rect(modal.right - 320, modal.top + 18, 166, 34)
-        pygame.draw.rect(self.screen, GOLD if self.player_list_rank_mode else (230, 226, 211), self.player_list_rank_button, border_radius=7)
+        pygame.draw.rect(
+            self.screen, GOLD if self.player_list_rank_mode else (230, 226, 211), self.player_list_rank_button, border_radius=7
+        )
         pygame.draw.rect(self.screen, (183, 180, 168), self.player_list_rank_button, 2, border_radius=7)
         mode_label = "表示：能力ランク" if self.player_list_rank_mode else "表示：試合中状態"
         self.text(mode_label, 11, INK, self.player_list_rank_button.center, bold=True, center=True)
@@ -834,7 +924,11 @@ class RendererMixin(LeagueRendererMixin):
             tactic_label = TACTICS.get(team.tactic, TACTICS["BALANCE"])["label"]
             self.text(
                 f"{tactic_label}　交代{team.substitutions_used}/3",
-                11, CREAM, (column_x + column_width - 12, header_y + 9), bold=True, right=True,
+                11,
+                CREAM,
+                (column_x + column_width - 12, header_y + 9),
+                bold=True,
+                right=True,
             )
             for index, player in enumerate(team.players):
                 row_y = header_y + 42 + index * 45
@@ -886,18 +980,31 @@ class RendererMixin(LeagueRendererMixin):
         self.text("他の試合　リアルタイム速報", 23, INK, (modal.left + 28, modal.top + 22), bold=True)
         session = self.league_simulation_session
         worker_text = f" / 自動割当 {session.worker_count}コア" if session is not None else ""
-        self.text("観戦試合と同じ試合時計で、別CPUコアのAI試合を進行中" + worker_text, 11, MUTED, (modal.left + 30, modal.top + 58))
+        self.text(
+            "観戦試合と同じ試合時計で、別CPUコアのAI試合を進行中" + worker_text, 11, MUTED, (modal.left + 30, modal.top + 58)
+        )
         self.other_matches_close_button = pygame.Rect(modal.right - 142, modal.top + 20, 112, 34)
         pygame.draw.rect(self.screen, (230, 226, 211), self.other_matches_close_button, border_radius=7)
         pygame.draw.rect(self.screen, (183, 180, 168), self.other_matches_close_button, 2, border_radius=7)
         self.text("O / ESC 閉じる", 11, INK, self.other_matches_close_button.center, bold=True, center=True)
 
-        statuses = [dict(item) for item in session.live_status.values()] if session is not None else list(self.league_live_last_status)
+        statuses = (
+            [dict(item) for item in session.live_status.values()]
+            if session is not None
+            else list(self.league_live_last_status)
+        )
         result_by_id = {str(item.get("fixture_id")): item for item in self.league_manager.last_results}
         for status in statuses:
             result = result_by_id.get(str(status.get("fixture_id")))
             if result:
-                status.update({"home_score": result.get("home_score", 0), "away_score": result.get("away_score", 0), "minute": 90, "state": "FULLTIME"})
+                status.update(
+                    {
+                        "home_score": result.get("home_score", 0),
+                        "away_score": result.get("away_score", 0),
+                        "minute": 90,
+                        "state": "FULLTIME",
+                    }
+                )
         if not statuses:
             self.text("同時開催の他の試合はありません", 16, MUTED, modal.center, center=True)
             self.other_matches_scroll = 0
@@ -909,11 +1016,17 @@ class RendererMixin(LeagueRendererMixin):
         visible, first_index, last_index = visible_other_matches(statuses, self.other_matches_scroll)
         self.text(
             f"全{len(statuses)}試合　表示 {first_index + 1}～{last_index}",
-            11, INK, (modal.right - 176, modal.top + 64), right=True, bold=True,
+            11,
+            INK,
+            (modal.right - 176, modal.top + 64),
+            right=True,
+            bold=True,
         )
         self.text(
             "マウスホイール / ↑↓ / PageUp・PageDown / Home・End",
-            10, MUTED, (modal.left + 30, modal.top + 81),
+            10,
+            MUTED,
+            (modal.left + 30, modal.top + 81),
         )
 
         grid = pygame.Rect(modal.left + 24, modal.top + 108, modal.width - 76, 480)
@@ -945,7 +1058,14 @@ class RendererMixin(LeagueRendererMixin):
             if len(away_name) > 14:
                 away_name = away_name[:13] + "…"
             self.text(home_name, 10, INK, (row.centerx - 34, row.top + 27), right=True, bold=True)
-            self.text(f"{status.get('home_score', 0)}-{status.get('away_score', 0)}", 14, HOME_RED, (row.centerx, row.top + 27), center=True, bold=True)
+            self.text(
+                f"{status.get('home_score', 0)}-{status.get('away_score', 0)}",
+                14,
+                HOME_RED,
+                (row.centerx, row.top + 27),
+                center=True,
+                bold=True,
+            )
             self.text(away_name, 10, INK, (row.centerx + 34, row.top + 27), bold=True)
 
         maximum = other_match_max_scroll(len(statuses))
@@ -973,10 +1093,7 @@ class RendererMixin(LeagueRendererMixin):
             self.text(match.banner, 34, GOLD, banner.center, bold=True, center=True)
 
         kickoff_prediction = (
-            match.state == "PLAYING"
-            and match.banner == "KICK OFF"
-            and match.banner_timer > 0.0
-            and match.game_time <= 0.0001
+            match.state == "PLAYING" and match.banner == "KICK OFF" and match.banner_timer > 0.0 and match.game_time <= 0.0001
         )
         if kickoff_prediction:
             prediction_box = pygame.Rect(64, 78, PANEL.left - 128, 42)
@@ -993,7 +1110,11 @@ class RendererMixin(LeagueRendererMixin):
             self.text("試合を高速処理中", 34, GOLD, (center_x, 250), bold=True, center=True)
             self.text(
                 f"{int(match.game_time // 60):02d}:{int(match.game_time % 60):02d} / 90:00",
-                22, CREAM, (center_x, 305), bold=True, center=True,
+                22,
+                CREAM,
+                (center_x, 305),
+                bold=True,
+                center=True,
             )
             if self.active_league_fixture_id:
                 self.text("観戦試合の後、同日開催の全試合も完了させます", 15, CREAM, (center_x, 350), center=True)
@@ -1020,7 +1141,11 @@ class RendererMixin(LeagueRendererMixin):
                 pygame.draw.rect(self.screen, CREAM, rect, 2, border_radius=8)
                 self.text(label, 17, INK, rect.center, bold=True, center=True)
                 self.pause_menu_buttons.append((rect, action))
-            league_note = "中断すると未確定のままリーグ画面へ戻ります" if self.active_league_fixture_id else "中断するとチーム選択へ戻ります"
+            league_note = (
+                "中断すると未確定のままリーグ画面へ戻ります"
+                if self.active_league_fixture_id
+                else "中断するとチーム選択へ戻ります"
+            )
             self.text(league_note, 14, CREAM, (center_x, 478), center=True)
             self.text("Esc / Space：試合に戻る", 14, GOLD, (center_x, 514), center=True)
         elif match.state == "FULLTIME":
@@ -1056,7 +1181,10 @@ class RendererMixin(LeagueRendererMixin):
                 if len(match.goal_scorers) > len(visible_scorers):
                     self.text(
                         f"ほか {len(match.goal_scorers) - len(visible_scorers)}得点",
-                        12, MUTED, (scorer_box.right - 24, scorer_box.bottom - 24), right=True,
+                        12,
+                        MUTED,
+                        (scorer_box.right - 24, scorer_box.bottom - 24),
+                        right=True,
                     )
             self.fulltime_buttons.clear()
             if league_match:
@@ -1094,7 +1222,10 @@ class RendererMixin(LeagueRendererMixin):
             else:
                 rematch_rect = pygame.Rect(center_x - 206, 455, 176, 50)
                 select_rect = pygame.Rect(center_x + 30, 455, 236, 50)
-                for rect, label, action in ((rematch_rect, "再戦", "rematch"), (select_rect, "チーム選択へ戻る", "team_select")):
+                for rect, label, action in (
+                    (rematch_rect, "再戦", "rematch"),
+                    (select_rect, "チーム選択へ戻る", "team_select"),
+                ):
                     hover = rect.collidepoint(self.logical_mouse_pos())
                     pygame.draw.rect(self.screen, GOLD if hover else (242, 184, 72), rect, border_radius=8)
                     pygame.draw.rect(self.screen, CREAM, rect, 2, border_radius=8)
@@ -1102,200 +1233,46 @@ class RendererMixin(LeagueRendererMixin):
                     self.fulltime_buttons.append((rect, action))
                 self.text("R：再戦　　T / Enter / Space：チーム選択へ戻る", 16, GOLD, (center_x, 535), center=True)
 
+    # {
+    #   責務: [draw_choice_formation: 既存の編成プレビュー呼出しを準備画面の担当へ接続する]
+    #   処理: [1: 描画コンテキストとチームをTeamSelectViewへ渡す]
+    #   引数: [choice: 読込済みの先発と色; rect: プレビュー領域]
+    #   戻り値: [None: screenへ描画する。試合編成は変えない]
+    # }
     def draw_choice_formation(self, choice: dict, rect: pygame.Rect) -> None:
-        pygame.draw.rect(self.screen, (54, 124, 73), rect, border_radius=8)
-        pygame.draw.rect(self.screen, LINE, rect, 2, border_radius=8)
-        pygame.draw.line(self.screen, LINE, (rect.left, rect.centery), (rect.right, rect.centery), 1)
-        pygame.draw.circle(self.screen, LINE, rect.center, 25, 1)
-        primary = choice["primary"]
-        secondary = choice.get("secondary", darken_color(primary))
-        records = choice["starters"]
-        points = []
-        for record in records:
-            if record["position_y"] == 11:
-                normalized_x = 0.5
-                normalized_y = 0.94
-            else:
-                normalized_x = (record["position_x"] - 0.5) / 15.0
-                normalized_y = 0.08 + (record["position_y"] - 1) / 9.0 * 0.75
-            points.append((record["number"], normalized_x, normalized_y))
-        for number, normalized_x, normalized_y in points:
-            px = round(rect.left + normalized_x * rect.width)
-            py = round(rect.top + normalized_y * rect.height)
-            pygame.draw.circle(self.screen, secondary, (px + 1, py + 2), 8)
-            pygame.draw.circle(self.screen, primary, (px, py), 8)
-            jersey = self.font(9, True).render(str(number), True, CREAM)
-            self.screen.blit(jersey, jersey.get_rect(center=(px, py)))
+        # 旧呼出し側のAPIを残し、描画の定義を重複させない。
+        self.team_select_view.draw_formation(self, choice, rect)
 
+    # {
+    #   責務: [draw_team_card: 選択番号を補い、既存のカード描画をTeamSelectViewへ委譲する]
+    #   処理: [1: home/awayの選択番号を取得する; 2: 担当viewへ描画を渡す]
+    #   引数: [rect: カード領域; choice: 読込済みチーム; side: homeまたはaway]
+    #   戻り値: [None: screenと準備画面の操作領域を更新する]
+    # }
     def draw_team_card(self, rect: pygame.Rect, choice: dict, side: str) -> None:
-        pygame.draw.rect(self.screen, PAPER, rect, border_radius=14)
-        pygame.draw.rect(self.screen, choice["primary"], rect, 4, border_radius=14)
-        side_label = "HOME / 操作チーム" if side == "home" else "AWAY / 相手チーム"
-        self.text(side_label, 14, MUTED, (rect.centerx, rect.top + 24), bold=True, center=True)
-        self.text(choice["name"].replace("_", " "), 25, INK, (rect.centerx, rect.top + 68), bold=True, center=True)
-        badge = pygame.Rect(rect.right - 92, rect.top + 18, 72, 24)
-        pygame.draw.rect(self.screen, GOLD, badge, border_radius=5)
-        self.text(choice["kind"], 10, INK, badge.center, bold=True, center=True)
+        # 選択番号の所有はGame、表示と矩形登録はviewに残す。
+        index = self.home_choice_index if side == "home" else self.away_choice_index
+        self.team_select_view.draw_card(self, rect, choice, side, index)
 
-        manager = choice.get("manager") or "—"
-        manager_intelligence = round(denormalize_player_stat(choice.get("manager_intelligence", 0.542)))
-        tactic_aggression = round(denormalize_player_stat(choice.get("manager_tactic_aggression", 0.375)))
-        substitution_aggression = round(denormalize_player_stat(choice.get("manager_substitution_aggression", 0.375)))
-        manager_detail = (
-            f"監督 {manager}　知{manager_intelligence} 戦{tactic_aggression} 交{substitution_aggression}"
-            if choice.get("manager")
-            else "監督 —"
-        )
-        self.text(
-            f"{manager_detail}　略称 {choice['short']}",
-            10, MUTED, (rect.centerx, rect.top + 101), center=True,
-        )
-        formation_rect = pygame.Rect(rect.left + 65, rect.top + 125, rect.width - 130, 185)
-        self.draw_choice_formation(choice, formation_rect)
-        player_count = len(choice["starters"])
-        bench_count = len(choice.get("bench", []))
-        formation_label = "15×10 JSON配置"
-        self.text(formation_label, 13, INK, (rect.left + 30, rect.top + 330), bold=True)
-        self.text(f"先発 {player_count}人　控え {bench_count}人", 12, MUTED, (rect.right - 30, rect.top + 332), right=True)
-        tactic_label = choice.get("tactic_label", "バランス")
-        zone_label = f"ゾーン {choice.get('zone_near', 3)}–{choice.get('zone_far', 7)}"
-        discipline = round(choice.get("tactical_discipline", 0.5) * 100)
-        self.text(
-            f"戦術 {tactic_label}　/　{zone_label}　/　チーム忠実さ {discipline}",
-            12, INK, (rect.centerx, rect.top + 360), bold=True, center=True,
-        )
-        self.text(
-            f"所属：{choice.get('league') or '未所属'}　/　ホームコート：{choice.get('home_court', '—')}",
-            10, MUTED, (rect.centerx, rect.top + 384), center=True,
-        )
-
-        prev_rect = pygame.Rect(rect.left + 18, rect.top + 184, 38, 58)
-        next_rect = pygame.Rect(rect.right - 56, rect.top + 184, 38, 58)
-        for button, label in ((prev_rect, "‹"), (next_rect, "›")):
-            hover = button.collidepoint(self.logical_mouse_pos())
-            pygame.draw.rect(self.screen, GOLD if hover else (224, 220, 205), button, border_radius=7)
-            pygame.draw.rect(self.screen, INK, button, 2, border_radius=7)
-            self.text(label, 30, INK, button.center, bold=True, center=True)
-        self.team_select_buttons.append((prev_rect, f"{side}_prev"))
-        self.team_select_buttons.append((next_rect, f"{side}_next"))
-
+    # {
+    #   責務: [draw_team_select: 既存の準備画面描画入口を専用viewへ接続する]
+    #   処理: [1: TeamSelectViewへ現在のGameを渡す]
+    #   引数: []
+    #   戻り値: [None: 準備画面と当たり判定を再描画する。入力・ファイル読込は行わない]
+    # }
     def draw_team_select(self) -> None:
-        self.screen.fill(INK)
-        for index in range(12):
-            color = (35, 82, 55) if index % 2 == 0 else (40, 91, 61)
-            pygame.draw.polygon(
-                self.screen,
-                color,
-                [(0, index * 72), (WIDTH, index * 72 - 180), (WIDTH, index * 72 - 105), (0, index * 72 + 75)],
-            )
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((19, 25, 32, 145))
-        self.screen.blit(shade, (0, 0))
-        self.text("DEBUG TEAM SELECT", 16, GOLD, (WIDTH // 2, 27), bold=True, center=True)
-        self.text("対戦チームを選択", 34, CREAM, (WIDTH // 2, 67), bold=True, center=True)
+        # 呼出し名を保ったまま、画面表示の担当を分離する。
+        self.team_select_view.draw(self)
 
-        self.team_select_buttons.clear()
-        home_rect = pygame.Rect(72, 108, 520, 410)
-        away_rect = pygame.Rect(688, 108, 520, 410)
-        home_choice = self.team_choices[self.home_choice_index]
-        away_choice = self.team_choices[self.away_choice_index]
-        self.draw_team_card(home_rect, home_choice, "home")
-        self.draw_team_card(away_rect, away_choice, "away")
-        self.text("VS", 31, GOLD, (WIDTH // 2, 302), bold=True, center=True)
-
-        if home_choice["id"] == away_choice["id"]:
-            self.text("同チーム対戦：AWAY側は青ユニフォームになります", 11, CREAM, (WIDTH // 2, 520), center=True)
-        venue_labels = (("HOME", "HOMEのホーム"), ("NEUTRAL", "中立地"), ("AWAY", "AWAYのホーム"))
-        for index, (mode, label) in enumerate(venue_labels):
-            rect = pygame.Rect(WIDTH // 2 - 261 + index * 174, 531, 166, 34)
-            active = self.venue_modes[self.venue_mode_index] == mode
-            hover = rect.collidepoint(self.logical_mouse_pos())
-            color = GOLD if active else (238, 233, 216) if hover else (211, 210, 199)
-            pygame.draw.rect(self.screen, color, rect, border_radius=6)
-            pygame.draw.rect(self.screen, INK, rect, 2, border_radius=6)
-            self.text(label, 12, INK, rect.center, bold=True, center=True)
-            self.team_select_buttons.append((rect, f"venue_{mode.lower()}"))
-        start_rect = pygame.Rect(WIDTH // 2 - 175, 578, 350, 58)
-        hover = start_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, (239, 89, 76) if hover else HOME_RED, start_rect, border_radius=10)
-        pygame.draw.rect(self.screen, GOLD, start_rect, 3, border_radius=10)
-        self.text("この対戦で試合開始", 20, CREAM, start_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((start_rect, "start"))
-
-        self.text("HOME: Q / E　AWAY: A / D　会場: V　Enter / Space: 開始", 13, CREAM, (WIDTH // 2, 648), center=True)
-        editor_rect = pygame.Rect(20, 674, 218, 30)
-        editor_hover = editor_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if editor_hover else (230, 226, 211), editor_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), editor_rect, 2, border_radius=7)
-        self.text("チームエディタ", 11, INK, editor_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((editor_rect, "editor"))
-        league_rect = pygame.Rect(250, 674, 218, 30)
-        league_hover = league_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if league_hover else (230, 226, 211), league_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), league_rect, 2, border_radius=7)
-        self.text("リーグ戦", 11, INK, league_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((league_rect, "league"))
-        menu_rect = pygame.Rect(480, 674, 218, 30)
-        menu_hover = menu_rect.collidepoint(self.logical_mouse_pos())
-        pygame.draw.rect(self.screen, GOLD if menu_hover else (230, 226, 211), menu_rect, border_radius=7)
-        pygame.draw.rect(self.screen, (183, 180, 168), menu_rect, 2, border_radius=7)
-        self.text("メインメニューへ", 11, INK, menu_rect.center, bold=True, center=True)
-        self.team_select_buttons.append((menu_rect, "main_menu"))
-        self.draw_settings_button(pygame.Rect(WIDTH - 238, 674, 218, 30))
-        empty_count = sum(1 for path in TEAMS_DIR.glob("*.json") if path.stat().st_size == 0) if TEAMS_DIR.exists() else 0
-        info = f"選択可能 {len(self.team_choices)}チーム"
-        if empty_count:
-            info += f"　空のJSON {empty_count}件は除外"
-        self.text(info, 11, (192, 200, 199), (WIDTH // 2, 664), center=True)
-
+    # {
+    #   責務: [draw_title: 起動メニューの既存描画入口を専用viewへ接続する]
+    #   処理: [1: MainMenuViewへ現在のGameを渡す]
+    #   引数: []
+    #   戻り値: [None: 起動カードと操作領域を描く。TITLE/MAIN_MENUの状態値は変えない]
+    # }
     def draw_title(self) -> None:
-        self.screen.fill((10, 17, 25))
-        # A restrained stadium/pitch motif gives the hub depth without making
-        # the navigation cards compete with an animated match.
-        for y in range(0, HEIGHT, 48):
-            tone = 23 + min(18, y // 48)
-            pygame.draw.rect(self.screen, (tone, tone + 9, tone + 15), (0, y, WIDTH, 48))
-        pygame.draw.polygon(self.screen, (24, 83, 57), [(0, 305), (WIDTH, 236), (WIDTH, HEIGHT), (0, HEIGHT)])
-        for index in range(9):
-            x = index * 190 - 120
-            pygame.draw.polygon(self.screen, (29, 101, 67) if index % 2 else (27, 94, 63), [(x, 274), (x + 150, 266), (x + 360, HEIGHT), (x + 145, HEIGHT)])
-        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        veil.fill((7, 12, 18, 118))
-        self.screen.blit(veil, (0, 0))
-
-        self.main_menu_buttons.clear()
-        self.text("KADOCALCIO", 13, (77, 198, 178), (64, 38), bold=True)
-        self.text("カドカルチョ", 44, CREAM, (64, 58), bold=True)
-        self.text("FOOTBALL CLUB SIMULATOR", 12, (154, 171, 181), (67, 112), bold=True)
-        self.text("クラブ作成、リーグ構築、シーズン進行、単体試合テストをここから開始します。", 14, (204, 214, 218), (66, 150))
-
-        cards = (
-            ("TEAM", "チームエディタ", "選手・能力・色・フォーメーションを編集", "team_editor", (77, 198, 178)),
-            ("LEAGUE", "リーグ戦エディタ", "リーグ・大会・参加チーム・日程を編集", "league_editor", (100, 151, 235)),
-            ("SEASON", "リーグ戦を開始", "新規セーブを作成、または途中データを再開", "league_start", (232, 174, 72)),
-            ("MATCH", "試合テスト", "任意の2チームと会場で単体試合を実行", "match_test", (224, 94, 88)),
-        )
-        mouse = self.logical_mouse_pos()
-        for index, (eyebrow, title, detail, action, accent) in enumerate(cards):
-            column, row = index % 2, index // 2
-            rect = pygame.Rect(64 + column * 588, 205 + row * 190, 552, 158)
-            hover = rect.collidepoint(mouse)
-            shadow = pygame.Surface((rect.width + 14, rect.height + 14), pygame.SRCALPHA)
-            pygame.draw.rect(shadow, (0, 0, 0, 90), shadow.get_rect(), border_radius=17)
-            self.screen.blit(shadow, (rect.left - 3, rect.top + 6))
-            pygame.draw.rect(self.screen, (29, 40, 52) if not hover else (38, 52, 66), rect, border_radius=14)
-            pygame.draw.rect(self.screen, accent, (rect.left, rect.top, 5, rect.height), border_radius=3)
-            pygame.draw.rect(self.screen, (66, 82, 96) if not hover else accent, rect, 1, border_radius=14)
-            icon = pygame.Rect(rect.left + 24, rect.top + 28, 74, 74)
-            pygame.draw.rect(self.screen, (*accent, 255), icon, border_radius=13)
-            self.text(str(index + 1), 30, (12, 23, 31), icon.center, bold=True, center=True)
-            self.text(eyebrow, 9, accent, (rect.left + 122, rect.top + 25), bold=True)
-            self.text(title, 22, (245, 248, 249), (rect.left + 122, rect.top + 45), bold=True)
-            self.text(detail, 11, (157, 173, 183), (rect.left + 122, rect.top + 82))
-            self.text("開く  ›", 11, accent, (rect.right - 24, rect.bottom - 28), right=True, bold=True)
-            self.main_menu_buttons.append((rect, action))
-        self.text("1–4 キーでも選択できます", 11, (142, 158, 168), (64, HEIGHT - 31))
-        self.draw_settings_button(pygame.Rect(WIDTH - 238, HEIGHT - 46, 218, 30))
+        # 古いTITLE呼出しと現在のMAIN_MENUで同じ表示を使う。
+        self.main_menu_view.draw(self)
 
     def draw(self) -> None:
         if self.league_screen_open:
@@ -1325,10 +1302,7 @@ class RendererMixin(LeagueRendererMixin):
         self.screen.fill((228, 222, 204))
         self.draw_pitch()
         renderables: list[tuple[float, str, object]] = [
-            (player.pos.y, "player", player)
-            for team in self.match.teams
-            for player in team.players
-            if not player.sent_off
+            (player.pos.y, "player", player) for team in self.match.teams for player in team.players if not player.sent_off
         ]
         renderables.append((self.match.referee_pos.y, "referee", None))
         renderables.append((self.match.ball.pos.y, "ball", self.match.ball))
