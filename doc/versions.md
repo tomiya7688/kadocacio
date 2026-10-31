@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.90
+
+AI評価batを検証済みPythonへ接続
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `run_ai_evaluator.bat`
+
+  要求版・通常GIL・venv・証明書診断を確認し、引数と異常終了を伝達します。自動実行では終了待機を省略できます。
+
+- `tests/test_game_launcher.py`、`README.md`、`doc/versions.md`
+
+  実cmd回帰試験をAI評価入口へ広げ、準備と起動方法を更新します。
+
+---
+
 ver 0.7.89
 
 静的検査batを検証済みPythonへ接続
