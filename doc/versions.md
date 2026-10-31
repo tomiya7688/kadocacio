@@ -22,6 +22,26 @@ ver num.num.num
 
 ---
 
+ver 0.7.89
+
+静的検査batを検証済みPythonへ接続
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- `run_static_analysis.bat`
+
+  明示指定・並行runtime・旧venvの順で選択し、要求版・通常GIL・証明書診断の失敗時は停止します。
+
+- `tests/test_game_launcher.py`、`README.md`、`doc/versions.md`
+
+  両batの実cmd回帰試験と、静的検査の実行手順を更新します。
+
+---
+
 ver 0.7.88
 
 ゲーム起動のPython選択と要求版を検査

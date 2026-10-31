@@ -65,6 +65,8 @@ Pythonの証明書更新と実CAの診断は[Python証明書対応](doc/Python�
 
 Pythonを変更する開発者は、[整形手順](doc/Python整形.md)に従って実装後に変更ファイルを整形・確認してください。固定版Ruffを使い、既存CIも変更されたPythonを確認します。通常のゲーム起動にformatterは不要です。
 
+静的検査はリポジトリのルートで `run_static_analysis.bat --report-dir user_data/logs/review` を実行してください。`KADOCACIO_PYTHON`、`runtime/venv`、旧 `.venv` の順でPythonを選び、要求版・通常GIL・venv・証明書診断を確認してから検査します。不正な明示指定や診断失敗では停止します。[Python実行環境](doc/Python実行環境.md)に従って環境を準備し、開発依存を導入してください。成功時は `STATIC ANALYSIS: PASS` と出力します。
+
 - `main.py`：ゲームを起動するだけの最小エントリーポイント
 - `scripts/app/`：Pygameの画面、入力、描画、スタジアム表示
 - `scripts/core/`：共通設定、能力値スケール、パス、固定ステップ実行基盤

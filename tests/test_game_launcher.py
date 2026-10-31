@@ -16,19 +16,23 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows cmd lau
 # {
 #   責務: [launcher_project: 通信や実ゲームの保存を行わない起動試験用プロジェクトを用意する]
 #   処理: [1: 実batと要求版を配置; 2: 診断とゲームの観測用入口を置く]
-#   引数: [tmp_path: 試験専用の一時ディレクトリ]
+#   引数: [tmp_path: 試験専用の一時ディレクトリ; request: 検査する実batの指定]
 #   戻り値: [Path: 空白を含む試験プロジェクト。実venvと保存データは変更しない]
 # }
-@pytest.fixture
-def launcher_project(tmp_path):
+@pytest.fixture(params=["run_game.bat", "run_static_analysis.bat"])
+def launcher_project(tmp_path, request):
     project = tmp_path / "game project"
     project.mkdir()
-    shutil.copyfile(Path(__file__).resolve().parents[1] / "run_game.bat", project / "run_game.bat")
+    shutil.copyfile(Path(__file__).resolve().parents[1] / request.param, project / request.param)
     (project / ".python-version").write_text(sys.version.split()[0], encoding="utf-8")
     # 起動順を観測し、旧版拒否より後の処理が実行されていないことも確認する。
     tools = project / "scripts" / "tools"
     tools.mkdir(parents=True)
     (tools / "python_trust_check.py").write_text("from pathlib import Path\nPath('trust-ran').touch()\n", encoding="utf-8")
+    # 静的検査の内部処理は起動せず、同じ観測用入口で引数と終了状態を記録する。
+    analysis = tools / "static_analysis"
+    analysis.mkdir()
+    (analysis / "run_all.py").write_text("import runpy\nrunpy.run_path('main.py', run_name='__main__')\n", encoding="utf-8")
     (project / "pygame.py").write_text("", encoding="utf-8")
     (project / "main.py").write_text(
         "import json, sys\nprint(json.dumps({'python': sys.executable, 'args': sys.argv[1:]}))\n",
@@ -40,18 +44,20 @@ def launcher_project(tmp_path):
 # {
 #   責務: [run_launcher: 指定環境で実cmdとbatを一度だけ実行し結果を返す]
 #   処理: [1: 親のPython指定を除外して試験値を設定; 2: 上限時間付きでcmdを実行]
-#   引数: [project: 隔離プロジェクト; python: 明示指定する実行ファイル。Noneは自動選択]
+#   引数: [project: 隔離プロジェクト; python: 明示指定する実行ファイル。Noneは自動選択; extra_environment: 検査用の環境上書き]
 #   戻り値: [CompletedProcess: 終了コードとUTF-8出力。時間超過は試験失敗]
 # }
-def run_launcher(project, python=None):
+def run_launcher(project, python=None, extra_environment=None):
     environment = os.environ.copy()
     environment.pop("KADOCACIO_PYTHON", None)
     environment.pop("PYTHONPATH", None)
     environment.update(CI="1", PYTHONUTF8="1", PYGAME_HIDE_SUPPORT_PROMPT="1")
     if python is not None:
         environment["KADOCACIO_PYTHON"] = str(python)
+    if extra_environment:
+        environment.update(extra_environment)
     return subprocess.run(
-        [os.environ["COMSPEC"], "/d", "/c", "run_game.bat", "--check-python-trust"],
+        [os.environ["COMSPEC"], "/d", "/c", next(project.glob("*.bat")).name, "--check-python-trust"],
         cwd=project,
         env=environment,
         capture_output=True,
@@ -150,4 +156,45 @@ def test_game_failure_returns_failure(launcher_project, source):
     (launcher_project / "main.py").write_text(source, encoding="utf-8")
     result = run_launcher(launcher_project, sys.executable)
     assert result.returncode != 0
-    assert "game stopped" in result.stdout
+    expected = "game stopped" if (launcher_project / "run_game.bat").exists() else "Static analysis failed"
+    assert expected in result.stdout
+
+
+# {
+#   責務: [test_static_trust_failure_stops: 証明書診断の失敗後に静的検査を開始しない]
+#   処理: [1: 診断を異常終了させる; 2: 後続入口未実行と失敗を確認]
+#   引数: [launcher_project: 隔離プロジェクト]
+#   戻り値: [None: 失敗後の静的検査開始や成功扱いは試験失敗]
+# }
+def test_static_trust_failure_stops(launcher_project):
+    if not (launcher_project / "run_static_analysis.bat").exists():
+        pytest.skip("Static launcher only; game launcher repairs dependencies")
+    # pipの導入や実データへのアクセスを伴わず、負の診断終了を再現する。
+    (launcher_project / "scripts/tools/python_trust_check.py").write_text(
+        "import ctypes\nctypes.windll.kernel32.ExitProcess(0xC0000005)\n", encoding="utf-8"
+    )
+    (launcher_project / "main.py").write_text("from pathlib import Path\nPath('analysis-ran').touch()\n", encoding="utf-8")
+    result = run_launcher(launcher_project, sys.executable)
+    assert result.returncode != 0
+    assert not (launcher_project / "analysis-ran").exists()
+
+
+# {
+#   責務: [test_static_python_environment_is_ignored: 親環境が検証済みPythonのモジュール読込を変えない]
+#   処理: [1: 不正なPython環境を指定; 2: 静的検査入口の正常実行を確認]
+#   引数: [launcher_project: 隔離プロジェクト]
+#   戻り値: [None: 親環境による起動失敗は試験失敗]
+# }
+def test_static_python_environment_is_ignored(launcher_project):
+    if not (launcher_project / "run_static_analysis.bat").exists():
+        pytest.skip("Static launcher environment isolation")
+    # PYTHONHOMEによるvenvの無効化とPYTHONPATHからのモジュール注入を同時に拒否する。
+    (launcher_project / "sitecustomize.py").write_text("raise RuntimeError('injected')\n", encoding="utf-8")
+    result = run_launcher(
+        launcher_project,
+        sys.executable,
+        {"PYTHONHOME": str(launcher_project / "missing"), "PYTHONPATH": str(launcher_project)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "injected" not in result.stderr
+    assert Path(json.loads(result.stdout)["python"]) == Path(sys.executable)
