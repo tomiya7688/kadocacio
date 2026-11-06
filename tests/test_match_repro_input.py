@@ -261,7 +261,7 @@ class MatchReproInputTests(unittest.TestCase):
             path = Path(folder) / "input.json"
             for side, invalid_player in (("home", None), ("away", 42)):
                 record = self.record()
-                record["teams"][side]["starters"][1] = invalid_player
+                record["teams"][side]["starters"].insert(1, invalid_player)
                 path.write_text(json.dumps(record), encoding="utf-8")
                 diagnostic = StringIO()
                 with self.subTest(side=side), redirect_stderr(diagnostic):
