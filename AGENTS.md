@@ -108,3 +108,4 @@ set SDL_VIDEODRIVER=dummy& set SDL_AUDIODRIVER=dummy& set KADOKA_DISABLE_GPU=1& 
 
 - WindowsのPython導入、開発用ランチャー、検証方法は [Python実行環境](doc/Python実行環境.md) を参照してください。
 - PythonとWindows配布物のTLS診断は [Pythonの証明書対応](doc/Python証明書対応.md) を参照してください。
+- 保存した試合入力の形式、比較方法、入力エラーは [試合再現性](doc/試合再現性.md) を参照してください。

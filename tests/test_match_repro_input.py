@@ -250,6 +250,27 @@ class MatchReproInputTests(unittest.TestCase):
                 restore_input_record(record)
 
     # {
+    #   責務: [test_cli_rejects_invalid_starter_as_input_error: 不正な先発要素を試合開始前にCLIで診断する]
+    #   処理: [1: 両チームの有効な先発配列の途中に不正な要素を置いた入力を作る; 2: 読込CLIの終了コードと位置診断を照合する]
+    #   引数: []
+    #   戻り値: [None: 誤った位置の診断や試合の開始は試験失敗]
+    # }
+    def test_cli_rejects_invalid_starter_as_input_error(self):
+        # 先頭だけでなく配列の途中を検証し、両チームで同じ契約を確かめる。
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "input.json"
+            for side, invalid_player in (("home", None), ("away", 42)):
+                record = self.record()
+                record["teams"][side]["starters"][1] = invalid_player
+                path.write_text(json.dumps(record), encoding="utf-8")
+                diagnostic = StringIO()
+                with self.subTest(side=side), redirect_stderr(diagnostic):
+                    with self.assertRaises(SystemExit) as raised:
+                        main(["--load-input", str(path), "--allow-partial"])
+                    self.assertEqual(raised.exception.code, 2)
+                    self.assertIn(f"input {side} starters[1] must be an object", diagnostic.getvalue())
+
+    # {
     #   責務: [test_cli_rejects_huge_multiplier_as_input_error: 保存入力の巨大倍率が内部例外でなくCLIの入力エラーになることを確認する]
     #   処理: [1: 正負の巨大倍率を持つ入力を一時保存する; 2: load入口で実行する; 3: 終了コード2と対象設定名の診断を確認する]
     #   引数: []

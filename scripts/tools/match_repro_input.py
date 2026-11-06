@@ -66,7 +66,7 @@ def _validate_settings(settings: object) -> None:
 
 # {
 #   責務: [_restore_team: 記録のチーム識別・先発・色形式を確認し色を演算用tupleへ戻す]
-#   処理: [1: 辞書と必須識別子・空でない先発配列を検証する; 2: 必須色と存在する副色をRGB範囲で検証する; 3: 色をtupleへ置き換える]
+#   処理: [1: 辞書と必須識別子を検証する; 2: 空でない先発配列と各要素の型を確認する; 3: 必須色と存在する副色を検証しtupleへ戻す]
 #   引数: [team: 呼出し元が複製したチーム値; side: エラー文の対象名]
 #   戻り値: [dict: 渡された辞書の色を復元した同じ辞書。不正形式はValueError。全選手能力の網羅検証ではない]
 # }
@@ -77,8 +77,13 @@ def _restore_team(team: object, side: str) -> dict:
     for key in ("id", "name", "short"):
         if not isinstance(team.get(key), str) or not team[key]:
             raise ValueError(f"input {side} team requires {key}")
-    if not isinstance(team.get("starters"), list) or not team["starters"]:
+    starters = team.get("starters")
+    if not isinstance(starters, list) or not starters:
         raise ValueError(f"input {side} team requires starters")
+    # チーム構築前に位置を報告し、既存CLIが入力エラーに変換するValueErrorを使う。
+    for index, player in enumerate(starters):
+        if not isinstance(player, dict):
+            raise ValueError(f"input {side} starters[{index}] must be an object")  # noqa: TRY004
     # 副色の省略は既存入力と互換にし、指定された色はboolも含め厳密に確認する。
     for key in ("primary", "secondary"):
         if key == "secondary" and key not in team:
