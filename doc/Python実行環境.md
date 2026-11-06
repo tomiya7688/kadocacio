@@ -80,6 +80,12 @@ CIはPythonを一時領域へ導入し、既存venv、ユーザーのbin、Pytho
 
 Issue #155は継続します。既存ローカルvenvや他のPython環境の更新、全チェーン・失効・別環境の確認、署名（#156）は残件です。Ruffの構文対象 `py310` は参照コードの構文互換性を保つ指定であり、3.10のセキュリティサポートを表すものではありません。
 
+## Windowsの開発用ランチャー
+
+Pythonの導入後、作業開始は `start_task.bat`、作業確定は `run_dev_finalize.bat`、長時間評価は `run_developer_evaluation.bat`、リーグ負荷試験は `run_league_stress_test.bat` を使います。4本は共通の検査で、明示指定、並行venv、旧配置の順にPythonを選び、要求版・通常GIL・venv・証明書診断に合格してからツールを起動します。venvと依存は上記の導入手順で用意してください。
+
+起動経路の確認には `start_task.bat --help`、`run_dev_finalize.bat --help`、`run_developer_evaluation.bat --help` を実行してください。リーグ負荷試験は引数なしで始まるため、起動条件の確認には `python -m pytest -q tests/test_game_launcher.py` を検証済みvenvで実行してください。試験は隔離先で実cmdを起動し、選択・失敗停止・引数・終了状態を確認します。
+
 ## 根拠
 
 - [Pythonの対応状況](https://www.python.org/downloads/)

@@ -105,3 +105,5 @@ set SDL_VIDEODRIVER=dummy& set SDL_AUDIODRIVER=dummy& set KADOKA_DISABLE_GPU=1& 
 - READMEは人間向け概要、SPECは深い仕様確認用。対象見出しだけ`rg -n`して読む。
 - 実装やデータを変更した場合は、`doc/versions.md`の先頭へ指定形式のバージョン記録を追記する。
 - 最終報告には変更ファイル、互換性への影響、実行したテスト、未検証事項を短く記載する。
+
+- WindowsのPython導入、開発用ランチャー、検証方法は [Python実行環境](doc/Python実行環境.md) を参照してください。

@@ -1,6 +1,10 @@
 @echo off
-setlocal
-cd /d "%~dp0"
-set "PYTHON_EXE=.venv\Scripts\python.exe"
-if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
-"%PYTHON_EXE%" -m scripts.tools.context_pack %*
+setlocal EnableExtensions DisableDelayedExpansion
+cd /d "%~dp0" || exit /b 1
+
+rem Validate the runtime before launching the tool.
+call scripts\tools\verify_python.bat
+if not "%ERRORLEVEL%"=="0" exit /b 1
+
+"%VERIFIED_PYTHON%" -m scripts.tools.context_pack %*
+exit /b %ERRORLEVEL%

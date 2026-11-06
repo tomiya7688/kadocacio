@@ -22,6 +22,28 @@ ver num.num.num
 
 ---
 
+ver 0.7.91
+
+開発用ランチャー4本を検証済みPythonへ接続
+
+追加したファイル
+
+- scripts/tools/verify_python.bat
+
+  Pythonの選択と実行環境・証明書の検査を共有します。
+
+変更したファイル
+
+- run_developer_evaluation.bat、run_league_stress_test.bat、start_task.bat、run_dev_finalize.bat
+
+  検証したvenvで既存の開発ツールを起動し、終了状態を返します。
+
+- tests/test_game_launcher.py、doc/versions.md
+
+  実cmdで起動条件を検証し、変更履歴を更新します。
+
+---
+
 ver 0.7.90
 
 AI評価batを検証済みPythonへ接続

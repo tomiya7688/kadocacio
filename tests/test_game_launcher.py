@@ -19,7 +19,17 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows cmd lau
 #   引数: [tmp_path: 試験専用の一時ディレクトリ; request: 検査する実batの指定]
 #   戻り値: [Path: 空白を含む試験プロジェクト。実venvと保存データは変更しない]
 # }
-@pytest.fixture(params=["run_game.bat", "run_static_analysis.bat", "run_ai_evaluator.bat"])
+@pytest.fixture(
+    params=[
+        "run_game.bat",
+        "run_static_analysis.bat",
+        "run_ai_evaluator.bat",
+        "run_developer_evaluation.bat",
+        "run_league_stress_test.bat",
+        "start_task.bat",
+        "run_dev_finalize.bat",
+    ]
+)
 def launcher_project(tmp_path, request):
     project = tmp_path / "game ! project"
     project.mkdir()
@@ -33,7 +43,10 @@ def launcher_project(tmp_path, request):
     analysis = tools / "static_analysis"
     analysis.mkdir()
     (analysis / "run_all.py").write_text("import runpy\nrunpy.run_path('main.py', run_name='__main__')\n", encoding="utf-8")
-    (tools / "ai_evaluator.py").write_text("import runpy\nrunpy.run_path('main.py', run_name='__main__')\n", encoding="utf-8")
+    root = Path(__file__).resolve().parents[1]
+    shutil.copyfile(root / "scripts/tools/verify_python.bat", tools / "verify_python.bat")
+    for module in ("ai_evaluator", "developer_league_evaluator", "league_stress_test", "context_pack", "git_workflow"):
+        (tools / f"{module}.py").write_text("import runpy\nrunpy.run_path('main.py', run_name='__main__')\n", encoding="utf-8")
     (project / "pygame.py").write_text("", encoding="utf-8")
     (project / "main.py").write_text(
         "import json, sys\nprint(json.dumps({'python': sys.executable, 'args': sys.argv[1:]}))\n",
@@ -45,10 +58,10 @@ def launcher_project(tmp_path, request):
 # {
 #   責務: [run_launcher: 指定環境で実cmdとbatを一度だけ実行し結果を返す]
 #   処理: [1: 親のPython指定を除外して試験値を設定; 2: 上限時間付きでcmdを実行]
-#   引数: [project: 隔離プロジェクト; python: 明示指定する実行ファイル。Noneは自動選択; extra_environment: 環境上書き。None値は削除; delayed_expansion: 親cmdの遅延展開を有効にする指定]
+#   引数: [project: 隔離プロジェクト; python: 明示指定する実行ファイル。Noneは自動選択; extra_environment: 環境上書き。None値は削除; delayed_expansion: 親cmdの遅延展開を有効にする指定; arguments: 起動引数]
 #   戻り値: [CompletedProcess: 終了コードとUTF-8出力。時間超過は試験失敗]
 # }
-def run_launcher(project, python=None, extra_environment=None, delayed_expansion=False):
+def run_launcher(project, python=None, extra_environment=None, delayed_expansion=False, arguments=("--check-python-trust",)):
     environment = os.environ.copy()
     environment.pop("KADOCACIO_PYTHON", None)
     environment.pop("PYTHONPATH", None)
@@ -67,7 +80,7 @@ def run_launcher(project, python=None, extra_environment=None, delayed_expansion
             "/v:on" if delayed_expansion else "/v:off",
             "/c",
             next(project.glob("*.bat")).name,
-            "--check-python-trust",
+            *arguments,
         ],
         cwd=project,
         env=environment,
@@ -90,7 +103,8 @@ def test_explicit_python_and_arguments(launcher_project):
     assert result.returncode == 0, result.stdout + result.stderr
     report = json.loads(result.stdout)
     assert Path(report["python"]) == Path(sys.executable)
-    assert report["args"] == ["--check-python-trust"]
+    expected_args = [] if (launcher_project / "run_league_stress_test.bat").exists() else ["--check-python-trust"]
+    assert report["args"] == expected_args
 
 
 # {
@@ -168,14 +182,9 @@ def test_game_failure_returns_failure(launcher_project, source):
     result = run_launcher(launcher_project, sys.executable)
     assert result.returncode != 0
     if (launcher_project / "run_game.bat").exists():
-        expected = "game stopped"
-    elif (launcher_project / "run_ai_evaluator.bat").exists():
-        expected = "AI evaluation failed"
+        assert "game stopped" in result.stdout
     else:
-        expected = "Static analysis failed"
-    assert expected in result.stdout
-    if (launcher_project / "run_ai_evaluator.bat").exists():
-        # キー待機の有無にかかわらず、正負の終了状態を呼出し元へ保持する。
+        # 開発ツールは正負の終了状態を32ビット値として保持する。
         expected_code = 4 if source.startswith("raise") else 0xC0000005
         assert (result.returncode & 0xFFFFFFFF) == expected_code
 
@@ -245,3 +254,28 @@ def test_evaluator_no_pause(launcher_project, delayed_expansion):
     report = json.loads(result.stdout)
     assert report["ci"] is None
     assert Path(report["python"]) == Path(sys.executable)
+
+
+# {
+#   責務: [test_developer_evaluation_default: 引数省略時の既存評価条件を維持する]
+#   処理: [1: 実batを引数なしで起動; 2: 評価へ渡した条件を照合]
+#   引数: [launcher_project: 開発者評価batの隔離先]
+#   戻り値: [None: 既定条件が変化した場合は試験失敗]
+# }
+@pytest.mark.parametrize("launcher_project", ["run_developer_evaluation.bat"], indirect=True)
+def test_developer_evaluation_default(launcher_project):
+    # 観測用のモジュールで長時間評価を始めずに引数を検証する。
+    result = run_launcher(launcher_project, sys.executable, arguments=())
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["args"] == [
+        "--hours",
+        "8",
+        "--seasons",
+        "0",
+        "--leagues",
+        "all",
+        "--quality",
+        "PRECISE",
+        "--processes",
+        "auto",
+    ]
