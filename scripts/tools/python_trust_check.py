@@ -12,15 +12,24 @@ import re
 import ssl
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 
 # {
-#   責務: [PythonTrustCheck: 現在のPythonが使うpip・certifiとCAの既知ルートを検査する]
+#   責務: [PythonTrustCheck: 実行中のCPython修正版・pip・certifiとCAの既知ルートを検査する]
 #   フィールド: [frozen: 配布実行ファイルではインストーラーpipを検査対象にしない]
 # }
 class PythonTrustCheck:
     # certifiが除去したemSign ECC Root CA - G3のDER SHA-256。CAの名前では照合しない。
     REMOVED_ROOT_SHA256 = "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b"
+    # CVE-2026-115557の中間CA鍵拒否を含む、Python公式案内の各系列の修正版。
+    CPYTHON_TLS_MINIMUM_PATCH: ClassVar[dict[tuple[int, int], int]] = {
+        (3, 11): 18,
+        (3, 12): 16,
+        (3, 13): 18,
+        (3, 14): 10,
+        (3, 15): 2,
+    }
 
     # {
     #   責務: [__init__: 実行中の配布形態を保持する]
@@ -44,6 +53,29 @@ class PythonTrustCheck:
         if not isinstance(version, str) or not re.fullmatch(r"\d+(?:\.\d+)*", version):
             return False
         return tuple(map(int, version.split("."))) >= tuple(map(int, minimum.split(".")))
+
+    # {
+    #   責務: [cpython_tls_report: 中間CA鍵の拒否対策を含むCPythonのリリースか版情報で判定する]
+    #   処理: [1: 現在の実装と系列に対応する下限を取得する; 2: 安定版のパッチ番号を下限と比較する]
+    #   引数: []
+    #   戻り値: [dict: 実装・リリース種別・下限・合否。未確認の実装や系列は失敗]
+    # }
+    def cpython_tls_report(self) -> dict:
+        # 別系列に前の系列の下限を流用せず、公式案内で確認できた系列だけを判定する。
+        version = sys.version_info
+        implementation = sys.implementation.name
+        minimum_patch = self.CPYTHON_TLS_MINIMUM_PATCH.get((version.major, version.minor))
+        minimum = f"{version.major}.{version.minor}.{minimum_patch}" if minimum_patch is not None else None
+        # 実行時の接続試験ではなく、CPythonの安定版番号を根拠にする。
+        return {
+            "implementation": implementation,
+            "releaselevel": version.releaselevel,
+            "minimum": minimum,
+            "ok": implementation == "cpython"
+            and version.releaselevel == "final"
+            and minimum_patch is not None
+            and version.micro >= minimum_patch,
+        }
 
     # {
     #   責務: [ca_summary: SSLContextに実際に読み込まれたCAを照合する]
@@ -184,7 +216,12 @@ class PythonTrustCheck:
     #   戻り値: [dict: 読取専用の診断。通信・証明書変更・パッケージ更新は行わない]
     # }
     def collect_report(self) -> dict:
-        checks = {"certifi": self.bundle_report("certifi", "2026.10.19"), "system_store": self.system_store_report()}
+        # ソース実行と配布物の双方で、CAの内容と実行Pythonの版を独立して判定する。
+        checks = {
+            "cpython_tls": self.cpython_tls_report(),
+            "certifi": self.bundle_report("certifi", "2026.10.19"),
+            "system_store": self.system_store_report(),
+        }
         # 配布物内で存在しないpipを必須にせず、ソース実行では同梱CAも必ず調べる。
         if not self.frozen:
             checks.update(
@@ -198,7 +235,7 @@ class PythonTrustCheck:
             "python": sys.version.split()[0],
             "openssl": ssl.OPENSSL_VERSION,
             "frozen": self.frozen,
-            "scope": "Installed versions and known removed root only; not all chains, OS revocation or other TLS clients.",
+            "scope": "Version checks and known removed root inspection. TLS handshakes, OS revocation and other clients are untested.",
             "checks": checks,
             "ok": all(check["ok"] for check in checks.values()),
         }

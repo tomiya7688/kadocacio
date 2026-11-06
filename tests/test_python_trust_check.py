@@ -15,7 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from scripts.tools.python_trust_check import PythonTrustCheck, main as trust_check_main
+from scripts.tools.python_trust_check import PythonTrustCheck
+from scripts.tools.python_trust_check import main as trust_check_main
 
 
 # {
@@ -40,6 +41,64 @@ class PythonTrustCheckTests(unittest.TestCase):
         ):
             with self.subTest(version=version):
                 self.assertEqual(PythonTrustCheck.version_is_supported(version, "26.2.2"), expected)
+
+    # {
+    #   責務: [test_cpython_tls_uses_series_minimum: 公式修正版の系列別下限と適用範囲を確認する]
+    #   処理: [1: 各系列の下限とその直前を比較する; 2: 開発版と未確認の実装・系列を拒否する]
+    #   引数: []
+    #   戻り値: [None: 既知の修正版の誤拒否や未確認ランタイムの誤合格は試験失敗]
+    # }
+    def test_cpython_tls_uses_series_minimum(self):
+        checker = PythonTrustCheck()
+        # 他系列のパッチ番号が現在の系列へ流用されないよう、系列ごとに境界を照合する。
+        for minor, minimum in ((11, 18), (12, 16), (13, 18), (14, 10), (15, 2)):
+            for micro, expected in ((minimum - 1, False), (minimum, True), (minimum + 1, True)):
+                version = SimpleNamespace(major=3, minor=minor, micro=micro, releaselevel="final")
+                with self.subTest(version=version), patch.object(sys, "version_info", version):
+                    report = checker.cpython_tls_report()
+                    self.assertEqual(report["minimum"], f"3.{minor}.{minimum}")
+                    self.assertEqual(report["ok"], expected)
+
+        # 先行リリースや別実装は、同じ版番号でもCPython安定版の根拠を適用しない。
+        for name, minor, releaselevel in (
+            ("cpython", 10, "final"),
+            ("cpython", 16, "final"),
+            ("cpython", 13, "candidate"),
+            ("pypy", 13, "final"),
+        ):
+            version = SimpleNamespace(major=3, minor=minor, micro=99, releaselevel=releaselevel)
+            with (
+                self.subTest(implementation=name, version=version),
+                patch.object(sys, "implementation", SimpleNamespace(name=name)),
+                patch.object(sys, "version_info", version),
+            ):
+                self.assertFalse(checker.cpython_tls_report()["ok"])
+
+    # {
+    #   責務: [test_legacy_runtime_fails_with_valid_cas: CA合格時も旧CPythonが診断で失敗することを確認する]
+    #   処理: [1: 実行形態ごとに旧版と正常CAを用意する; 2: CLI終了値と各診断を確認する]
+    #   引数: []
+    #   戻り値: [None: 旧CPythonの誤合格やCA結果の混同は試験失敗]
+    # }
+    def test_legacy_runtime_fails_with_valid_cas(self):
+        # CAの合格と旧版の失敗が、ソース・配布物の双方で個別に出力されることを確認する。
+        version = SimpleNamespace(major=3, minor=10, micro=11, releaselevel="final")
+        for frozen in (False, True):
+            output = io.StringIO()
+            with (
+                self.subTest(frozen=frozen),
+                patch.object(sys, "frozen", frozen, create=True),
+                patch.object(sys, "version_info", version),
+                patch.object(PythonTrustCheck, "bundle_report", return_value={"ok": True}),
+                patch.object(PythonTrustCheck, "system_store_report", return_value={"ok": True}),
+                patch.object(PythonTrustCheck, "package_report", return_value={"ok": True}),
+                redirect_stdout(output),
+            ):
+                self.assertEqual(trust_check_main([]), 1)
+            report = json.loads(output.getvalue())
+            self.assertFalse(report["checks"]["cpython_tls"]["ok"])
+            self.assertTrue(report["checks"]["certifi"]["ok"])
+            self.assertFalse(report["ok"])
 
     # {
     #   責務: [test_ca_inventory_rejects_empty_and_removed_root: 空ストアと実DERの対象ハッシュを拒否する]
@@ -296,6 +355,7 @@ class PythonTrustCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="kadocalcio-trust-cli-") as directory:
             result = subprocess.run(
                 [sys.executable, str(root / "main.py"), "--check-python-trust"],
+                check=False,
                 cwd=directory,
                 capture_output=True,
                 text=True,
@@ -306,12 +366,14 @@ class PythonTrustCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             report = json.loads(result.stdout)
             self.assertTrue(report["ok"])
+            self.assertTrue(report["checks"]["cpython_tls"]["ok"])
             self.assertTrue(Path(report["checks"]["certifi"]["path"]).is_file())
             self.assertTrue(report["checks"]["pip"]["ok"])
             self.assertFalse((Path(directory) / "user_data").exists())
             # 診断の引数ミスで通常のゲーム起動へ流れない。
             invalid = subprocess.run(
                 [sys.executable, str(root / "main.py"), "--check-python-trust", "--unknown"],
+                check=False,
                 cwd=directory,
                 capture_output=True,
                 text=True,

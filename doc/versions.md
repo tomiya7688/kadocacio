@@ -22,6 +22,34 @@ ver num.num.num
 
 ---
 
+ver 0.7.92
+
+証明書診断にCPythonの中間CA鍵対策の版判定を追加
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/python_trust_check.py
+
+  CPythonの系列ごとの修正版を確認し、CAの検査とは独立して報告します。
+
+- tests/test_python_trust_check.py
+
+  系列別の下限、旧版での診断失敗、実ゲーム入口の診断を検証します。
+
+- doc/Python証明書対応.md
+
+  診断の実行方法と版判定の根拠、確認範囲を記載します。
+
+- AGENTS.md
+
+  証明書診断の手順への案内を追加します。
+
+---
+
 ver 0.7.91
 
 開発用ランチャー4本を検証済みPythonへ接続
