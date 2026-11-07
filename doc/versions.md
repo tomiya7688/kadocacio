@@ -22,6 +22,24 @@ ver num.num.num
 
 ---
 
+ver 0.7.94
+
+Windows配布exeの信頼診断で、明示指定時に公開TLS試験先への接続と拒否を検証できます。
+
+追加したファイル
+
+- scripts/tools/public_tls_probe.py
+
+  既定の信頼経路と同梱certifiで、正常対照と対象チェーンを照合します。
+
+変更したファイル
+
+- scripts/tools/python_trust_check.py
+- tests/test_python_trust_check.py
+- scripts/tools/CONTEXT.md
+- doc/Python実行環境.md
+- doc/versions.md
+
 ver 0.7.93
 
 試合再現入力の不正な先発要素をCLIで診断

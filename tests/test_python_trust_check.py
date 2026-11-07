@@ -15,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from scripts.tools import public_tls_probe
 from scripts.tools.python_trust_check import PythonTrustCheck
 from scripts.tools.python_trust_check import main as trust_check_main
 
@@ -24,6 +25,77 @@ from scripts.tools.python_trust_check import main as trust_check_main
 #   フィールド: []
 # }
 class PythonTrustCheckTests(unittest.TestCase):
+    # {
+    #   責務: [test_live_tls_is_opt_in: 通常診断では通信せず、明示時だけ実CAで検査する]
+    #   処理: [1: 同じ診断をフラグの有無で実行する; 2: 呼出し・JSON・終了値を照合する]
+    #   引数: []
+    #   戻り値: [None: 通常時の通信と実接続失敗の誤合格を検出する]
+    # }
+    def test_live_tls_is_opt_in(self):
+        # 実CAの経路が使われ、通信失敗がCLIの終了値へ反映される。
+        report = {"ok": True, "checks": {"certifi": {"path": "shipped.pem"}}}
+        with (
+            patch.object(PythonTrustCheck, "collect_report", return_value=report),
+            patch.object(public_tls_probe, "public_tls_report", return_value={"ok": False}) as probe,
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(trust_check_main([]), 0)
+            probe.assert_not_called()
+            self.assertNotIn("live_tls", json.loads(output.getvalue())["checks"])
+            output.seek(0)
+            output.truncate()
+            self.assertEqual(trust_check_main(["--live-tls"]), 1)
+        probe.assert_called_once_with("shipped.pem")
+        self.assertFalse(json.loads(output.getvalue())["checks"]["live_tls"]["ok"])
+
+    # {
+    #   責務: [test_live_tls_requires_control_and_exact_rejection: 対照の成功と対象の特定理由を要求する]
+    #   処理: [1: 2経路の結果を組み立てる; 2: 誤った結果が不合格になることを確認する]
+    #   引数: []
+    #   戻り値: [None: 通信不能や別の証明書エラーを誤合格として扱うと失敗]
+    # }
+    def test_live_tls_requires_control_and_exact_rejection(self):
+        # 通信不能・期限切れ・対象の受入れは全て不合格にする。
+        accepted = {"status": "accepted", "protocol": "TLSv1.3"}
+        rejected = {"status": "certificate_rejected", "verify_code": 28}
+        transport_error = {"status": "transport_error"}
+        for control, affected, expected in (
+            (accepted, rejected, True),
+            (transport_error, rejected, False),
+            (accepted, transport_error, False),
+            (accepted, accepted, False),
+            (accepted, {"status": "certificate_rejected", "verify_code": 10}, False),
+        ):
+            with (
+                self.subTest(control=control, affected=affected),
+                patch.object(public_tls_probe.ssl, "create_default_context") as context_factory,
+                patch.object(public_tls_probe, "handshake", side_effect=[control, affected]) as handshake,
+            ):
+                report = public_tls_probe.probe_trust_source(None, 28)
+                self.assertIs(report["ok"], expected)
+                context_factory.assert_called_once_with(cafile=None)
+                self.assertEqual(
+                    [call.args[0] for call in handshake.call_args_list],
+                    [public_tls_probe.CONTROL_HOST, public_tls_probe.AFFECTED_HOST],
+                )
+
+    # {
+    #   責務: [test_live_tls_certifi_uses_its_own_ca: 同梱CAが欠けた時に既定経路へ戻らないことを確認する]
+    #   処理: [1: CAパス有無で集約を実行する; 2: 経路と合否を照合する]
+    #   引数: []
+    #   戻り値: [None: 別の信頼経路を同梱CAの結果にすると失敗]
+    # }
+    def test_live_tls_certifi_uses_its_own_ca(self):
+        # 既定ストアとcertifiでは想定するOpenSSLの拒否理由が異なる。
+        with patch.object(public_tls_probe, "probe_trust_source", return_value={"ok": True}) as probe:
+            self.assertTrue(public_tls_probe.public_tls_report("shipped.pem")["ok"])
+            self.assertEqual([call.args for call in probe.call_args_list], [(None, 28), ("shipped.pem", 20)])
+            probe.reset_mock()
+            missing = public_tls_probe.public_tls_report(None)
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["certifi"]["status"], "bundle_unavailable")
+        probe.assert_called_once_with(None, 28)
+
     # {
     #   責務: [test_versions_fail_closed: 数値の順序と旧版・不明版・開発版の拒否を確認する]
     #   処理: [1: 下限の前後と不正表記を比較する]

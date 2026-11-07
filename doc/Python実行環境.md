@@ -68,6 +68,21 @@ Python公式の3.13.18はソースのみで、Windowsインストーラーを提
 
 この例の到達点は実行環境の導入とソースの試験です。配布exeはWindows CIでビルドし、`Kadocacio.exe --check-python-trust` のJSONで `python`・`frozen`・`ok` を確認してください。ビルドに使ったPythonの `LICENSE.txt` は `_internal/licenses/python/` へ同梱します。
 
+### 配布exeで公開TLS試験先の拒否を確認する
+
+配布担当者はOneDirのビルド後、PowerShellで配布フォルダーへ移動し、次のコマンドを実行してください。
+
+```powershell
+Get-FileHash -LiteralPath .\Kadocacio.exe -Algorithm SHA256
+.\Kadocacio.exe --check-python-trust --live-tls
+```
+
+明示した `--live-tls` が公開試験先のTCP 443番へTLSハンドシェイクを行います。HTTPデータは送信しません。通常の診断とゲーム起動はこの試験先へ接続しません。JSONの `frozen`、`checks.live_tls`、終了コード、exeのSHA-256を同じ検証記録へ残してください。
+
+既定の信頼経路と同梱certifiの双方で対照先の接続が成立し、対象先が既定経路でコード28、同梱certifiでコード20により拒否された場合に実接続検査は合格します。接続不能、別の拒否理由、信頼ストアの読込失敗は非0で終了します。試験先の証明書が更新された場合は公開チェーンを確認してください。この試験の対象は記録したホストと実行環境です。
+
+Issue #155の配布検証では、同じ作業中に対象ホストが提示するチェーンも別のクライアントで確認してください。ホスト名と既知の発行元でチェーンを検証し、中間証明書のDER SHA-256を [Microsoft公表値](https://github.com/TrustedRootProgram/Program-Requirements/blob/main/Announcements.md) の EM DV TLS CA - G3B / AAA Certificate Services と照合してください。接続結果と照合結果の両方を記録してください。自動実行では、OSの名前解決も含む全体の上限時間を呼び出し側で設けてください。
+
 ## ソース版ゲームの起動
 
 導入後は `run_game.bat` を実行してください。起動スクリプトは `KADOCACIO_PYTHON` で明示したvenvの実行ファイル、`runtime/venv/Scripts/python.exe`、旧配置の `.venv/Scripts/python.exe` の順に選択します。選択先が存在しない、要求版と違う、通常GIL版ではない、venvではない場合は、依存導入やゲーム起動より前に失敗します。明示した指定が不正でも、別Pythonへ黙って切り替えません。

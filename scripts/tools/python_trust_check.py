@@ -243,14 +243,25 @@ class PythonTrustCheck:
 
 # {
 #   責務: [main: 実行中Pythonの信頼診断を標準出力へ返す]
-#   処理: [1: CLIの引数を確認する; 2: 実環境を検査してJSONと終了コードを返す]
+#   処理: [1: CLIの引数を確認する; 2: 実環境を検査する; 3: 明示された場合だけTLSを試し結果を返す]
 #   引数: [argv: 省略時はプロセス引数。ゲーム入口からは診断フラグ以降の引数を渡す]
 #   戻り値: [int: 検査範囲の合格は0、欠落・旧版・既知ルート残存は1]
 # }
 def main(argv: list[str] | None = None) -> int:
     # 保存先を暗黙に作らず、利用者が必要なら標準出力をログへ保存する。
-    argparse.ArgumentParser(description=__doc__).parse_args(argv)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--live-tls", action="store_true", help="公開の証明書試験先へTLS接続する")
+    args = parser.parse_args(argv)
     report = PythonTrustCheck().collect_report()
+    # 通常診断とゲーム起動には外部ネットワークを要求しない。
+    if args.live_tls:
+        from scripts.tools.public_tls_probe import public_tls_report
+
+        checks = report["checks"]
+        live = public_tls_report(checks["certifi"].get("path"))
+        checks["live_tls"] = live
+        report["ok"] = report["ok"] and live["ok"]
+        report["scope"] = "Version, known root and two public TLS test hosts. OS revocation and other clients are untested."
     # ASCII表現のJSONなら日本語パスも保持し、Windowsの出力コードページに依存しない。
     print(json.dumps(report, ensure_ascii=True, indent=2))
     return 0 if report["ok"] else 1
