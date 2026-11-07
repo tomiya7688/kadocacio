@@ -74,6 +74,7 @@ class PythonTrustCheckTests(unittest.TestCase):
                 report = public_tls_probe.probe_trust_source(None, 28)
                 self.assertIs(report["ok"], expected)
                 context_factory.assert_called_once_with(cafile=None)
+                self.assertEqual(context_factory.return_value.minimum_version, ssl.TLSVersion.TLSv1_2)
                 self.assertEqual(
                     [call.args[0] for call in handshake.call_args_list],
                     [public_tls_probe.CONTROL_HOST, public_tls_probe.AFFECTED_HOST],

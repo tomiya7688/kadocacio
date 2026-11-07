@@ -22,6 +22,21 @@ ver num.num.num
 
 ---
 
+ver 0.7.95
+
+公開TLS診断の両方の信頼経路でTLS 1.2以上を要求します。
+
+追加したファイル
+
+- なし
+
+変更したファイル
+
+- scripts/tools/public_tls_probe.py
+- tests/test_python_trust_check.py
+- doc/Python実行環境.md
+- doc/versions.md
+
 ver 0.7.94
 
 Windows配布exeの信頼診断で、明示指定時に公開TLS試験先への接続と拒否を検証できます。

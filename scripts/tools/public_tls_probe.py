@@ -41,6 +41,8 @@ def probe_trust_source(cafile: str | None, expected_code: int) -> dict:
     # 明示したCAファイルの読込失敗を既定ストアで代用しない。
     try:
         context = ssl.create_default_context(cafile=cafile)
+        # 実行環境の既定値に依存せず、TLS 1.0と1.1を試験でも許可しない。
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
     except (OSError, ValueError) as error:
         return {"ok": False, "status": "context_error", "error": str(error)}
 
