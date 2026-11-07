@@ -1,0 +1,113 @@
+# Python実行環境の更新
+
+## 背景と今回の対象
+
+Python 3.10はサポートが終了しています。証明書インシデントへの対応を継続するため、Linuxの主検証・分岐カバレッジとWindowsの配布ビルドを修正版Python 3.13.18へ移します。ゲームの演算・データ・依存ライブラリの種類は変更しません。
+
+主検証の版はルートの `.python-version` が正本です。2つのLinuxジョブは `actions/setup-python` の `python-version-file` から読みます。Windowsジョブは `.github/windows-python.json` の配布版と一致することを確認します。分岐検査とWindows検査は版ファイルの変更時にも実行します。互換ジョブは修正を含む3.11.18と3.12.16を明示し、古いキャッシュが選ばれることを防ぎます。
+
+## 開発者の確認方法
+
+開発者は、対応するPythonを別の場所へ用意し、既存venvを消さずに新しい検証環境を作成してください。作成した環境のPythonを指定して、Gitルートで次を実行してください。
+
+```text
+python -VV
+python -m pip --isolated --disable-pip-version-check install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+python -m scripts.tools.python_trust_check
+python -m pip install -r requirements-dev.txt
+python -m pip check
+python -m pytest -q
+```
+
+`.python-version` はCIとゲーム起動の要求版です。`run_game.bat` は既存venvやOSのPythonを更新しません。venv内のpip更新だけで、Python本体が更新されたとは扱わないでください。
+
+GitHubでは主検証・分岐検査・Python互換ジョブのログから、実Python版と全試験の結果を確認してください。証明書の診断成功だけを、全チェーン・失効確認やゲームの互換試験の成功へ読み替えないでください。
+
+CI設定を変更する開発者は、固定版Prettier 3.6.2で対象ファイルだけを整形してください。Gitルートで `npm exec --yes --package=prettier@3.6.2 -- prettier --write .github/workflows/windows-smoke.yml` を実行し、`--write` を `--check` に変えて再確認してください。Linux側の変更時も対象のYAMLだけを指定してください。既存のPython整形にはRuffを使用します。
+
+## Windowsの修正版Python
+
+Python公式の3.13.18はソースのみで、Windowsインストーラーを提供していません。Windows CIではAstralのpython-build-standaloneを使用します。配布URLと圧縮アーカイブのSHA-256は `.github/windows-python.json` で固定し、展開・実行前に照合します。CIは格納パスとファイル種別も確認し、通常のGILを使うPython版が `.python-version` と一致することを確認します。
+
+開発者は既存venvを削除せず、Eドライブ上のGitルートで新しいPowerShellを開いてください。Cドライブの容量を保つため、Python本体・依存・一時ファイルはEへ置きます。次の手順は未使用の `runtime/` にPython本体と `runtime/venv/` を用意します。`runtime/` が既にある場合は、例の `$runtimeRoot` を別の未使用のEフォルダーへ書き換えてください。成功・失敗のどちらの場合も、そのPowerShellを閉じて環境変数を戻してください。照合するハッシュは圧縮アーカイブの値であり、`python.exe` 単体の値ではありません。
+
+```powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    $runtimeRoot = Join-Path (Get-Location) 'runtime'
+    New-Item -ItemType Directory -Path $runtimeRoot -ErrorAction Stop | Out-Null
+    $temporary = Join-Path $runtimeRoot 'tmp'
+    New-Item -ItemType Directory -Path $temporary -ErrorAction Stop | Out-Null
+    $env:TEMP = $temporary
+    $env:TMP = $temporary
+    $version = (Get-Content .python-version -Raw).Trim()
+    $runtime = Get-Content .github/windows-python.json -Raw | ConvertFrom-Json
+    if ($runtime.version -ne $version) { throw 'Python archive version mismatch' }
+    $archive = Join-Path $temporary 'python.tar.gz'
+    Invoke-WebRequest -Uri $runtime.url -OutFile $archive -ErrorAction Stop
+    $actual = (Get-FileHash $archive -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    if ($actual -cne $runtime.sha256) { throw 'Python archive checksum mismatch' }
+    & "$env:SystemRoot/System32/tar.exe" -xzf $archive -C $runtimeRoot
+    if ($LASTEXITCODE -ne 0) { throw 'Python extraction failed' }
+    $basePython = Join-Path $runtimeRoot 'python/python.exe'
+    & $basePython -m venv (Join-Path $runtimeRoot 'venv')
+    if ($LASTEXITCODE -ne 0) { throw 'venv creation failed' }
+    $python = Join-Path $runtimeRoot 'venv/Scripts/python.exe'
+    & $python -m pip --isolated --cache-dir (Join-Path $runtimeRoot 'pip-cache') install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+    if ($LASTEXITCODE -ne 0) { throw 'Bootstrap failed' }
+    & $python -m pip --isolated install -r requirements-dev.txt --cache-dir (Join-Path $runtimeRoot 'pip-cache')
+    if ($LASTEXITCODE -ne 0) { throw 'Dependency install failed' }
+    & $python -m scripts.tools.python_trust_check
+    if ($LASTEXITCODE -ne 0) { throw 'Trust check failed' }
+    & $python -m pytest -q
+    if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+}
+```
+
+開発者は `& {` から最後の `}` までをまとめて実行してください。失敗するとブロック内の後続処理は止まります。ローカル例は固定ハッシュの照合を行う簡略手順で、CIの格納パス・種別検査は含みません。
+
+この例の到達点は実行環境の導入とソースの試験です。配布exeはWindows CIでビルドし、`Kadocacio.exe --check-python-trust` のJSONで `python`・`frozen`・`ok` を確認してください。ビルドに使ったPythonの `LICENSE.txt` は `_internal/licenses/python/` へ同梱します。
+
+### 配布exeで公開TLS試験先の拒否を確認する
+
+配布担当者はOneDirのビルド後、PowerShellで配布フォルダーへ移動し、次のコマンドを実行してください。
+
+```powershell
+Get-FileHash -LiteralPath .\Kadocacio.exe -Algorithm SHA256
+.\Kadocacio.exe --check-python-trust --live-tls
+```
+
+明示した `--live-tls` が公開試験先のTCP 443番へTLSハンドシェイクを行います。HTTPデータは送信しません。通常の診断とゲーム起動はこの試験先へ接続しません。JSONの `frozen`、`checks.live_tls`、終了コード、exeのSHA-256を同じ検証記録へ残してください。
+
+試験用コンテキストは、両方の信頼経路でTLS 1.2以上を明示的に要求します。
+
+既定の信頼経路と同梱certifiの双方で対照先の接続が成立し、対象先が既定経路でコード28、同梱certifiでコード20により拒否された場合に実接続検査は合格します。接続不能、別の拒否理由、信頼ストアの読込失敗は非0で終了します。試験先の証明書が更新された場合は公開チェーンを確認してください。この試験の対象は記録したホストと実行環境です。
+
+Issue #155の配布検証では、同じ作業中に対象ホストが提示するチェーンも別のクライアントで確認してください。ホスト名と既知の発行元でチェーンを検証し、中間証明書のDER SHA-256を [Microsoft公表値](https://github.com/TrustedRootProgram/Program-Requirements/blob/main/Announcements.md) の EM DV TLS CA - G3B / AAA Certificate Services と照合してください。接続結果と照合結果の両方を記録してください。自動実行では、OSの名前解決も含む全体の上限時間を呼び出し側で設けてください。
+
+## ソース版ゲームの起動
+
+導入後は `run_game.bat` を実行してください。起動スクリプトは `KADOCACIO_PYTHON` で明示したvenvの実行ファイル、`runtime/venv/Scripts/python.exe`、旧配置の `.venv/Scripts/python.exe` の順に選択します。選択先が存在しない、要求版と違う、通常GIL版ではない、venvではない場合は、依存導入やゲーム起動より前に失敗します。明示した指定が不正でも、別Pythonへ黙って切り替えません。
+
+別の未使用フォルダーへ導入した場合は、新しいPowerShellで `$env:KADOCACIO_PYTHON = 'E:/導入先/venv/Scripts/python.exe'` を設定してから `./run_game.bat` を実行してください。実行ファイルのパスだけを指定し、引数や外側の引用符は値へ含めないでください。`./run_game.bat --check-python-trust` で、同じ起動経路の実PythonとCAをGUIを開かず確認できます。
+
+この変更ではOSの既定Pythonや `py` を呼びません。旧venvは保持しますが、要求版に合わない旧環境ではゲームを開始しません。開発ツールの他のbatは今回の切替対象外です。CI中は `CI` の設定でエラー時のキー待ちを省略します。
+
+CIはPythonを一時領域へ導入し、既存venv、ユーザーのbin、Pythonのレジストリ登録を変更しません。Python版を更新する開発者は、WindowsアーカイブのURL・SHA-256・配布版も更新し、全試験と実exeの確認を再実行してください。
+
+Issue #155は継続します。既存ローカルvenvや他のPython環境の更新、全チェーン・失効・別環境の確認、署名（#156）は残件です。Ruffの構文対象 `py310` は参照コードの構文互換性を保つ指定であり、3.10のセキュリティサポートを表すものではありません。
+
+## Windowsの開発用ランチャー
+
+Pythonの導入後、作業開始は `start_task.bat`、作業確定は `run_dev_finalize.bat`、長時間評価は `run_developer_evaluation.bat`、リーグ負荷試験は `run_league_stress_test.bat` を使います。4本は共通の検査で、明示指定、並行venv、旧配置の順にPythonを選び、要求版・通常GIL・venv・証明書診断に合格してからツールを起動します。venvと依存は上記の導入手順で用意してください。
+
+起動経路の確認には `start_task.bat --help`、`run_dev_finalize.bat --help`、`run_developer_evaluation.bat --help` を実行してください。リーグ負荷試験は引数なしで始まるため、起動条件の確認には `python -m pytest -q tests/test_game_launcher.py` を検証済みvenvで実行してください。試験は隔離先で実cmdを起動し、選択・失敗停止・引数・終了状態を確認します。
+
+## 根拠
+
+- [Pythonの対応状況](https://www.python.org/downloads/)
+- [Python 3.13.18](https://www.python.org/downloads/release/python-31318/)
+- [Python 3.11.18](https://www.python.org/downloads/release/python-31118/)／[Python 3.12.16](https://www.python.org/downloads/release/python-31216/)
+- [Pygameの公開ファイル](https://pypi.org/project/pygame/#files)
+- [setup-pythonの版ファイル](https://github.com/actions/setup-python/blob/v5/docs/advanced-usage.md#using-the-python-version-file-input)
+- [固定したWindows配布元](https://github.com/astral-sh/python-build-standalone/releases/tag/20261026)

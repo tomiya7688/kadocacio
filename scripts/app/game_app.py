@@ -7,8 +7,11 @@ from copy import deepcopy
 
 import pygame
 
+from scripts.core.match_seed import league_fixture_seed
 from scripts.match.match_engine import Match
 from scripts.app.performance_backend import GpuPresenter
+from scripts.app.main_menu_view import MainMenuView, MENU_ACTIONS, SHORTCUT_ACTIONS
+from scripts.app.team_select_view import TeamSelectView
 from scripts.league.league_auto_progress import (
     LeagueAutoProgressConfig,
     WATCH_FOCUS,
@@ -44,16 +47,45 @@ from scripts.app.stadium_system import (
     roll_special_spectators,
 )
 from scripts.core.settings import (
-    AWAY_BLUE, CAMERA_BACK, CAMERA_FOCAL_LENGTHS, CAMERA_HEIGHT, CAMERA_MAX_SPEED,
-    CAMERA_ZOOM_LEVELS, CREAM, FIELD, FPS, GOLD, HEIGHT, HOME_RED, PANEL, SPEED_OPTIONS, WIDTH,
-    WINDOW_SIZE_OPTIONS, PROJECT_NAME, clamp,
+    AWAY_BLUE,
+    CAMERA_BACK,
+    CAMERA_FOCAL_LENGTHS,
+    CAMERA_HEIGHT,
+    CAMERA_MAX_SPEED,
+    CAMERA_ZOOM_LEVELS,
+    CREAM,
+    FIELD,
+    FPS,
+    GOLD,
+    HEIGHT,
+    HOME_RED,
+    PANEL,
+    SPEED_OPTIONS,
+    WIDTH,
+    WINDOW_SIZE_OPTIONS,
+    PROJECT_NAME,
+    clamp,
 )
 from scripts.team.team_data import discover_team_choices
 from scripts.team.team_editor import TeamEditor
 
 
+# {
+#   責務: [Game: Pygameアプリの画面・入力・可視試合とリーグ処理の接続を管理する]
+#   フィールド: [screen・display_surface・gpu_presenter: 論理描画先と表示経路; match・visible_simulation: 可視試合と固定更新の駆動;
+#     team_choices・各choice_index: 読込済みの開始入力; league_manager・league_simulation_session: リーグと裏試合;
+#     各画面のopenフラグ・buttons・scroll: 入力先と表示状態; camera_focus・camera_velocity: 追従カメラ;
+#     fonts・text_surface_cache: 描画資源キャッシュ; running・clock: アプリ寿命とフレーム計時]
+# }
 class Game(RendererMixin):
-    def __init__(self) -> None:
+    # {
+    #   責務: [__init__: アプリの表示資源と初期画面・試合・リーグ状態を準備する]
+    #   処理: [1: 設定とGPU/CPU表示経路を用意する; 2: チームとリーグ画面状態を構築する; 3: 未開始試合・描画部品・カメラを設定する]
+    #   引数: [team_choices: 省略時は保存チームを発見する。指定時は独立したコピーを開始入力に使う]
+    #   戻り値: [None: SDLと表示資源を初期化しMAIN_MENUへ入る。GPU失敗はCPU表示へ戻り、他の初期化例外は呼出し元へ伝える]
+    # }
+    def __init__(self, *, team_choices: list[dict] | None = None) -> None:
+        # 表示設定を読込み、利用できる描画経路を選ぶ。
         pygame.init()
         title = PROJECT_NAME
         self.window_title = title
@@ -88,7 +120,8 @@ class Game(RendererMixin):
         self.clock = pygame.time.Clock()
         self.fonts: dict[tuple[int, bool], pygame.font.Font] = {}
         self.text_surface_cache: dict[tuple[str, int, tuple[int, int, int], bool], pygame.Surface] = {}
-        self.team_choices = discover_team_choices()
+        # 注入された開始入力を共有編集せず、リーグの作業状態を別に持つ。
+        self.team_choices = discover_team_choices() if team_choices is None else deepcopy(team_choices)
         self.league_manager = LeagueManager(self.team_choices)
         self.league_manager_before_editor: LeagueManager | None = None
         self.league_screen_open = False
@@ -102,7 +135,8 @@ class Game(RendererMixin):
         self.league_template_entries = LeagueManager.template_entries()
         self.league_template_index = next(
             (
-                index for index, entry in enumerate(self.league_template_entries)
+                index
+                for index, entry in enumerate(self.league_template_entries)
                 if entry["id"] == self.league_manager.template_id
             ),
             0,
@@ -153,6 +187,7 @@ class Game(RendererMixin):
         self.other_matches_close_button = pygame.Rect(0, 0, 0, 0)
         self.other_matches_scroll_track = pygame.Rect(0, 0, 0, 0)
         self.other_matches_scroll_thumb = pygame.Rect(0, 0, 0, 0)
+        # 既定の対戦候補の選択番号を決める。
         self.home_choice_index = next(
             (index for index, choice in enumerate(self.team_choices) if "夕張kadoka" in choice["name"]),
             0,
@@ -169,13 +204,17 @@ class Game(RendererMixin):
             self.venue_modes[self.venue_mode_index],
         )
         self.match.state = "MAIN_MENU"
+        # 描画フレームとは別の固定更新ドライバと画面ごとの入力状態を用意する。
         self.visible_simulation = RealtimeSimulationDriver(
             wall_time_budget=simulation_wall_time_budget(self.cpu_limit_percent),
         )
         self.running = True
         self.speed_buttons: list[tuple[pygame.Rect, int]] = []
         self.team_select_buttons: list[tuple[pygame.Rect, str]] = []
+        self.team_select_view = TeamSelectView()
         self.main_menu_buttons: list[tuple[pygame.Rect, str]] = []
+        self.main_menu_view = MainMenuView()
+        self.main_menu_focus = 0
         self.fulltime_buttons: list[tuple[pygame.Rect, str]] = []
         self.pause_menu_buttons: list[tuple[pygame.Rect, str]] = []
         self.skip_match_in_progress = False
@@ -331,11 +370,13 @@ class Game(RendererMixin):
         return CAMERA_ZOOM_LEVELS[self.camera_zoom_index]
 
     def change_camera_zoom(self, step: int) -> None:
-        self.camera_zoom_index = int(clamp(
-            self.camera_zoom_index + step,
-            0,
-            len(CAMERA_ZOOM_LEVELS) - 1,
-        ))
+        self.camera_zoom_index = int(
+            clamp(
+                self.camera_zoom_index + step,
+                0,
+                len(CAMERA_ZOOM_LEVELS) - 1,
+            )
+        )
 
     def logical_mouse_pos(self, pos: tuple[int, int] | None = None) -> tuple[int, int]:
         if pos is None:
@@ -520,21 +561,36 @@ class Game(RendererMixin):
         self.active_league_fixture_id = ""
         self.match.state = "MAIN_MENU"
 
+    # {
+    #   責務: [start_league_fixture: 指定リーグ対戦の観戦試合を共通seedで準備し、同日の裏試合と接続する]
+    #   処理: [1: 両チームを解決し他対戦を起動する; 2: 対戦IDと名前から構築seedを渡す; 3: 試合・駆動器・表示状態を開始する]
+    #   引数: [fixture: id・home_id・away_idを含むリーグ対戦]
+    #   戻り値: [None: 可視試合とリーグ/カメラ状態を更新する。両チームの片方が未解決なら何もしない]
+    # }
     def start_league_fixture(self, fixture: dict) -> None:
+        # 保存済み対戦のIDから、リーグ用に保持されたチーム入力を使う。
         home_choice = self.league_manager.choices_by_id.get(str(fixture.get("home_id")))
         away_choice = self.league_manager.choices_by_id.get(str(fixture.get("away_id")))
         if home_choice is None or away_choice is None:
             return
         other_fixtures = [
-            other for other in self.league_manager.fixtures_on_day(self.league_manager.day, unplayed_only=True)
+            other
+            for other in self.league_manager.fixtures_on_day(self.league_manager.day, unplayed_only=True)
             if other.get("id") != fixture.get("id")
         ]
         self.start_league_simulations(other_fixtures, live_updates=True)
         self.active_league_fixture_id = str(fixture["id"])
         self.league_match_finalized = False
         self.league_screen_open = False
-        self.match = Match(home_choice, away_choice, "HOME")
+        # 裏試合と同じseed式をMatch構築時に渡し、初期選手の抽選も同条件にする。
+        self.match = Match(
+            home_choice,
+            away_choice,
+            "HOME",
+            seed=league_fixture_seed(fixture.get("id"), home_choice.get("name"), away_choice.get("name")),
+        )
         self.match.start_new()
+        # 前の可視試合の未消化時間やオーバーレイを持ち越さない。
         self.visible_simulation.reset(self.match)
         self.roll_stadium_guests()
         self.player_list_open = False
@@ -578,10 +634,7 @@ class Game(RendererMixin):
                 prefix = "オート進行を停止しました"
             else:
                 prefix = "裏試合の処理に失敗しました"
-            self.league_save_message = (
-                f"{prefix}: {details}。"
-                "成功した試合は反映済み、失敗した試合は未消化です"
-            )
+            self.league_save_message = f"{prefix}: {details}。成功した試合は反映済み、失敗した試合は未消化です"
         self.league_simulation_session = None
 
     def league_live_clock_ready(self) -> bool:
@@ -615,7 +668,8 @@ class Game(RendererMixin):
             participating_ids.add(str(fixture.get("home_id", "")))
             participating_ids.add(str(fixture.get("away_id", "")))
         choices = [
-            choice for choice in manager.team_choices
+            choice
+            for choice in manager.team_choices
             if not participating_ids or str(choice.get("id", "")) in participating_ids
         ]
         return sorted(choices, key=lambda choice: str(choice.get("name", "")).casefold())
@@ -667,10 +721,7 @@ class Game(RendererMixin):
         self.advance_league_auto_progress()
 
     def stop_league_auto_progress(self, *, announce: bool = True) -> None:
-        was_active = bool(
-            getattr(self, "league_auto_running", False)
-            or getattr(self, "league_auto_config_open", False)
-        )
+        was_active = bool(getattr(self, "league_auto_running", False) or getattr(self, "league_auto_config_open", False))
         self.league_auto_running = False
         self.league_auto_config_open = False
         self.league_auto_result_delay = 0.0
@@ -905,7 +956,11 @@ class Game(RendererMixin):
             return
         if action == "save_current":
             self.league_manager.save()
-            self.league_save_message = "途中経過をJSONへ保存しました" if not self.league_manager.last_save_error else self.league_manager.last_save_error
+            self.league_save_message = (
+                "途中経過をJSONへ保存しました"
+                if not self.league_manager.last_save_error
+                else self.league_manager.last_save_error
+            )
             return
         if action.startswith("history|"):
             self.league_history_year = int(action.split("|", 1)[1])
@@ -975,7 +1030,9 @@ class Game(RendererMixin):
         if action.startswith("competition_scroll|"):
             total = len(self.league_manager.league_names) + len(self.league_manager.tournament_names)
             maximum = max(0, total - 7)
-            self.league_competition_scroll = max(0, min(maximum, self.league_competition_scroll + int(action.split("|", 1)[1])))
+            self.league_competition_scroll = max(
+                0, min(maximum, self.league_competition_scroll + int(action.split("|", 1)[1]))
+            )
             return
         if action.startswith("editor_mode|"):
             self.league_editor_mode = action.split("|", 1)[1]
@@ -1023,7 +1080,9 @@ class Game(RendererMixin):
             error = self.league_manager.delete_tournament(self.tournament_view_name)
             self.league_save_message = error or "トーナメントを削除しました"
             if not error:
-                self.tournament_view_name = self.league_manager.tournament_names[0] if self.league_manager.tournament_names else ""
+                self.tournament_view_name = (
+                    self.league_manager.tournament_names[0] if self.league_manager.tournament_names else ""
+                )
             return
         if action.startswith("tournament_view|"):
             self.tournament_view_name = action.split("|", 1)[1]
@@ -1039,7 +1098,10 @@ class Game(RendererMixin):
             return
         if action.startswith("tournament_source_toggle|"):
             league_name = action.split("|", 1)[1]
-            self.league_save_message = self.league_manager.toggle_tournament_source(self.tournament_view_name, league_name) or "参加元リーグを変更しました"
+            self.league_save_message = (
+                self.league_manager.toggle_tournament_source(self.tournament_view_name, league_name)
+                or "参加元リーグを変更しました"
+            )
             return
         if action.startswith("tournament_source_page|"):
             maximum = max(0, len(self.league_manager.league_names) - 6)
@@ -1048,17 +1110,26 @@ class Game(RendererMixin):
         if action == "tournament_mode":
             definition = self.league_manager.tournament_definition(self.tournament_view_name)
             mode = "前年順位" if definition.get("参加方式") == "リーグ全体" else "リーグ全体"
-            self.league_save_message = self.league_manager.configure_tournament(self.tournament_view_name, participation=mode) or "参加方式を変更しました"
+            self.league_save_message = (
+                self.league_manager.configure_tournament(self.tournament_view_name, participation=mode)
+                or "参加方式を変更しました"
+            )
             return
         if action.startswith("tournament_rank|"):
             definition = self.league_manager.tournament_definition(self.tournament_view_name)
             value = int(definition.get("前年順位上限", 4)) + int(action.split("|", 1)[1])
-            self.league_save_message = self.league_manager.configure_tournament(self.tournament_view_name, rank_limit=value) or "前年順位の範囲を変更しました"
+            self.league_save_message = (
+                self.league_manager.configure_tournament(self.tournament_view_name, rank_limit=value)
+                or "前年順位の範囲を変更しました"
+            )
             return
         if action.startswith("tournament_day|"):
             definition = self.league_manager.tournament_definition(self.tournament_view_name)
             value = int(definition.get("開始希望日", 40)) + int(action.split("|", 1)[1])
-            self.league_save_message = self.league_manager.configure_tournament(self.tournament_view_name, preferred_day=value) or "開始希望日を変更しました"
+            self.league_save_message = (
+                self.league_manager.configure_tournament(self.tournament_view_name, preferred_day=value)
+                or "開始希望日を変更しました"
+            )
             return
         if action == "editor_delete":
             if self.league_editor_delete_confirm != self.league_view_name:
@@ -1076,7 +1147,9 @@ class Game(RendererMixin):
             team_id = action.split("|", 1)[1]
             was_selected = self.league_manager.team_in_league(team_id, self.league_view_name)
             error = self.league_manager.assign_team_to_league(team_id, self.league_view_name)
-            self.league_save_message = error or (f"{self.league_view_name}から外しました" if was_selected else f"{self.league_view_name}へ追加しました")
+            self.league_save_message = error or (
+                f"{self.league_view_name}から外しました" if was_selected else f"{self.league_view_name}へ追加しました"
+            )
             return
         if action.startswith("priority_team|"):
             team_id = action.split("|", 1)[1]
@@ -1086,7 +1159,11 @@ class Game(RendererMixin):
         if action.startswith("fixture_day|"):
             _, fixture_id, amount = action.split("|", 2)
             fixture = self.league_manager.fixture(fixture_id)
-            error = self.league_manager.set_fixture_day(fixture_id, int(fixture.get("day", 1)) + int(amount)) if fixture else "試合が見つかりません"
+            error = (
+                self.league_manager.set_fixture_day(fixture_id, int(fixture.get("day", 1)) + int(amount))
+                if fixture
+                else "試合が見つかりません"
+            )
             self.league_save_message = error or "試合日を変更しました"
             return
         if action.startswith("schedule_page|"):
@@ -1288,10 +1365,7 @@ class Game(RendererMixin):
     def reset_camera(self) -> None:
         self.camera_focus.update(FIELD.center)
         self.camera_velocity.update(0, 0)
-        self.focal_length = (
-            CAMERA_FOCAL_LENGTHS.get(self.match.speed_multiplier, CAMERA_FOCAL_LENGTHS[1])
-            * self.camera_zoom
-        )
+        self.focal_length = CAMERA_FOCAL_LENGTHS.get(self.match.speed_multiplier, CAMERA_FOCAL_LENGTHS[1]) * self.camera_zoom
         self.refresh_camera_transform()
 
     def update_camera(self, dt: float) -> None:
@@ -1302,10 +1376,7 @@ class Game(RendererMixin):
         desired.x = clamp(desired.x, FIELD.left + 300, FIELD.right - 300)
         desired.y = clamp(desired.y, FIELD.top + 230, FIELD.bottom - 230)
 
-        target_focal = (
-            CAMERA_FOCAL_LENGTHS.get(self.match.speed_multiplier, CAMERA_FOCAL_LENGTHS[1])
-            * self.camera_zoom
-        )
+        target_focal = CAMERA_FOCAL_LENGTHS.get(self.match.speed_multiplier, CAMERA_FOCAL_LENGTHS[1]) * self.camera_zoom
         zoom_blend = 1.0 - math.exp(-dt * 2.4)
         self.focal_length += (target_focal - self.focal_length) * zoom_blend
 
@@ -1331,7 +1402,55 @@ class Game(RendererMixin):
         self.camera_focus.y = clamp(self.camera_focus.y, FIELD.top + 230, FIELD.bottom - 230)
         self.refresh_camera_transform()
 
+    # {
+    #   責務: [handle_main_menu_action: 共通の起動操作IDを既存画面の入口へ振り分ける]
+    #   処理: [1: 既知操作ならカード焦点を合わせる; 2: 対応するエディタ・リーグ・試合準備へ遷移する]
+    #   引数: [action: MENU_ACTIONSで定義した操作ID]
+    #   戻り値: [None: 焦点や画面状態を更新する。未知の操作IDは何もしない]
+    # }
+    def handle_main_menu_action(self, action: str) -> None:
+        # キーとクリックで同じ画面入口を共有する。
+        if action in MENU_ACTIONS:
+            self.main_menu_focus = MENU_ACTIONS.index(action)
+        if action == "team_editor":
+            self.open_team_editor()
+        elif action == "league_editor":
+            self.open_league_editor()
+        elif action == "league_start":
+            self.open_league_screen()
+        elif action == "match_test":
+            self.match.state = "TEAM_SELECT"
+
+    # {
+    #   責務: [handle_main_menu_key: 起動カードの数字・確定・焦点移動を操作IDへ対応付ける]
+    #   処理: [1: 数字と確定キーを既存操作へ渡す; 2: Tabと矢印を4カードの焦点移動へ変換する]
+    #   引数: [key: pygameのキー定数。設定モーダルの遮断はhandle_keyが担当する]
+    #   戻り値: [None: 焦点または画面状態を更新する。該当しないキーは無視する]
+    # }
+    def handle_main_menu_key(self, key: int) -> None:
+        # 数字の既存割当と、2列の表示順を分けて扱う。
+        focus = getattr(self, "main_menu_focus", 0)
+        shortcuts = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4)
+        if key in shortcuts:
+            self.handle_main_menu_action(SHORTCUT_ACTIONS[shortcuts.index(key)])
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.handle_main_menu_action(MENU_ACTIONS[focus])
+        elif key == pygame.K_TAB:
+            step = -1 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 1
+            self.main_menu_focus = (focus + step) % len(MENU_ACTIONS)
+        elif key in (pygame.K_LEFT, pygame.K_RIGHT):
+            self.main_menu_focus = focus ^ 1
+        elif key in (pygame.K_UP, pygame.K_DOWN):
+            self.main_menu_focus = focus ^ 2
+
+    # {
+    #   責務: [handle_key: キー入力をモーダル優先順位と現在の画面へ振り分ける]
+    #   処理: [1: 設定と全画面操作を優先する; 2: リーグ・他会場・選手一覧等の専用入力へ絞る; 3: メニュー・準備・試合操作を実行する]
+    #   引数: [key: pygameのキー定数]
+    #   戻り値: [None: 画面・カメラ・試合の操作状態を変更する。開いているモーダルの背面へ入力を通さない]
+    # }
     def handle_key(self, key: int) -> None:
+        # Escによる設定切替を最優先し、設定中は背面のキー処理を止める。
         match = self.match
         if key == pygame.K_ESCAPE:
             if getattr(self, "settings_open", False):
@@ -1339,12 +1458,15 @@ class Game(RendererMixin):
             else:
                 self.open_settings()
             return
+        if getattr(self, "settings_open", False):
+            return
         if key == pygame.K_F10:
             self.cycle_window_size()
             return
         if key == pygame.K_F11:
             self.toggle_fullscreen()
             return
+        # 以下の専用画面は入力を受け付けたら戻り、試合の操作へ進ませない。
         if self.league_screen_open:
             if key == pygame.K_ESCAPE:
                 if self.league_save_select_open:
@@ -1385,16 +1507,11 @@ class Game(RendererMixin):
             if key in (pygame.K_ESCAPE, pygame.K_p, pygame.K_TAB):
                 self.player_list_open = False
             return
-        if match.state == "MAIN_MENU":
-            if key == pygame.K_1:
-                self.open_team_editor()
-            elif key == pygame.K_2:
-                self.open_league_editor()
-            elif key == pygame.K_3:
-                self.open_league_screen()
-            elif key == pygame.K_4:
-                match.state = "TEAM_SELECT"
+        # 起動画面では操作IDへ統一し、旧TITLEも同じカード遷移へ接続する。
+        if match.state in ("MAIN_MENU", "TITLE"):
+            self.handle_main_menu_key(key)
             return
+        # 対戦準備と試合中の操作を現在の試合状態で分ける。
         if match.state == "TEAM_SELECT":
             if key == pygame.K_q:
                 self.cycle_team_choice("home", -1)
@@ -1414,12 +1531,7 @@ class Game(RendererMixin):
             else:
                 self.return_to_team_select()
         elif key == pygame.K_SPACE:
-            if match.state == "TITLE":
-                match.start_new()
-                self.visible_simulation.reset(match)
-                self.roll_stadium_guests()
-                self.reset_camera()
-            elif match.state == "PLAYING":
+            if match.state == "PLAYING":
                 match.state = "PAUSED"
             elif match.state == "PAUSED":
                 self.resume_match()
@@ -1440,7 +1552,14 @@ class Game(RendererMixin):
         elif key in (pygame.K_p, pygame.K_TAB) and match.state in ("PLAYING", "PAUSED", "FULLTIME"):
             self.player_list_open = True
 
+    # {
+    #   責務: [handle_click: 描画が登録した矩形へ論理座標のクリックを振り分ける]
+    #   処理: [1: 設定・他会場・選手一覧・リーグを優先する; 2: 起動/準備/ポーズ等の画面操作を判定する; 3: 試合の表示操作を判定する]
+    #   引数: [pos: 窓サイズ変換済みの論理画面座標]
+    #   戻り値: [None: 最初に受け付けた画面操作を実行する。矩形外は原則無視する]
+    # }
     def handle_click(self, pos: tuple[int, int]) -> None:
+        # 重ねた画面を先に処理し、背面のボタンへクリックを透過させない。
         if getattr(self, "settings_open", False):
             self.handle_settings_click(pos)
             return
@@ -1471,24 +1590,20 @@ class Game(RendererMixin):
                 maximum = schedule_max_scroll(len(self.league_manager.next_fixtures()))
                 if maximum > 0:
                     travel = max(1, self.league_schedule_scroll_track.height - self.league_schedule_scroll_thumb.height)
-                    thumb_center = pos[1] - self.league_schedule_scroll_track.top - self.league_schedule_scroll_thumb.height * 0.5
+                    thumb_center = (
+                        pos[1] - self.league_schedule_scroll_track.top - self.league_schedule_scroll_thumb.height * 0.5
+                    )
                     self.league_schedule_scroll = round(max(0, min(travel, thumb_center)) / travel * maximum)
             return
+        # 前面の専用画面がなければ、共通設定ボタンを判定する。
         if self.settings_button.collidepoint(pos):
             self.open_settings()
             return
-        if self.match.state == "MAIN_MENU":
+        if self.match.state in ("MAIN_MENU", "TITLE"):
             for rect, action in self.main_menu_buttons:
                 if not rect.collidepoint(pos):
                     continue
-                if action == "team_editor":
-                    self.open_team_editor()
-                elif action == "league_editor":
-                    self.open_league_editor()
-                elif action == "league_start":
-                    self.open_league_screen()
-                elif action == "match_test":
-                    self.match.state = "TEAM_SELECT"
+                self.handle_main_menu_action(action)
                 return
             return
         if self.match.state in ("PLAYING", "PAUSED", "FULLTIME"):
@@ -1512,6 +1627,7 @@ class Game(RendererMixin):
                     self.start_match_skip()
                 return
             return
+        # 画面が登録した操作IDから既存の準備・遷移メソッドを呼ぶ。
         if self.match.state == "TEAM_SELECT":
             for rect, action in self.team_select_buttons:
                 if not rect.collidepoint(pos):
@@ -1535,12 +1651,6 @@ class Game(RendererMixin):
                 elif action == "main_menu":
                     self.return_to_main_menu()
                 return
-            return
-        if self.match.state == "TITLE":
-            self.match.start_new()
-            self.visible_simulation.reset(self.match)
-            self.roll_stadium_guests()
-            self.reset_camera()
             return
         if self.player_list_button.collidepoint(pos):
             self.player_list_open = True
@@ -1615,9 +1725,8 @@ class Game(RendererMixin):
                             and self.league_editor_mode == "teams"
                             and self.league_team_scroll_rect.collidepoint(mouse_pos)
                         )
-                        schedule_scroll = (
-                            self.league_tab == "schedule"
-                            and self.league_schedule_scroll_rect.collidepoint(mouse_pos)
+                        schedule_scroll = self.league_tab == "schedule" and self.league_schedule_scroll_rect.collidepoint(
+                            mouse_pos
                         )
                         if schedule_scroll:
                             self.scroll_league_schedule(-event.y)
@@ -1625,18 +1734,16 @@ class Game(RendererMixin):
                             self.league_team_scroll = max(0, self.league_team_scroll - event.y)
                         else:
                             total = len(self.league_manager.league_names) + len(self.league_manager.tournament_names)
-                            self.league_competition_scroll = max(0, min(max(0, total - 7), self.league_competition_scroll - event.y))
+                            self.league_competition_scroll = max(
+                                0, min(max(0, total - 7), self.league_competition_scroll - event.y)
+                            )
                     elif self.match.state in ("PLAYING", "PAUSED", "FULLTIME"):
                         self.change_camera_zoom(1 if event.y > 0 else -1)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.handle_click(self.logical_mouse_pos(event.pos))
             self.update_league_simulations()
             self.update_match_skip()
-            if (
-                self.league_skip_auto_return
-                and self.match.state == "FULLTIME"
-                and self.league_simulation_session is None
-            ):
+            if self.league_skip_auto_return and self.match.state == "FULLTIME" and self.league_simulation_session is None:
                 self.league_skip_auto_return = False
                 self.return_to_league_screen()
             self.update_league_auto_progress(dt)

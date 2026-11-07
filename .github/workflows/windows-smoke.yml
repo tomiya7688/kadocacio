@@ -7,7 +7,11 @@ on:
       - "**/*.py"
       - "**/*.bat"
       - "requirements.txt"
+      - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
+      - "ruff.toml"
+      - ".python-version"
+      - ".github/windows-python.json"
       - "static_analysis/**"
       - "assets/**"
       - "teams/**"
@@ -22,7 +26,11 @@ on:
       - "**/*.py"
       - "**/*.bat"
       - "requirements.txt"
+      - "requirements-bootstrap.txt"
       - "requirements-dev.txt"
+      - "ruff.toml"
+      - ".python-version"
+      - ".github/windows-python.json"
       - "static_analysis/**"
       - "assets/**"
       - "teams/**"
@@ -53,26 +61,84 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+          persist-credentials: false
+
+      - name: Download verified Windows Python
+        shell: pwsh
+        run: |
+          # Authenticate the complete archive before extracting or executing any runtime file.
+          $version = (Get-Content -LiteralPath .python-version -Raw).Trim()
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Expected an exact Python version' }
+          $runtime = Get-Content -LiteralPath .github/windows-python.json -Raw | ConvertFrom-Json
+          if ($runtime.version -isnot [string] -or $runtime.version -cne $version) { throw 'Python archive version does not match .python-version' }
+          if ($runtime.sha256 -isnot [string] -or $runtime.sha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid Python archive hash' }
+          if ($runtime.url -isnot [string]) { throw 'Invalid Python archive URL' }
+          $uri = [Uri]$runtime.url
+          if ($uri.Scheme -ne 'https' -or $uri.Host -ne 'github.com' -or -not $uri.AbsolutePath.StartsWith('/astral-sh/python-build-standalone/releases/download/')) { throw 'Unexpected Python archive source' }
+          $runtimeRoot = Join-Path $env:RUNNER_TEMP 'kadocacio-python'
+          New-Item -ItemType Directory -Path $runtimeRoot -ErrorAction Stop | Out-Null
+          $archive = Join-Path $runtimeRoot 'python.tar.gz'
+          Invoke-WebRequest -Uri $runtime.url -OutFile $archive
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+          if ($actual -cne $runtime.sha256) { throw 'Python archive checksum mismatch' }
+          # Accept only the expected subtree and regular files/directories, without links.
+          $tar = Join-Path $env:SystemRoot 'System32/tar.exe'
+          $members = @(& $tar -tzf $archive)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($members.Count -eq 0) { throw 'Empty Python archive' }
+          foreach ($entry in $members) {
+            $member = $entry.Replace('\', '/') -replace '^\./', ''
+            if ($member -notmatch '^python(/|$)' -or $member -match '(^|/)\.\.(/|$)' -or $member.Contains(':')) { throw 'Unsafe Python archive path' }
+          }
+          $types = @(& $tar -tvzf $archive)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($types.Count -ne $members.Count -or @($types | Where-Object { $_ -notmatch '^[-d]' }).Count -ne 0) { throw 'Unsupported Python archive entry' }
+          & $tar -xzf $archive -C $runtimeRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create patched Windows Python environment
+        shell: pwsh
+        run: |
+          # Use the verified portable runtime without registry, user-bin or global Python changes.
+          $basePython = Join-Path $env:RUNNER_TEMP 'kadocacio-python/python/python.exe'
+          $version = (Get-Content -LiteralPath .python-version -Raw).Trim()
+          if (Test-Path -LiteralPath .venv) { throw 'Refusing to reuse an existing venv' }
+          & $basePython -m venv .venv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\.venv\Scripts\python.exe -c "import sys; assert sys.version.split()[0] == sys.argv[1]; assert sys._is_gil_enabled(); print(sys.version)" $version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Resolve-Path -LiteralPath .venv/Scripts).Path | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Remove compromised root from ephemeral runner
+        shell: pwsh
+        run: |
+          # Only this disposable CI runner is modified; match exact public-certificate DER.
+          $fingerprint = (& python -c "from scripts.tools.python_trust_check import PythonTrustCheck; print(PythonTrustCheck.REMOVED_ROOT_SHA256)").Trim()
+          if ($LASTEXITCODE -ne 0 -or $fingerprint -notmatch '^[a-f0-9]{64}$') { throw 'Invalid removed-root fingerprint' }
+          foreach ($store in @('Cert:\LocalMachine\Root', 'Cert:\LocalMachine\CA', 'Cert:\CurrentUser\Root', 'Cert:\CurrentUser\CA')) {
+            foreach ($certificate in Get-ChildItem -LiteralPath $store -ErrorAction Stop) {
+              $actual = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
+              if ($actual -eq $fingerprint) {
+                Remove-Item -LiteralPath $certificate.PSPath -ErrorAction Stop
+              }
+            }
+          }
 
       - name: Install dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7"
+          python -m pip --isolated --disable-pip-version-check --cache-dir (Join-Path $env:RUNNER_TEMP 'kadocacio-pip-cache') install --upgrade --no-deps --require-hashes -r requirements-bootstrap.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m scripts.tools.python_trust_check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements-dev.txt "pyinstaller>=6,<7" --cache-dir (Join-Path $env:RUNNER_TEMP 'kadocacio-pip-cache')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip check
 
       - name: Run Windows-sensitive tests
         shell: pwsh
-        run: python -m pytest -q tests/test_team_file_organization.py tests/test_distribution_layout.py
+        run: python -m pytest -q tests/test_team_file_organization.py tests/test_distribution_layout.py tests/test_game_launcher.py
 
       - name: Run static-analysis batch entry point
         shell: cmd
@@ -81,6 +147,9 @@ jobs:
       - name: Build Windows distribution
         shell: pwsh
         run: |
+          # Preserve the license supplied by the managed Python distribution.
+          $pythonLicense = (& python -c "import sys; from pathlib import Path; print(Path(sys.base_prefix) / 'LICENSE.txt')").Trim()
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $pythonLicense -PathType Leaf)) { throw 'Python license is missing' }
           python -m PyInstaller `
             --noconfirm `
             --clean `
@@ -90,6 +159,9 @@ jobs:
             --distpath dist `
             --workpath build/pyinstaller `
             --exclude-module upd_commander_checker `
+            --hidden-import certifi `
+            --collect-data certifi `
+            --add-data "${pythonLicense}:licenses/python" `
             --add-data "assets:assets" `
             --add-data "teams:teams" `
             --add-data "teameditor_templete:teameditor_templete" `
@@ -97,7 +169,20 @@ jobs:
             --add-data "leagues.json:." `
             --add-data "league_state.json:." `
             main.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m scripts.tools.distribution_layout stage dist/Kadocacio
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path -LiteralPath dist/Kadocacio/_internal/licenses/python/LICENSE.txt -PathType Leaf)) { throw 'Bundled Python license is missing' }
+
+      - name: Inspect bundled Python trust
+        shell: pwsh
+        run: |
+          $json = (& .\dist\Kadocacio\Kadocacio.exe --check-python-trust) | Out-String
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $json
+          $report = $json | ConvertFrom-Json
+          $expected = (Get-Content -LiteralPath .python-version -Raw).Trim()
+          if ($report.python -ne $expected -or $report.frozen -ne $true -or $report.ok -ne $true) { throw 'Unexpected or unverified bundled Python runtime' }
 
       - name: Validate distribution input/output layout
         shell: pwsh

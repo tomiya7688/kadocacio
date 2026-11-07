@@ -50,16 +50,22 @@
 
 ## 起動方法
 
-Windowsでは `run_game.bat` をダブルクリックしてください。
+Windowsでは初回に[修正版Pythonの並行配置手順](doc/Python実行環境.md)で `runtime/venv/` を用意してから、`run_game.bat` をダブルクリックしてください。既存venvは残します。要求版が違うPythonでは起動しません。
 
 コマンドから起動する場合：
 
 ```text
-py -m pip install -r requirements.txt
-py main.py
+run_game.bat
+run_game.bat --check-python-trust
 ```
 
+Pythonの証明書更新と実CAの診断は[Python証明書対応](doc/Python証明書対応.md)を参照してください。既存venvも更新対象です。
+
 ## ファイル構成
+
+Pythonを変更する開発者は、[整形手順](doc/Python整形.md)に従って実装後に変更ファイルを整形・確認してください。固定版Ruffを使い、既存CIも変更されたPythonを確認します。通常のゲーム起動にformatterは不要です。
+
+静的検査はリポジトリのルートで `run_static_analysis.bat --report-dir user_data/logs/review` を実行してください。`KADOCACIO_PYTHON`、`runtime/venv`、旧 `.venv` の順でPythonを選び、要求版・通常GIL・venv・証明書診断を確認してから検査します。不正な明示指定や診断失敗では停止します。[Python実行環境](doc/Python実行環境.md)に従って環境を準備し、開発依存を導入してください。成功時は `STATIC ANALYSIS: PASS` と出力します。
 
 - `main.py`：ゲームを起動するだけの最小エントリーポイント
 - `scripts/app/`：Pygameの画面、入力、描画、スタジアム表示
@@ -409,6 +415,8 @@ GKはボールの速度、高さ、シュートの読みにくさ、自分のゴ
 ## AIパラメータ評価
 
 `run_ai_evaluator.bat`は通常の試合と同じ`Match`を画面なしで実行し、指定した能力値だけを変えたチームを同じ対戦相手・同じ乱数シードで比較します。画面、カメラ、描画待ちは作成しません。試合時計だけを飛ばすこともせず、物理、AI、モーション、ボール、試合時計を共通の0.05秒固定ステップで進めます。
+
+起動前に[Python実行環境](doc/Python実行環境.md)の手順で環境と依存を準備してください。`KADOCACIO_PYTHON`、`runtime/venv`、旧 `.venv` の順で選択し、要求版・通常GIL・venv・証明書診断に失敗すると評価を開始しません。OSの `py` へは切り替えません。`run_ai_evaluator.bat --help` で評価を開始せず使い方を確認できます。自動実行では `CI=1` または `KADOKA_NO_PAUSE=1` を設定すると終了時のキー待ちを省略します。評価の終了コードは呼び出し元へ返します。
 
 何も指定しなければ、先頭チームのインテリジェンス0・2750・5500を各2試合、15分相当ずつ評価します。90分を完走する場合や処理上限を変更する場合は次のように実行します。
 

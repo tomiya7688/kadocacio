@@ -51,10 +51,10 @@ def automatic_opponent_priority(metrics: dict[str, float]) -> tuple[float, str, 
     closeness = math.exp(-abs(signal) / 1.8)
     reachable_loss_bonus = 0.0
     if signal < -0.10:
-        reachable_loss_bonus = 0.58 * math.exp(-((signal + 0.75) / 1.05) ** 2)
+        reachable_loss_bonus = 0.58 * math.exp(-(((signal + 0.75) / 1.05) ** 2))
     close_win_bonus = 0.0
     if signal >= -0.10:
-        close_win_bonus = 0.24 * math.exp(-((signal - 0.65) / 1.05) ** 2)
+        close_win_bonus = 0.24 * math.exp(-(((signal - 0.65) / 1.05) ** 2))
     weight = clamp(0.55 + closeness * 1.10 + reachable_loss_bonus + close_win_bonus, 0.45, 2.25)
     if signal < -2.50:
         label = "格上（差が大きい）"
@@ -70,30 +70,55 @@ def automatic_opponent_priority(metrics: dict[str, float]) -> tuple[float, str, 
         label = "大幅優勢"
     return weight, label, signal
 
+
 ROLE_FIELD_BOOSTS = {
     "GK": {
-        "ゴールストップ力": 1.28, "トラップの上手さ": 1.12, "ジャンプの正確さ": 1.12,
-        "ジャンプの判断力": 1.14, "ゴールキック": 1.16, "パス力": 1.08,
-        "シュート力": 0.72, "シュートの上手さ": 0.70, "ドリブル時のスピード": 0.78,
-        "ゴール前待機": 0.62, "オーバーラップ": 0.64,
+        "ゴールストップ力": 1.28,
+        "トラップの上手さ": 1.12,
+        "ジャンプの正確さ": 1.12,
+        "ジャンプの判断力": 1.14,
+        "ゴールキック": 1.16,
+        "パス力": 1.08,
+        "シュート力": 0.72,
+        "シュートの上手さ": 0.70,
+        "ドリブル時のスピード": 0.78,
+        "ゴール前待機": 0.62,
+        "オーバーラップ": 0.64,
     },
     "DF": {
-        "パスカットの上手さ": 1.12, "スティールの上手さ": 1.12,
-        "ジャンプの高さ": 1.08, "ヘディングの判断力": 1.09,
-        "ゾーンマーキング": 1.12, "マンツーマン": 1.10, "シュートカット": 1.14,
-        "インターセプト": 1.12, "シュート力": 0.84, "ゴール前待機": 0.78,
+        "パスカットの上手さ": 1.12,
+        "スティールの上手さ": 1.12,
+        "ジャンプの高さ": 1.08,
+        "ヘディングの判断力": 1.09,
+        "ゾーンマーキング": 1.12,
+        "マンツーマン": 1.10,
+        "シュートカット": 1.14,
+        "インターセプト": 1.12,
+        "シュート力": 0.84,
+        "ゴール前待機": 0.78,
     },
     "MF": {
-        "パス精度": 1.10, "パス力": 1.06, "パスの上手さ": 1.12,
-        "スタミナ最大値": 1.08, "スタミナ管理": 1.07,
-        "サポート": 1.10, "トライアングル": 1.12, "インテリジェンス": 1.06,
+        "パス精度": 1.10,
+        "パス力": 1.06,
+        "パスの上手さ": 1.12,
+        "スタミナ最大値": 1.08,
+        "スタミナ管理": 1.07,
+        "サポート": 1.10,
+        "トライアングル": 1.12,
+        "インテリジェンス": 1.06,
     },
     "FW": {
-        "シュート力": 1.12, "シュート精度": 1.12, "シュートの上手さ": 1.14,
-        "ダッシュ時のスピード": 1.08, "ドリブル時のスピード": 1.08,
-        "ドリブルの上手さ": 1.08, "ゴール前待機": 1.15,
-        "マークを外す": 1.10, "スペースに走り込む": 1.12,
-        "ゴールストップ力": 0.58, "ゾーンマーキング": 0.82,
+        "シュート力": 1.12,
+        "シュート精度": 1.12,
+        "シュートの上手さ": 1.14,
+        "ダッシュ時のスピード": 1.08,
+        "ドリブル時のスピード": 1.08,
+        "ドリブルの上手さ": 1.08,
+        "ゴール前待機": 1.15,
+        "マークを外す": 1.10,
+        "スペースに走り込む": 1.12,
+        "ゴールストップ力": 0.58,
+        "ゾーンマーキング": 0.82,
     },
 }
 
@@ -188,7 +213,8 @@ def auto_adjust_payload(
     if not isinstance(players, list):
         return 0
     selected = [
-        player for index, player in enumerate(players)
+        player
+        for index, player in enumerate(players)
         if isinstance(player, dict) and (player_indices is None or index in player_indices)
     ]
     changes = 0
@@ -231,10 +257,7 @@ def payload_category_summary(payload: dict, categories: tuple[dict, ...] | list[
 
 
 def category_mean_values(payload: dict, categories: tuple[dict, ...] | list[dict]) -> dict[str, float]:
-    return {
-        category_id: float(summary[0])
-        for category_id, summary in payload_category_summary(payload, categories).items()
-    }
+    return {category_id: float(summary[0]) for category_id, summary in payload_category_summary(payload, categories).items()}
 
 
 def enforce_category_mean_limits(
@@ -256,11 +279,7 @@ def enforce_category_mean_limits(
         current = float(current_means.get(category_id, baseline))
         if baseline - tolerance <= current <= baseline + tolerance:
             continue
-        cells = [
-            (player, str(field))
-            for player in players
-            for field in category.get("fields", ())
-        ]
+        cells = [(player, str(field)) for player in players for field in category.get("fields", ())]
         _normalize_cells(cells, baseline)
 
 
@@ -284,11 +303,7 @@ def mutate_payload_distribution(
     for category in categories:
         if category.get("hidden") and not include_hidden:
             continue
-        cells = [
-            (player, str(field))
-            for player in players
-            for field in category.get("fields", ())
-        ]
+        cells = [(player, str(field)) for player in players for field in category.get("fields", ())]
         if len(cells) < 2:
             continue
         category_mean = sum(_number(player.get(field)) for player, field in cells) / len(cells)
@@ -321,7 +336,9 @@ def mutate_payload_distribution(
     return changes
 
 
-def _score_match_sample(match: Match, target, command_counts: Counter[str], active_samples: int, total_samples: int) -> tuple[float, dict[str, float]]:
+def _score_match_sample(
+    match: Match, target, command_counts: Counter[str], active_samples: int, total_samples: int
+) -> tuple[float, dict[str, float]]:
     opponent = match.away if target is match.home else match.home
     fraction = clamp(match.game_time / MATCH_SECONDS, 0.08, 1.0)
     goal_difference = (target.score - opponent.score) / fraction
@@ -342,20 +359,31 @@ def _score_match_sample(match: Match, target, command_counts: Counter[str], acti
     if match.state == "FULLTIME":
         score += 1.1 if target.score > opponent.score else -0.8 if target.score < opponent.score else 0.15
     return score, {
-        "得点": float(target.score), "失点": float(opponent.score),
-        "シュート": float(target.shots), "被シュート": float(opponent.shots),
-        "支配率": possession_share * 100.0, "残スタミナ": stamina_ratio * 100.0,
-        "行動種類": float(action_diversity), "活動率": active_ratio * 100.0,
+        "得点": float(target.score),
+        "失点": float(opponent.score),
+        "シュート": float(target.shots),
+        "被シュート": float(opponent.shots),
+        "支配率": possession_share * 100.0,
+        "残スタミナ": stamina_ratio * 100.0,
+        "行動種類": float(action_diversity),
+        "活動率": active_ratio * 100.0,
         "進行率": fraction * 100.0,
     }
 
 
+# {
+#   責務: [_simulate_tuner_job: 一候補の指定対戦を共通seedと固定更新で評価し、対象チーム側から集計する]
+#   処理: [1: 相手順・会場順にseedを選び試合と対象側を構築する; 2: 期限か評価時刻まで巡回更新し行動を採取する; 3: 各対戦の評価値・指標・目標到達数を平均集計する]
+#   引数: [job: candidate・opponents・wall_time_limitが必須。fixture_seedsは構築時に整数化し、不足分は0始まりの対戦順を使う]
+#   戻り値: [dict: score・metrics・completed_matches等。completed_matchesは評価目標到達を含み、90分完走数とは限らない。不正入力の例外は呼出し元へ伝える]
+# }
 def _simulate_tuner_job(job: dict) -> dict:
     """Evaluate one candidate across every opponent, home and away.
 
     All candidates use the same fixture seeds. Matches are advanced round-robin,
     so even a time-limited result compares candidates at similar match progress.
     """
+    # 候補の入力をMatch用のメモリチームへ変換し、CPU制限をこのジョブへ適用する。
     candidate = job["candidate"]
     cpu_limiter = CpuUsageLimiter(job.get("cpu_duty_cycle", 1.0))
     choice = team_choice_from_payload(candidate, "<team-tuner-worker>")
@@ -364,27 +392,33 @@ def _simulate_tuner_job(job: dict) -> dict:
     seeds = list(job.get("fixture_seeds", ()))
     seed_index = 0
     venues = tuple(job.get("venues", (True, False)))
+    # seed=0も有効。構築後の再seedでは初期選手の抽選を再現できない。
     for opponent_choice in job["opponents"]:
         for is_home in venues:
-            if is_home:
-                match = Match(choice, opponent_choice, "HOME")
-                target = match.home
-            else:
-                match = Match(opponent_choice, choice, "HOME")
-                target = match.away
             seed = seeds[seed_index] if seed_index < len(seeds) else seed_index
             seed_index += 1
-            match.rng.seed(int(seed))
+            if is_home:
+                match = Match(choice, opponent_choice, "HOME", seed=int(seed))
+                target = match.home
+            else:
+                match = Match(opponent_choice, choice, "HOME", seed=int(seed))
+                target = match.away
             match.state = "PLAYING"
-            fixtures.append({
-                "match": match, "target": target, "counts": Counter(),
-                "active": 0, "samples": 0, "counter": 0,
-            })
+            fixtures.append(
+                {
+                    "match": match,
+                    "target": target,
+                    "counts": Counter(),
+                    "active": 0,
+                    "samples": 0,
+                    "counter": 0,
+                }
+            )
+    # 評価目標と実時間上限は別条件。期限終了の部分試合も集計へ残す。
     worker_deadline = time.perf_counter() + max(1.0, float(job["wall_time_limit"]))
     evaluation_target = clamp(float(job.get("target_game_time", MATCH_SECONDS)), 60.0, MATCH_SECONDS)
     while time.perf_counter() < worker_deadline and any(
-        item["match"].state != "FULLTIME" and item["match"].game_time < evaluation_target
-        for item in fixtures
+        item["match"].state != "FULLTIME" and item["match"].game_time < evaluation_target for item in fixtures
     ):
         for item in fixtures:
             match = item["match"]
@@ -396,6 +430,7 @@ def _simulate_tuner_job(job: dict) -> dict:
             advance_match_fixed(match)
             cpu_limiter.throttle()
             item["counter"] += 1
+            # ホーム/アウェーではなく、候補側の18更新ごとの行動だけを数える。
             if item["counter"] % 18 == 0:
                 for player in item["target"].players:
                     command = getattr(player.action_command, "value", str(player.action_command))
@@ -405,22 +440,23 @@ def _simulate_tuner_job(job: dict) -> dict:
                         item["active"] += 1
             if time.perf_counter() >= worker_deadline:
                 break
+    # 集計は候補側基準の単純平均。候補採否や相手別重みの適用はセッション側が行う。
     scores = []
     metric_rows = []
     for item in fixtures:
         score, metrics = _score_match_sample(
-            item["match"], item["target"], item["counts"], item["active"], item["samples"],
+            item["match"],
+            item["target"],
+            item["counts"],
+            item["active"],
+            item["samples"],
         )
         scores.append(score)
         metric_rows.append(metrics)
     metric_names = metric_rows[0].keys() if metric_rows else ()
-    aggregate_metrics = {
-        name: sum(row[name] for row in metric_rows) / len(metric_rows)
-        for name in metric_names
-    }
+    aggregate_metrics = {name: sum(row[name] for row in metric_rows) / len(metric_rows) for name in metric_names}
     completed_matches = sum(
-        item["match"].state == "FULLTIME" or item["match"].game_time >= evaluation_target
-        for item in fixtures
+        item["match"].state == "FULLTIME" or item["match"].game_time >= evaluation_target for item in fixtures
     )
     return {
         "opponent_key": str(job.get("opponent_key", "")),
@@ -432,6 +468,15 @@ def _simulate_tuner_job(job: dict) -> dict:
     }
 
 
+# {
+#   責務: [TeamTunerSession: 実Matchを使う能力配分探索の候補・比較条件・進行状態を管理する]
+#   フィールド: [best_payload・locked_category_means: 採用候補と開始時の系統平均;
+#     fixture_seeds: 相手順のホーム/アウェーに固定する比較seed列;
+#     opponents・opponent_weights・active_opponent_keys: 対戦相手と評価の優先度;
+#     current_match・current_candidate・current_target_team: 逐次試行の対象;
+#     executor・pending_trials・active_parallel_results: 並列試行の回収状態;
+#     deadline・stagnant_trials・finished・finish_reason: 期限・収束・終了の状態]
+# }
 class TeamTunerSession:
     """Incremental, UI-friendly optimizer that runs the real Match engine headlessly."""
 
@@ -501,9 +546,7 @@ class TeamTunerSession:
         self.best_score = float("-inf")
         # Every candidate is tested with the same seeds, eliminating most of the
         # random-match advantage that previously caused weak candidates to win.
-        self.fixture_seeds = tuple(
-            self.rng.randrange(0, 2**31) for _ in range(len(self.opponents) * 2)
-        )
+        self.fixture_seeds = tuple(self.rng.randrange(0, 2**31) for _ in range(len(self.opponents) * 2))
         self.trials = 0
         self.completed_matches = 0
         self.stagnant_trials = 0
@@ -531,7 +574,9 @@ class TeamTunerSession:
         full_worker_budget = max(1, min(requested_workers, int(max_workers), cpu_workers))
         self.parallel_worker_count = limited_worker_count(full_worker_budget, self.cpu_limit_percent)
         self.worker_duty_cycle = worker_duty_cycle(
-            full_worker_budget, self.cpu_limit_percent, self.parallel_worker_count,
+            full_worker_budget,
+            self.cpu_limit_percent,
+            self.parallel_worker_count,
         )
         self.worker_match_time_limit = max(
             1.0,
@@ -571,36 +616,52 @@ class TeamTunerSession:
             return clamp(self.stagnant_trials / max(1, self.stagnant_limit), 0.0, 1.0)
         return clamp(self.elapsed / self.time_limit, 0.0, 1.0)
 
+    # {
+    #   責務: [_begin_trial: 逐次経路の次の対戦を固定seedで構築し、候補側の採取状態を初期化する]
+    #   処理: [1: 試行数から相手と会場を循環選択する; 2: 初回以外は採用候補の配分を変更し系統平均を維持する; 3: 対戦固有seedでMatchを構築し行動採取をリセットする]
+    #   引数: []
+    #   戻り値: [None: current_match・current_candidate・current_target_team等を更新する。候補の採否や試合更新は行わない]
+    # }
     def _begin_trial(self) -> None:
+        # 相手ごとのホーム/アウェーに同じseedを再使用し、候補変更の乱数とは分ける。
         fixture_index = self.trials % (len(self.opponents) * 2)
         opponent_index = fixture_index // 2
         self.current_opponent = self.opponents[opponent_index]
         self.current_opponent_name = str(self.current_opponent.get("name", "対戦相手"))
         self.current_is_home = fixture_index % 2 == 0
+        # 採用済みの入力自体は変更せず、新候補だけで配分を探す。
         candidate = deepcopy(self.best_payload)
         if self.trials > 0:
             strength = max(0.025, 0.085 * (0.94 ** min(self.accepted_trials, 20)))
             mutate_payload_distribution(
-                candidate, self.categories,
-                include_hidden=self.include_hidden, rng=self.rng, strength=strength,
+                candidate,
+                self.categories,
+                include_hidden=self.include_hidden,
+                rng=self.rng,
+                strength=strength,
             )
             enforce_category_mean_limits(
-                candidate, self.locked_category_means, self.categories,
-                include_hidden=self.include_hidden, tolerance=self.mean_tolerance,
+                candidate,
+                self.locked_category_means,
+                self.categories,
+                include_hidden=self.include_hidden,
+                tolerance=self.mean_tolerance,
             )
+        # 構築時からseedを渡し、会場に関係なく候補チームへの参照を保持する。
         choice = team_choice_from_payload(candidate, "<team-tuner>")
         choice.update({"id": "memory:tuner", "kind": "MEMORY", "short": choice.get("short") or "TUNE"})
+        seed = self.fixture_seeds[fixture_index]
         if self.current_is_home:
-            match = Match(choice, self.current_opponent, "HOME")
+            match = Match(choice, self.current_opponent, "HOME", seed=seed)
             target_team = match.home
         else:
-            match = Match(self.current_opponent, choice, "HOME")
+            match = Match(self.current_opponent, choice, "HOME", seed=seed)
             target_team = match.away
-        match.rng.seed(self.fixture_seeds[fixture_index])
         match.state = "PLAYING"
         self.current_candidate = candidate
         self.current_match = match
         self.current_target_team = target_team
+        # 前対戦の行動集計を新しい候補へ持ち越さない。
         self.sample_counter = 0
         self.command_counts.clear()
         self.active_samples = 0
@@ -613,12 +674,18 @@ class TeamTunerSession:
             if self.stagnant_trials >= max(2, self.stagnant_limit // 2):
                 strength = min(0.14, strength * 1.45)
             mutate_payload_distribution(
-                candidate, self.categories,
-                include_hidden=self.include_hidden, rng=self.rng, strength=strength,
+                candidate,
+                self.categories,
+                include_hidden=self.include_hidden,
+                rng=self.rng,
+                strength=strength,
             )
             enforce_category_mean_limits(
-                candidate, self.locked_category_means, self.categories,
-                include_hidden=self.include_hidden, tolerance=self.mean_tolerance,
+                candidate,
+                self.locked_category_means,
+                self.categories,
+                include_hidden=self.include_hidden,
+                tolerance=self.mean_tolerance,
             )
         return candidate
 
@@ -634,19 +701,13 @@ class TeamTunerSession:
         raw_weights: dict[str, float] = {}
         for key, rows in grouped.items():
             metric_names = set().union(*(row.keys() for row in rows))
-            averaged = {
-                name: sum(float(row.get(name, 0.0)) for row in rows) / len(rows)
-                for name in metric_names
-            }
+            averaged = {name: sum(float(row.get(name, 0.0)) for row in rows) / len(rows) for name in metric_names}
             raw_weight, label, signal = automatic_opponent_priority(averaged)
             raw_weights[key] = raw_weight
             self.opponent_classes[key] = label
             self.opponent_signals[key] = signal
         normalizer = len(raw_weights) / max(0.001, sum(raw_weights.values()))
-        self.opponent_weights = {
-            key: clamp(weight * normalizer, 0.35, 2.40)
-            for key, weight in raw_weights.items()
-        }
+        self.opponent_weights = {key: clamp(weight * normalizer, 0.35, 2.40) for key, weight in raw_weights.items()}
         ranked_keys = sorted(
             self.opponent_weights,
             key=lambda key: (self.opponent_weights[key], -abs(self.opponent_signals.get(key, 0.0))),
@@ -656,7 +717,7 @@ class TeamTunerSession:
         if getattr(self, "evaluation_mode", "accuracy") == "accuracy":
             self.active_opponent_keys = set(ranked_keys)
         else:
-            self.active_opponent_keys = set(ranked_keys[:min(opponent_limit, len(ranked_keys))])
+            self.active_opponent_keys = set(ranked_keys[: min(opponent_limit, len(ranked_keys))])
         self.opponent_weights_ready = True
 
     def opponent_weight_info(self, choice: dict) -> tuple[float, str]:
@@ -683,7 +744,8 @@ class TeamTunerSession:
         self.active_parallel_results = []
         if self.opponent_weights_ready:
             opponent_indexes = [
-                index for index, opponent in enumerate(self.opponents)
+                index
+                for index, opponent in enumerate(self.opponents)
                 if str(opponent.get("id") or opponent.get("name") or index) in self.active_opponent_keys
             ]
         else:
@@ -738,17 +800,18 @@ class TeamTunerSession:
                     self._calibrate_opponent_weights(results)
                 result_weights = [self._result_weight(result) for result in results]
                 weight_total = max(0.001, sum(result_weights))
-                score = sum(
-                    float(result.get("score", -999.0)) * weight
-                    for result, weight in zip(results, result_weights)
-                ) / weight_total
+                score = (
+                    sum(float(result.get("score", -999.0)) * weight for result, weight in zip(results, result_weights))
+                    / weight_total
+                )
                 metric_names = set().union(*(result.get("metrics", {}).keys() for result in results))
                 self.last_score = score
                 self.last_metrics = {
                     name: sum(
                         float(result.get("metrics", {}).get(name, 0.0)) * weight
                         for result, weight in zip(results, result_weights)
-                    ) / weight_total
+                    )
+                    / weight_total
                     for name in metric_names
                 }
                 # A partial match may be shown as progress, but it must never
@@ -781,11 +844,7 @@ class TeamTunerSession:
             self.finish_reason = "時間上限に到達" if self.completed_matches else "時間上限に到達（完走試合なし）"
             self._stop_parallel_workers()
             return
-        if (
-            self.evaluation_mode == "speed"
-            and self.trials >= self.speed_max_trials
-            and self.completed_matches > 0
-        ):
+        if self.evaluation_mode == "speed" and self.trials >= self.speed_max_trials and self.completed_matches > 0:
             self.finished = True
             self.finish_reason = "速度重視の探索候補上限に到達"
             self._stop_parallel_workers()
@@ -833,10 +892,14 @@ class TeamTunerSession:
         if not partial:
             score += 1.1 if target.score > opponent.score else -0.8 if target.score < opponent.score else 0.15
         metrics = {
-            "得点": float(target.score), "失点": float(opponent.score),
-            "シュート": float(target.shots), "被シュート": float(opponent.shots),
-            "支配率": possession_share * 100.0, "残スタミナ": stamina_ratio * 100.0,
-            "行動種類": float(action_diversity), "活動率": active_ratio * 100.0,
+            "得点": float(target.score),
+            "失点": float(opponent.score),
+            "シュート": float(target.shots),
+            "被シュート": float(opponent.shots),
+            "支配率": possession_share * 100.0,
+            "残スタミナ": stamina_ratio * 100.0,
+            "行動種類": float(action_diversity),
+            "活動率": active_ratio * 100.0,
             "進行率": fraction * 100.0,
         }
         return score, metrics
@@ -856,15 +919,9 @@ class TeamTunerSession:
         else:
             self.stagnant_trials += 1
         self.trials += 1
-        evaluation_finished = (
-            self.current_match is not None
-            and (
-                self.current_match.state == "FULLTIME"
-                or (
-                    self.evaluation_mode == "speed"
-                    and self.current_match.game_time >= self.speed_evaluation_game_time
-                )
-            )
+        evaluation_finished = self.current_match is not None and (
+            self.current_match.state == "FULLTIME"
+            or (self.evaluation_mode == "speed" and self.current_match.game_time >= self.speed_evaluation_game_time)
         )
         if evaluation_finished:
             self.completed_matches += 1
@@ -881,12 +938,8 @@ class TeamTunerSession:
                 self.finished = True
                 self.finish_reason = "試合を作成できませんでした"
                 break
-            evaluation_finished = (
-                self.current_match.state == "FULLTIME"
-                or (
-                    self.evaluation_mode == "speed"
-                    and self.current_match.game_time >= self.speed_evaluation_game_time
-                )
+            evaluation_finished = self.current_match.state == "FULLTIME" or (
+                self.evaluation_mode == "speed" and self.current_match.game_time >= self.speed_evaluation_game_time
             )
             if evaluation_finished:
                 self._complete_trial(partial=self.current_match.state != "FULLTIME")
@@ -950,8 +1003,15 @@ class TeamTunerSession:
             finished = max(0, self.active_parallel_expected - len(self.pending_trials))
             fixture_progress = f"現在の候補 {finished}/{self.active_parallel_expected}評価完了　"
         completion_label = "評価区間完了" if self.evaluation_mode == "speed" else "完走試合"
-        return tolerance_label + end_label + prefix + (
-            fixture_progress + priority + f"候補{self.trials}件 / {completion_label}{self.completed_matches}回 / 採用{self.accepted_trials}回　"
-            f"直近 {metrics.get('得点', 0):.0f}-{metrics.get('失点', 0):.0f}　"
-            f"支配率{metrics.get('支配率', 0):.0f}%　残スタミナ{metrics.get('残スタミナ', 0):.0f}%"
+        return (
+            tolerance_label
+            + end_label
+            + prefix
+            + (
+                fixture_progress
+                + priority
+                + f"候補{self.trials}件 / {completion_label}{self.completed_matches}回 / 採用{self.accepted_trials}回　"
+                f"直近 {metrics.get('得点', 0):.0f}-{metrics.get('失点', 0):.0f}　"
+                f"支配率{metrics.get('支配率', 0):.0f}%　残スタミナ{metrics.get('残スタミナ', 0):.0f}%"
+            )
         )

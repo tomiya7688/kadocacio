@@ -41,6 +41,7 @@ Forbidden / avoid:
 
 ## Current modules
 - `cpu_usage_limiter.py`
+- `match_seed.py`
 - `match_telemetry.py`
 - `paths.py`
 - `performance_settings.py`
